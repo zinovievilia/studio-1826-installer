@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v3.6.0 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v3.7.0 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      3.6.0
+// @version      3.7.0
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '3.6.0';
+    const VERSION = '3.7.0';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -125,6 +125,38 @@
             html.s26-hover-focus .deal-item-contaner.s26-last.s26-hovered {
                 box-shadow: inset 0 0 0 2px var(--s26-last, #2563eb), 0 8px 22px rgba(0, 0, 0, .3) !important;
             }
+            .s26-arrows {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                overflow: visible;
+                pointer-events: none;
+                z-index: 30;
+            }
+            .s26-arrows .s26-arrow-path {
+                fill: none;
+                stroke: var(--s26-arrow, #e11d48);
+                stroke-width: 1.8;
+                stroke-linecap: round;
+                opacity: .8;
+            }
+            .s26-arrows .s26-arrow-path.same { stroke-dasharray: 5 4; }
+            .s26-arrows .s26-arrow-head { fill: var(--s26-arrow, #e11d48); opacity: .9; }
+            .s26-arrows.s26-has-focus .s26-arrow-path,
+            .s26-arrows.s26-has-focus .s26-arrow-head { opacity: .15; }
+            .s26-arrows.s26-has-focus .s26-arrow-path.focus { stroke-width: 3; opacity: 1; }
+            .s26-arrows.s26-has-focus .s26-arrow-head.focus { opacity: 1; }
+            .s26-arrows .s26-arrow-label {
+                display: none;
+                fill: #111;
+                stroke: #fff;
+                stroke-width: 3px;
+                paint-order: stroke;
+                font: 700 11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            }
+            .s26-arrows .s26-arrow-label.focus { display: block; }
             .deal-item-contaner .booking-copy-button {
                 position: absolute !important;
                 top: 4px !important;
@@ -171,9 +203,9 @@
             #${PANEL_ID} {
                 position: fixed;
                 z-index: 999998;
-                width: 290px;
+                width: 330px;
                 max-width: calc(100vw - 24px);
-                max-height: min(440px, calc(100vh - 24px));
+                max-height: calc(100vh - 24px);
                 overflow: auto;
                 padding: 13px 14px;
                 border: 1px solid #dedede;
@@ -235,6 +267,11 @@
             }
             #${PANEL_ID} .p-item:last-child { border-bottom: 0; }
             #${PANEL_ID} .p-item.equipment { font-weight: 700; }
+            #${PANEL_ID} .p-item .p-qty {
+                display: inline-block;
+                font-variant-numeric: tabular-nums;
+            }
+            #${PANEL_ID} .p-item .p-sep { color: #999; font-weight: 400; margin: 0 .35em 0 .1em; }
             #${PANEL_ID} .p-item.frostframe { color: #d32222; }
             #${PANEL_ID} .p-item.comment { white-space: pre-line; font-weight: 400; }
             #${PANEL_ID} .p-item.bg { color: #d00000; font-weight: 700; }
@@ -668,6 +705,8 @@
                 transition: background .15s ease;
             }
             #${ACTIONS_ID} .da-btn:hover { background: #303030; }
+            #${ACTIONS_ID} .da-arrows[aria-pressed="false"] { color: #999; background: #161616; }
+            #${ACTIONS_ID} .da-arrows[aria-pressed="true"] { border-color: #e11d48; }
         `,
         dayDialog: `
             #${DAY_DIALOG_ID} {
@@ -1038,7 +1077,7 @@
     const STAGE_STYLE_ID = 'studio1826-stage-style-v32';
     const FEATURE_KEYS = [
         'compactCards', 'reuse', 'fonHighlight', 'copyButton',
-        'hoverFocus', 'borders', 'handoff', 'aliases'
+        'hoverFocus', 'borders', 'handoff', 'aliases', 'arrows'
     ];
 
     /* Цвета стадий по умолчанию (как в Bitrix). */
@@ -1053,7 +1092,8 @@
     const MARK_COLORS = [
         { id: 'border', name: 'Обводка (фон, оборудование)', color: '#000000' },
         { id: 'handoff', name: 'Пересменки', color: '#800020' },
-        { id: 'last', name: 'Последние брони дня', color: '#2563eb' }
+        { id: 'last', name: 'Последние брони дня', color: '#2563eb' },
+        { id: 'arrow', name: 'Стрелки переноса оборудования', color: '#e11d48' }
     ];
 
     const COLOR_ITEMS = [...STAGES, ...MARK_COLORS];
@@ -1643,15 +1683,26 @@
 
             const items = splitItems(cleanText);
             const equipment = [];
-            const seen = new Set();
+            const equipmentList = [];
+            const seen = new Map();
 
             items.forEach(item => {
                 const match = findEquipment(item);
 
-                if (!match || seen.has(match.key)) return;
+                if (!match) return;
 
-                seen.add(match.key);
+                const qty = quantity(item);
+
+                if (seen.has(match.key)) {
+                    seen.get(match.key).qty += qty;
+                    return;
+                }
+
+                const entry = { name: match.name, qty };
+
+                seen.set(match.key, entry);
                 equipment.push(match.name);
+                equipmentList.push(entry);
             });
 
             return {
@@ -1661,6 +1712,7 @@
                 comment,
                 items,
                 equipment,
+                equipmentList,
                 hallFull: findHallName(sources.join(' '))
             };
         }
@@ -1682,6 +1734,7 @@
         const REUSE_EXCLUDE = new Set([].map(norm));
 
         const reuseMap = new WeakMap();
+        let reuseLinks = [];
         const timingMap = new WeakMap();
         let markKeys = new Set();
 
@@ -1857,6 +1910,32 @@
 
             eqMap.forEach(list => list.sort((a, b) => a.start - b.start));
 
+            /* Связи «бронь → следующая бронь» для стрелок. */
+            const linkMap = new Map();
+
+            const addLink = (from, to, name) => {
+                let byTarget = linkMap.get(from.card);
+
+                if (!byTarget) {
+                    byTarget = new Map();
+                    linkMap.set(from.card, byTarget);
+                }
+
+                let link = byTarget.get(to.card);
+
+                if (!link) {
+                    link = {
+                        from: from.card,
+                        to: to.card,
+                        names: [],
+                        same: !!from.hall && from.hall === to.hall
+                    };
+                    byTarget.set(to.card, link);
+                }
+
+                if (!link.names.includes(name)) link.names.push(name);
+            };
+
             entries.forEach(entry => {
                 const outgoing = [];
                 const incoming = [];
@@ -1868,9 +1947,13 @@
                         const next = list.filter(other => other !== entry && other.start >= entry.end);
                         if (next.length) {
                             const first = next[0].start;
+                            const targets = next.filter(o => o.start === first);
+
+                            targets.forEach(target => addLink(entry, target, name));
+
                             outgoing.push({
                                 name,
-                                places: [...new Set(next.filter(o => o.start === first).map(place))]
+                                places: [...new Set(targets.map(place))]
                             });
                         }
 
@@ -1887,6 +1970,8 @@
 
                 reuseMap.set(entry.card, { outgoing, incoming });
             });
+
+            reuseLinks = [...linkMap.values()].flatMap(byTarget => [...byTarget.values()]);
 
             return entries.map(entry => ({
                 card: entry.card,
@@ -2034,7 +2119,7 @@
         let panelHideTimer = null;
         let positionFrame = 0;
 
-        function addPanelSection(title, items, { equipment = false, itemClass = '' } = {}) {
+        function addPanelSection(title, items, { equipment = false, itemClass = '', format = null } = {}) {
             const section = el('div', { className: 'p-section' }, [
                 el('div', { className: 'p-section-title' }, [title])
             ]);
@@ -2053,7 +2138,11 @@
                         if (idx !== -1) classes.splice(idx, 1);
                     }
 
-                    section.appendChild(el('div', { className: classes.join(' ') }, [item]));
+                    section.appendChild(el(
+                        'div',
+                        { className: classes.join(' ') },
+                        format ? format(item) : [item]
+                    ));
                 });
             }
 
@@ -2077,7 +2166,24 @@
 
             panel.appendChild(hallElement);
 
-            addPanelSection('Оборудование', info.equipment.map(equipmentLabel), { equipment: true });
+            /* Количество перед названием: «2 | Avenger C-Stand A2033L» (от 2 шт). */
+            const qtyByName = new Map(info.equipmentList.map(entry => [entry.name, entry.qty]));
+
+            addPanelSection('Оборудование', info.equipment, {
+                equipment: true,
+                format: name => {
+                    const qty = qtyByName.get(name) ?? 1;
+
+                    /* Количество показываем только когда штук две и больше. */
+                    if (qty < 2) return [equipmentLabel(name)];
+
+                    return [
+                        el('span', { className: 'p-qty' }, [formatQuantity(qty)]),
+                        el('span', { className: 'p-sep' }, ['|']),
+                        equipmentLabel(name)
+                    ];
+                }
+            });
 
             const reuse = features.reuse ? (reuseMap.get(card) || EMPTY_REUSE) : EMPTY_REUSE;
 
@@ -2128,7 +2234,7 @@
 
         function positionPanel(card) {
             const rect = card.getBoundingClientRect();
-            const panelWidth = Math.min(290, window.innerWidth - 24);
+            const panelWidth = Math.min(330, window.innerWidth - 24);
             const panelHeight = Math.min(panel.scrollHeight || 300, window.innerHeight - 24);
 
             let left = rect.right + 10;
@@ -2162,6 +2268,7 @@
 
             renderPanel(card);
             positionPanel(card);
+            focusArrows(card);
 
             panel.classList.add('visible');
             panel.setAttribute('aria-hidden', 'false');
@@ -2175,6 +2282,7 @@
 
                 document.documentElement.classList.remove('s26-hovering');
                 hoveredCard = null;
+                focusArrows(null);
                 panel.classList.remove('visible');
                 panel.setAttribute('aria-hidden', 'true');
             }, delay);
@@ -2366,6 +2474,144 @@
             });
         }
 
+        /*
+         * Стрелки переноса: от брони, после которой оборудование нужно дальше,
+         * к ближайшей следующей брони с этим оборудованием (в этом же зале
+         * или в другом). Слой лежит внутри сетки расписания и прокручивается
+         * вместе с ней. Сплошная стрелка — в другой зал, пунктир — остаётся.
+         */
+        const SVG_NS = 'http://www.w3.org/2000/svg';
+        let arrowLayer = null;
+        let arrowSignature = '';
+        let arrowEls = [];
+
+        function svgNode(tag, attrs = {}) {
+            const node = document.createElementNS(SVG_NS, tag);
+
+            Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, value));
+
+            return node;
+        }
+
+        function getArrowHolder() {
+            const root = document.querySelector('.calendar_container-content');
+
+            if (!root) return null;
+
+            if (!arrowLayer || arrowLayer.parentElement !== root) {
+                arrowLayer = svgNode('svg', { class: 's26-arrows', 'aria-hidden': 'true' });
+                root.appendChild(arrowLayer);
+                arrowSignature = '';
+                arrowEls = [];
+            }
+
+            return { root, layer: arrowLayer };
+        }
+
+        function focusArrows(card) {
+            if (!arrowLayer) return;
+
+            let any = false;
+
+            arrowEls.forEach(item => {
+                const on = !!card && (item.link.from === card || item.link.to === card);
+
+                item.path.classList.toggle('focus', on);
+                item.head.classList.toggle('focus', on);
+                item.label.classList.toggle('focus', on);
+
+                if (on) any = true;
+            });
+
+            arrowLayer.classList.toggle('s26-has-focus', any);
+        }
+
+        function renderArrows() {
+            if (!features.arrows) {
+                if (arrowLayer && arrowLayer.isConnected) arrowLayer.replaceChildren();
+
+                arrowSignature = '';
+                arrowEls = [];
+
+                return;
+            }
+
+            const holder = getArrowHolder();
+
+            if (!holder) return;
+
+            const { root, layer } = holder;
+            const rootRect = root.getBoundingClientRect();
+            const links = reuseLinks.filter(link => link.from.isConnected && link.to.isConnected);
+            const outCount = new Map();
+            const inCount = new Map();
+
+            links.forEach(link => {
+                link.outIndex = outCount.get(link.from) || 0;
+                outCount.set(link.from, link.outIndex + 1);
+                link.inIndex = inCount.get(link.to) || 0;
+                inCount.set(link.to, link.inIndex + 1);
+            });
+
+            const shapes = [];
+
+            links.forEach(link => {
+                const a = link.from.getBoundingClientRect();
+                const b = link.to.getBoundingClientRect();
+
+                if (a.width <= 0 || a.height <= 0 || b.width <= 0 || b.height <= 0) return;
+
+                const sx = a.left - rootRect.left + a.width * (link.outIndex + 1) / (outCount.get(link.from) + 1);
+                const sy = a.bottom - rootRect.top - 6;
+                const tx = b.left - rootRect.left + b.width * (link.inIndex + 1) / (inCount.get(link.to) + 1);
+                const ty = b.top - rootRect.top + 4;
+
+                shapes.push({ link, sx, sy, tx, ty });
+            });
+
+            const signature = shapes
+                .map(({ link, sx, sy, tx, ty }) =>
+                    [sx, sy, tx, ty].map(Math.round).join(',') + (link.same ? 's' : 'm') + link.names.join('+'))
+                .join(';');
+
+            if (signature === arrowSignature) return;
+
+            arrowSignature = signature;
+            layer.replaceChildren();
+            arrowEls = [];
+
+            shapes.forEach(({ link, sx, sy, tx, ty }) => {
+                const dy = Math.min(80, Math.max(8, Math.abs(ty - sy) / 2));
+                const path = svgNode('path', {
+                    class: 's26-arrow-path' + (link.same ? ' same' : ''),
+                    d: `M${sx} ${sy} C${sx} ${sy + dy} ${tx} ${ty - dy} ${tx} ${ty - 8}`
+                });
+                const head = svgNode('polygon', {
+                    class: 's26-arrow-head',
+                    points: `${tx},${ty} ${tx - 5},${ty - 9} ${tx + 5},${ty - 9}`
+                });
+                const label = svgNode('text', {
+                    class: 's26-arrow-label',
+                    x: (sx + tx) / 2,
+                    y: (sy + ty) / 2,
+                    'text-anchor': 'middle'
+                });
+
+                const shown = link.names.slice(0, 3).join(', ');
+
+                label.textContent = link.names.length > 3
+                    ? `${shown} +${link.names.length - 3}`
+                    : shown;
+
+                layer.append(path, head, label);
+                arrowEls.push({ link, path, head, label });
+            });
+
+            focusArrows(hoveredCard);
+        }
+
+        window.addEventListener('resize', renderArrows);
+
         function processCards() {
             const cardList = computeReuse();
 
@@ -2403,6 +2649,7 @@
             renderHandoffs(cardList);
             applyMarks(cardList);
             applyStages(cardList);
+            renderArrows();
 
             return cardList.map(e => e.card);
         }
@@ -2463,7 +2710,7 @@
         function isOwnNode(node) {
             const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
 
-            return !!element?.closest?.(`#${PANEL_ID}, .booking-copy-button, .s26-badges, .s26-handoff`);
+            return !!element?.closest?.(`#${PANEL_ID}, .booking-copy-button, .s26-badges, .s26-handoff, .s26-arrows`);
         }
 
         const observer = new MutationObserver(mutations => {
@@ -2550,6 +2797,7 @@
         let toastTimer = null;
         let toastFadeTimer = null;
         let placeActions = () => {};
+        let refreshArrowButton = () => {};
         let closeDayDialog = () => {};
         let closeSettings = () => {};
         let markKeys = [];
@@ -2802,6 +3050,29 @@
             document.head.appendChild(node);
         }
 
+        /* Закрыть все наши окна поверх страницы (когда открыта бронь или боковая панель). */
+        function closeOverlays() {
+            const root = document.getElementById(WIDGET_ID);
+
+            if (root) setCollapsed(root, true);
+
+            closeDayDialog();
+            closeSettings();
+        }
+
+        /*
+         * Боковая панель Bitrix (#a11y-slider-container .side-panel) — это
+         * открытая карточка брони: наши окна поверх неё закрываем.
+         */
+        const SIDE_PANEL_SELECTOR = '#a11y-slider-container .side-panel.side-panel-container';
+        let sidePanelWasOpen = false;
+
+        function sidePanelOpen() {
+            const node = document.querySelector(SIDE_PANEL_SELECTOR);
+
+            return !!node && node.getClientRects().length > 0;
+        }
+
         function resetWidgetPosition(root) {
             root.style.left = '20px';
             root.style.right = 'auto';
@@ -2847,7 +3118,8 @@
                     hoverFocus: 'Выделять бронь при наведении',
                     borders: 'Обводка броней с фоном/оборудованием',
                     handoff: 'Полоска «Пересменки»',
-                    aliases: 'Подписи оборудования (бум, роллер…)'
+                    aliases: 'Подписи оборудования (бум, роллер…)',
+                    arrows: 'Стрелки переноса оборудования'
                 }[key];
 
                 panel.appendChild(el('label', { className: 'st-check' }, [
@@ -2994,6 +3266,7 @@
 
                     saveFeatures(features);
                     requestData();
+                    refreshArrowButton();
                 });
             });
 
@@ -3059,6 +3332,13 @@
                 className: 'da-btn da-plan',
                 title: 'Посчитать, что не нужно разбирать на завтра'
             }, ['Не разбирать на завтра']));
+
+            bar.appendChild(el('button', {
+                type: 'button',
+                className: 'da-btn da-arrows',
+                'aria-pressed': 'true',
+                title: 'Стрелки: куда и откуда поедет оборудование между бронями'
+            }, ['Стрелки: вкл']));
 
             document.body.appendChild(bar);
 
@@ -3146,6 +3426,21 @@
             placeActions = placeBar;
             closeDayDialog = () => { dialog.hidden = true; };
 
+            const arrowsButton = bar.querySelector('.da-arrows');
+
+            refreshArrowButton = () => {
+                arrowsButton.setAttribute('aria-pressed', String(!!features.arrows));
+                arrowsButton.textContent = features.arrows ? 'Стрелки: вкл' : 'Стрелки: выкл';
+                placeBar();
+            };
+
+            arrowsButton.addEventListener('click', () => {
+                features = sanitizeFeatures({ ...features, arrows: !features.arrows });
+                saveFeatures(features);
+                requestData();
+                refreshArrowButton();
+            });
+
             /* Перетаскивание окна за заголовок. */
             const dialogHead = dialog.querySelector('.dd-head');
             let dialogDrag = null;
@@ -3187,7 +3482,7 @@
                 new ResizeObserver(placeBar).observe(root);
             }
 
-            placeBar();
+            refreshArrowButton();
 
             /* Кнопка 1: копирование списка оборудования за день. */
             bar.querySelector('.da-copy').addEventListener('click', async () => {
@@ -3627,13 +3922,8 @@
                 if (!cardsMissing) {
                     cardsMissing = true;
 
-                    const root = document.getElementById(WIDGET_ID);
-
-                    if (root) setCollapsed(root, true);
-
                     /* Бронь открыта: окна поверх страницы закрываем, иначе она зависает. */
-                    closeDayDialog();
-                    closeSettings();
+                    closeOverlays();
                 }
 
                 return;
@@ -3688,6 +3978,14 @@
 
         requestData();
         setInterval(requestData, 3000);
+
+        setInterval(() => {
+            const open = sidePanelOpen();
+
+            if (open && !sidePanelWasOpen) closeOverlays();
+
+            sidePanelWasOpen = open;
+        }, 300);
     }
 
     /* =========================================================
@@ -3706,6 +4004,7 @@
             // Элементы, скрываемые переключателем.
             // Уведомления и открытые линии не скрываем.
             const HIDE_SELECTORS = [
+            '.bx-im-list-recent-compact__scroll-container',
                 '#bx-im-external-recent-list > div.bx-im-messenger__scope.bx-im-list-recent-compact__container > div.bx-im-messenger__scope.bx-im-list-recent-compact__scroll-container.--hidden-scroll:last-child > div.bx-im-list-recent-compact__general_container',
 
                 '#menu-items-block > div.menu-items-footer:last-child > div.menu-items-footer-inner > div.menu-license-all-wrapper:last-child > button.ui-btn.--air.menu-license-all-button.ui-btn-sm.--with-icon.--wide.--style-filled-boost.ui-btn-no-caps',
