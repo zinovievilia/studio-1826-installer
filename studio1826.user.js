@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         v3.7.0 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v4.0.0 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      3.7.0
+// @version      4.0.0
+// @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
-// @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @match        https://1826studio.bitrix24.ru/*
 // @match        https://app.bitrix24.ru/app.6805e7948ac458.97401951/*
 // @run-at       document-start
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '3.7.0';
+    const VERSION = '4.0.0';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -124,6 +124,15 @@
             }
             html.s26-hover-focus .deal-item-contaner.s26-last.s26-hovered {
                 box-shadow: inset 0 0 0 2px var(--s26-last, #2563eb), 0 8px 22px rgba(0, 0, 0, .3) !important;
+            }
+            html.s26-stripes .deal-item-contaner[data-s26-stage="done"] {
+                background-image: repeating-linear-gradient(
+                    45deg,
+                    rgba(255, 255, 255, .45) 0,
+                    rgba(255, 255, 255, .45) 6px,
+                    rgba(255, 255, 255, 0) 6px,
+                    rgba(255, 255, 255, 0) 12px
+                ) !important;
             }
             .s26-arrows {
                 position: absolute;
@@ -1077,7 +1086,7 @@
     const STAGE_STYLE_ID = 'studio1826-stage-style-v32';
     const FEATURE_KEYS = [
         'compactCards', 'reuse', 'fonHighlight', 'copyButton',
-        'hoverFocus', 'borders', 'handoff', 'aliases', 'arrows'
+        'hoverFocus', 'borders', 'handoff', 'aliases', 'arrows', 'stripes'
     ];
 
     /* Цвета стадий по умолчанию (как в Bitrix). */
@@ -1279,6 +1288,43 @@
     const hallLabel = name => name
         ? name.replace(/\s*\([СП]\)\s*$/i, '').trim()
         : null;
+
+    /*
+     * Порядок залов по этажам (для выбора, откуда ближе нести оборудование).
+     * 3 этаж: 115, 100, 70, 75, 50, 80, 105, 110, 140; 1 этаж: 150, 120.
+     */
+    const HALL_ORDER = [
+        ['115', '100', '70', '75', '50', '80', '105', '110', '140'],
+        ['150', '120']
+    ];
+
+    function hallPosition(label) {
+        const match = /^Зал\s+(\d+)/i.exec(label || '');
+
+        if (!match) return null;
+
+        for (let floor = 0; floor < HALL_ORDER.length; floor++) {
+            const index = HALL_ORDER[floor].indexOf(match[1]);
+
+            if (index >= 0) return { floor, index };
+        }
+
+        return null;
+    }
+
+    /* «Расстояние» между помещениями: 0 — тот же, по этажу — число залов, между этажами — 20. */
+    function hallDistance(a, b) {
+        if (a && a === b) return 0;
+
+        const first = hallPosition(a);
+        const second = hallPosition(b);
+
+        if (!first || !second) return 50;
+
+        return first.floor === second.floor
+            ? Math.abs(first.index - second.index)
+            : 20 + Math.abs(first.index - second.index);
+    }
 
     function categoryFromHall(hall) {
         if (!hall) return null;
@@ -1862,11 +1908,15 @@
 
                 const info = parseCard(card);
                 const keys = new Map();
+                const qtys = new Map();
 
                 info.items.forEach(item => {
                     const match = findEquipment(item);
 
-                    if (match && !REUSE_EXCLUDE.has(match.key)) keys.set(match.key, match.name);
+                    if (!match || REUSE_EXCLUDE.has(match.key)) return;
+
+                    keys.set(match.key, match.name);
+                    qtys.set(match.key, (qtys.get(match.key) || 0) + Math.max(1, Math.round(quantity(item))));
                 });
 
                 const start = startMinutes(card, axis);
@@ -1889,6 +1939,7 @@
                     card,
                     info,
                     keys,
+                    qtys,
                     start,
                     end,
                     hall: hallLabel(info.hallFull),
@@ -1897,7 +1948,7 @@
             });
 
             const place = entry => [entry.hall, formatTime(entry.start)].filter(Boolean).join(' · ');
-            const source = entry => [entry.hall, `до ${formatTime(entry.end)}`].filter(Boolean).join(' · ');
+            const sourceText = entry => [entry.hall, `до ${formatTime(entry.end)}`].filter(Boolean).join(' · ');
 
             const eqMap = new Map();
             entries.forEach(entry => {
@@ -1913,7 +1964,7 @@
             /* Связи «бронь → следующая бронь» для стрелок. */
             const linkMap = new Map();
 
-            const addLink = (from, to, name) => {
+            const addLink = (from, to, name, units) => {
                 let byTarget = linkMap.get(from.card);
 
                 if (!byTarget) {
@@ -1928,45 +1979,80 @@
                         from: from.card,
                         to: to.card,
                         names: [],
+                        units: new Map(),
                         same: !!from.hall && from.hall === to.hall
                     };
                     byTarget.set(to.card, link);
                 }
 
                 if (!link.names.includes(name)) link.names.push(name);
+
+                link.units.set(name, (link.units.get(name) || 0) + units);
             };
 
+            /*
+             * Распределение: каждый прибор едет в следующую бронь только из
+             * одного выбранного источника. Для каждой брони (по порядку
+             * начала) берём из уже закончившихся броней с этим прибором тот
+             * источник, который ближе по залам (сначала тот же зал), при
+             * равенстве — закончившийся позже. Прибор, который освободился,
+             * не берётся дважды, поэтому «лишние» залы стрелок не получают.
+             */
+            const outMap = new Map();
+            const inMap = new Map();
+
+            const pushUnique = (map, entry, name, field, text, units) => {
+                if (!map.has(entry)) map.set(entry, new Map());
+
+                const byName = map.get(entry);
+
+                if (!byName.has(name)) byName.set(name, { name, [field]: new Set(), units: 0 });
+
+                const item = byName.get(name);
+
+                item[field].add(text);
+                item.units += units;
+            };
+
+            eqMap.forEach((list, key) => {
+                const remaining = new Map();
+
+                list.forEach(target => {
+                    const name = target.keys.get(key);
+                    let need = target.qtys.get(key) || 1;
+
+                    const candidates = list
+                        .filter(other =>
+                            other !== target &&
+                            other.end <= target.start &&
+                            (remaining.get(other) || 0) > 0)
+                        .sort((a, b) =>
+                            hallDistance(a.hall, target.hall) - hallDistance(b.hall, target.hall) ||
+                            b.end - a.end);
+
+                    for (const source of candidates) {
+                        if (need <= 0) break;
+
+                        const units = Math.min(need, remaining.get(source));
+
+                        remaining.set(source, remaining.get(source) - units);
+                        need -= units;
+
+                        addLink(source, target, name, units);
+                        pushUnique(outMap, source, name, 'places', place(target), units);
+                        pushUnique(inMap, target, name, 'sources', sourceText(source), units);
+                    }
+
+                    /* После этой брони все её приборы освобождаются. */
+                    remaining.set(target, target.qtys.get(key) || 1);
+                });
+            });
+
             entries.forEach(entry => {
-                const outgoing = [];
-                const incoming = [];
-
-                if (entry.start !== null) {
-                    entry.keys.forEach((name, key) => {
-                        const list = eqMap.get(key) || [];
-
-                        const next = list.filter(other => other !== entry && other.start >= entry.end);
-                        if (next.length) {
-                            const first = next[0].start;
-                            const targets = next.filter(o => o.start === first);
-
-                            targets.forEach(target => addLink(entry, target, name));
-
-                            outgoing.push({
-                                name,
-                                places: [...new Set(targets.map(place))]
-                            });
-                        }
-
-                        const previous = list.filter(other => other !== entry && other.end <= entry.start);
-                        if (previous.length) {
-                            const last = previous[previous.length - 1].end;
-                            incoming.push({
-                                name,
-                                sources: [...new Set(previous.filter(o => o.end === last).map(source))]
-                            });
-                        }
-                    });
-                }
+                const outgoing = [...(outMap.get(entry)?.values() || [])]
+                    .map(item => ({ name: item.name, places: [...item.places], units: item.units }));
+                const incoming = [...(inMap.get(entry)?.values() || [])]
+                    .map(item => ({ name: item.name, sources: [...item.sources], units: item.units }));
 
                 reuseMap.set(entry.card, { outgoing, incoming });
             });
@@ -1991,12 +2077,14 @@
 
         const EMPTY_REUSE = { outgoing: [], incoming: [] };
 
+        const unitsPrefix = entry => (entry.units >= 2 ? `${entry.units} × ` : '');
+
         const reuseOutText = entry => entry.places.length
-            ? `${entry.name} → ${entry.places.join(', ')}`
+            ? `${unitsPrefix(entry)}${entry.name} → ${entry.places.join(', ')}`
             : entry.name;
 
         const reuseInText = entry => entry.sources.length
-            ? `${entry.name} ← ${entry.sources.join(', ')}`
+            ? `${unitsPrefix(entry)}${entry.name} ← ${entry.sources.join(', ')}`
             : entry.name;
 
         function renderBadges(card, info) {
@@ -2398,6 +2486,7 @@
             root.classList.toggle('s26-compact', features.compactCards);
             root.classList.toggle('s26-no-copy', !features.copyButton);
             root.classList.toggle('s26-hover-focus', features.hoverFocus);
+            root.classList.toggle('s26-stripes', features.stripes);
 
             ensureStageStyle();
             processCards();
@@ -2597,10 +2686,15 @@
                     'text-anchor': 'middle'
                 });
 
-                const shown = link.names.slice(0, 3).join(', ');
+                const named = link.names.map(name => {
+                    const units = link.units.get(name) || 1;
 
-                label.textContent = link.names.length > 3
-                    ? `${shown} +${link.names.length - 3}`
+                    return units >= 2 ? `${units} × ${name}` : name;
+                });
+                const shown = named.slice(0, 3).join(', ');
+
+                label.textContent = named.length > 3
+                    ? `${shown} +${named.length - 3}`
                     : shown;
 
                 layer.append(path, head, label);
@@ -3119,7 +3213,8 @@
                     borders: 'Обводка броней с фоном/оборудованием',
                     handoff: 'Полоска «Пересменки»',
                     aliases: 'Подписи оборудования (бум, роллер…)',
-                    arrows: 'Стрелки переноса оборудования'
+                    arrows: 'Стрелки переноса оборудования',
+                    stripes: 'Завершённые брони — диагональные полоски'
                 }[key];
 
                 panel.appendChild(el('label', { className: 'st-check' }, [
@@ -3717,7 +3812,7 @@
 
             root.appendChild(el('div', { className: 's-footer' }, [
                 el('span', { className: 's-version' }, [
-                    `BETA v ${VERSION} · `,
+                    `v ${VERSION} · `,
                     el('span', { className: 's-credit' }, ['by ILYA ZINOVIEV'])
                 ]),
                 el('button', { type: 'button', className: 's-copy-button', title: 'Копировать расчёт' }, ['Копировать'])
