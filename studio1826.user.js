@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v4.1.2 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v4.1.4 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      4.1.2
+// @version      4.1.4
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '4.1.2';
+    const VERSION = '4.1.4';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -1563,7 +1563,11 @@
             .forEach(([label, list]) => {
                 const timed = list.filter(record => Number.isFinite(record.start));
                 const allTimed = timed.length === list.length;
-                const first = allTimed ? Math.min(...timed.map(record => record.start)) : null;
+                /* Р-7: если timed пуст, Math.min() вернул бы Infinity —
+                 * ни одна бронь не получила бы звёздочку. */
+                const first = (allTimed && timed.length > 0)
+                    ? Math.min(...timed.map(record => record.start))
+                    : null;
 
                 const ordered = [...list].sort((a, b) =>
                     (Number.isFinite(a.start) ? a.start : 1e9) -
@@ -1791,6 +1795,8 @@
 
         /* Потом то, что можно перенести из других залов (нехватку добираем из нескольких). */
         needs.forEach(need => {
+            if (need.left <= 0) return;
+
             lasts.forEach(last => {
                 if (need.left <= 0) return;
 
@@ -1862,7 +1868,11 @@
 
         function parseCard(card) {
             const labels = [...card.querySelectorAll('.reserve-phone-label')];
-            const cacheKey = labels.map(label => label.textContent).join('\u0001');
+            /* Включаем название зала в ключ: если изменился только зал
+             * (другое поле карточки, не .reserve-phone-label), кэш сбросится
+             * и info.hallFull не вернёт устаревшее значение. */
+            const hallText = card.querySelector('.reserve-title-label')?.textContent || '';
+            const cacheKey = labels.map(label => label.textContent).join('\u0001') + '\u0001' + hallText;
             const cached = parseCache.get(card);
 
             if (cached && cached.key === cacheKey) return cached.info;
@@ -2006,6 +2016,21 @@
             labels.forEach(label => {
                 let value = label.minutes + shift;
 
+                /* При расписании с бронями после полуночи Bitrix повторяет
+                 * метки 0:00, 1:00 … — они физически ниже на экране, но
+                 * числово меньше предыдущих. Добавляем ровно один сдвиг на
+                 * сутки, только если метка «встретилась снова» (её значение
+                 * в 1440-минутном цикле совпадает с previous), а не просто
+                 * меньше или равна ему — иначе при двух последовательных
+                 * одинаковых метках shift прибавлялся дважды. */
+                while ((value % 1440) === (previous % 1440) && value <= previous && shift < 7 * 1440) {
+                    shift += 1440;
+                    value += 1440;
+                }
+
+                /* Fallback: если после цикла по модулю метка всё ещё не
+                 * выше предыдущей (нестандартный порядок меток), применяем
+                 * исходное поведение — продолжаем наращивать shift. */
                 while (value <= previous && shift < 7 * 1440) {
                     shift += 1440;
                     value += 1440;
@@ -3424,8 +3449,7 @@
                 if (service) counts[service.name] += qty;
 
                 if (containsKey(text, COFFEE_KEY)) {
-                    const match = item.match(/[-–—]\s*([\d\s\u00A0.,]+?)\s*шт\.?/i);
-                    if (match) coffee += parseNumber(match[1]);
+                    coffee += quantity(item);
                 }
 
                 if (hallKeys.some(hall => containsKey(text, hall.key))) rawHours += qty;
@@ -4635,7 +4659,16 @@
 
             const detected = getCategoryFromBranch(document);
 
-            if (detected === 'C' || detected === 'P') setCategory(detected, 'branch');
+            if (detected === 'C' || detected === 'P') {
+                setCategory(detected, 'branch');
+            } else if (categorySource === 'default') {
+                /* aria-атрибуты недоступны или дали ничью (score=0 у обоих
+                 * пунктов) — пробуем определить филиал по суффиксам залов
+                 * в уже загруженных записях, чтобы не оставаться на 'C'
+                 * по умолчанию при работе с Павелецкой. */
+                const inferred = inferCategoryFromRecords();
+                if (inferred) setCategory(inferred, 'halls');
+            }
 
             normalizeAdmins();
             syncAdminButtons(root);
@@ -4676,6 +4709,13 @@
             const data = event.data;
 
             if (!data || data.type !== MESSAGE_TYPE || data.source !== 'studio1826-collector') {
+                return;
+            }
+
+            /* Р-9: при кэшированном старом iframe структура payload могла
+             * измениться — тихо игнорируем несовместимые версии. */
+            if (data.version && data.version !== VERSION) {
+                console.warn(`[studio1826] postMessage version mismatch: iframe=${data.version}, main=${VERSION}`);
                 return;
             }
 
@@ -4758,6 +4798,13 @@
 
         requestData();
         setInterval(requestData, 3000);
+
+        /* Р-6: при возврате на вкладку iframe мог работать со старыми
+         * settings до следующего тика setInterval(3000). Немедленно
+         * запрашиваем свежие данные. */
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) requestData();
+        });
 
         setInterval(updateOverlayVisibility, 250);
     }
