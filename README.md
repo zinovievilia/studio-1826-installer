@@ -15,6 +15,10 @@ Userscript для Bitrix24-аккаунта студии 1826. Добавляе�
 
 Обновление происходит автоматически через `@updateURL` / `@downloadURL`.
 
+Для пользователей Safari, скрипт устанавливается через UserSripts. Так как там нет `@updateURL` / `@downloadURL`, то скрипт обновляется через Studio1826Updater.dmg
+
+Studio1826Updater.dmg обновляется самостоятельно.
+
 ---
 
 ## Архитектура
