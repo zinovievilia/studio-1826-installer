@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v4.1.4 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v4.1.5 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      4.1.4
+// @version      4.1.5
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '4.1.4';
+    const VERSION = '4.1.5';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -1167,6 +1167,139 @@
 
     const ALL_HALLS = [...HALL_INDEX.C, ...HALL_INDEX.P];
     const COFFEE_KEY = norm('Кофейня');
+
+    /*
+     * Единый расчёт выплат — чистая функция без обращения к DOM/localStorage,
+     * вынесена из startMainUI()/compute() для переиспользования и
+     * модульного тестирования (node:test, см. tests/).
+     *
+     * records: [{ items: string[] }]
+     * options: { category: 'C'|'P', admins: 1|2|3, rateEnabled, rateValue,
+     *            coffeeEnabled, lightSetupEnabled }
+     */
+    function computePayout(records, options = {}) {
+        const category = options.category === 'P' ? 'P' : 'C';
+        const admins = [1, 2, 3].includes(options.admins) ? options.admins : 1;
+        const rateEnabled = !!options.rateEnabled;
+        const rateValue = Number.isFinite(options.rateValue) ? options.rateValue : 0;
+        const coffeeEnabled = options.coffeeEnabled !== false;
+        const lightSetupEnabled = options.lightSetupEnabled !== false;
+
+        const items = (records || []).flatMap(record => record.items || []);
+        const n = Math.max(1, admins);
+        const config = HOURS_BONUSES[category];
+        const hallKeys = HALL_INDEX[category];
+
+        let eq = 0;
+        let coffee = 0;
+        let rawHours = 0;
+
+        const counts = {};
+        SERVICES.forEach(service => { counts[service.name] = 0; });
+
+        items.forEach(item => {
+            const qty = quantity(item);
+            const text = norm(item);
+
+            const equipment = findEquipment(item);
+            if (equipment) eq += equipment.price * qty;
+
+            const service = SERVICE_INDEX.find(s => containsKey(text, s.key));
+            if (service) counts[service.name] += qty;
+
+            if (containsKey(text, COFFEE_KEY)) {
+                coffee += quantity(item);
+            }
+
+            if (hallKeys.some(hall => containsKey(text, hall.key))) rawHours += qty;
+        });
+
+        const hours = Math.ceil(rawHours);
+        let hoursBonus = 0;
+
+        config.thresholds.forEach(threshold => {
+            if (hours >= threshold.hours) hoursBonus = threshold.bonus;
+        });
+
+        const servicesPer = SERVICES.map(service => {
+            const excluded = service.light && !lightSetupEnabled;
+            const count = counts[service.name] || 0;
+
+            return {
+                ...service,
+                count,
+                excluded,
+                perAdmin: excluded ? 0 : count * service.price / n
+            };
+        });
+
+        const eqPercent = eq * EQUIPMENT_PERCENT;
+        const coffeePercent = category === 'P' && coffeeEnabled
+            ? coffee * COFFEE_PERCENT
+            : 0;
+
+        const rate = rateEnabled ? Math.max(0, rateValue) : 0;
+        const servicesTotalPer = servicesPer.reduce((sum, s) => sum + s.perAdmin, 0);
+        const equipmentPer = eqPercent / n;
+        const coffeePer = coffeePercent / n;
+
+        /* Бонус за часы и ставка не делятся между администраторами. */
+        const payout = servicesTotalPer + hoursBonus + equipmentPer + coffeePer + rate;
+
+        return {
+            items,
+            eq,
+            coffee,
+            hours,
+            hoursBonus,
+            servicesPer,
+            eqPercent,
+            coffeePercent,
+            equipmentPer,
+            coffeePer,
+            rate,
+            payout
+        };
+    }
+
+    /*
+     * Р-9: валидация сообщения от iframe-коллектора перед использованием.
+     * Чистая функция (без window/DOM) — вынесена для модульного
+     * тестирования структурной защиты postMessage-приёмника.
+     *
+     * Возвращает null, если сообщение не от нашего коллектора (другой
+     * type/source — её нужно молча игнорировать, это НЕ наш протокол).
+     * Возвращает { versionMismatch: true, version } при несовместимой
+     * версии (решение, что делать дальше — у вызывающего кода).
+     * Иначе — { records: [...] } с уже отфильтрованными/нормализованными
+     * записями (защита от повреждённых/чужих данных в payload).
+     */
+    function validateCollectorPayload(data, currentVersion, messageType = MESSAGE_TYPE) {
+        if (!data || data.type !== messageType || data.source !== 'studio1826-collector') {
+            return null;
+        }
+
+        if (data.version && data.version !== currentVersion) {
+            return { versionMismatch: true, version: data.version };
+        }
+
+        if (!Array.isArray(data.records)) return null;
+
+        const records = data.records
+            .filter(record =>
+                record &&
+                (record.hall === null || typeof record.hall === 'string') &&
+                Array.isArray(record.items)
+            )
+            .map(record => ({
+                hall: record.hall,
+                items: record.items.filter(item => typeof item === 'string'),
+                start: Number.isFinite(record.start) ? record.start : null,
+                end: Number.isFinite(record.end) ? record.end : null
+            }));
+
+        return { records };
+    }
 
     /* =========================================================
      * НАСТРОЙКИ ФУНКЦИЙ И ЦВЕТА СТАДИЙ (общие для обоих окон)
@@ -3424,83 +3557,14 @@
             });
         }
 
-        /* Единый расчёт: все суммы (и виджет, и копирование) берутся отсюда. */
+        /* Единый расчёт: все суммы (и виджет, и копирование) берутся отсюда.
+         * Сама арифметика — в чистой функции computePayout() (вынесена для
+         * модульного тестирования, см. tests/). */
         function compute() {
-            const items = records.flatMap(record => record.items || []);
-            const n = Math.max(1, admins);
-            const config = HOURS_BONUSES[category];
-            const hallKeys = HALL_INDEX[category];
-
-            let eq = 0;
-            let coffee = 0;
-            let rawHours = 0;
-
-            const counts = {};
-            SERVICES.forEach(service => { counts[service.name] = 0; });
-
-            items.forEach(item => {
-                const qty = quantity(item);
-                const text = norm(item);
-
-                const equipment = findEquipment(item);
-                if (equipment) eq += equipment.price * qty;
-
-                const service = SERVICE_INDEX.find(s => containsKey(text, s.key));
-                if (service) counts[service.name] += qty;
-
-                if (containsKey(text, COFFEE_KEY)) {
-                    coffee += quantity(item);
-                }
-
-                if (hallKeys.some(hall => containsKey(text, hall.key))) rawHours += qty;
+            return computePayout(records, {
+                category, admins, rateEnabled, rateValue,
+                coffeeEnabled, lightSetupEnabled
             });
-
-            const hours = Math.ceil(rawHours);
-            let hoursBonus = 0;
-
-            config.thresholds.forEach(threshold => {
-                if (hours >= threshold.hours) hoursBonus = threshold.bonus;
-            });
-
-            const servicesPer = SERVICES.map(service => {
-                const excluded = service.light && !lightSetupEnabled;
-                const count = counts[service.name] || 0;
-
-                return {
-                    ...service,
-                    count,
-                    excluded,
-                    perAdmin: excluded ? 0 : count * service.price / n
-                };
-            });
-
-            const eqPercent = eq * EQUIPMENT_PERCENT;
-            const coffeePercent = category === 'P' && coffeeEnabled
-                ? coffee * COFFEE_PERCENT
-                : 0;
-
-            const rate = rateEnabled ? Math.max(0, rateValue) : 0;
-            const servicesTotalPer = servicesPer.reduce((sum, s) => sum + s.perAdmin, 0);
-            const equipmentPer = eqPercent / n;
-            const coffeePer = coffeePercent / n;
-
-            /* Бонус за часы и ставка не делятся между администраторами. */
-            const payout = servicesTotalPer + hoursBonus + equipmentPer + coffeePer + rate;
-
-            return {
-                items,
-                eq,
-                coffee,
-                hours,
-                hoursBonus,
-                servicesPer,
-                eqPercent,
-                coffeePercent,
-                equipmentPer,
-                coffeePer,
-                rate,
-                payout
-            };
         }
 
         function copySummary() {
@@ -4706,33 +4770,16 @@
         window.addEventListener('message', event => {
             if (event.origin !== APP_ORIGIN) return;
 
-            const data = event.data;
+            const validated = validateCollectorPayload(event.data, VERSION);
 
-            if (!data || data.type !== MESSAGE_TYPE || data.source !== 'studio1826-collector') {
+            if (!validated) return;
+
+            if (validated.versionMismatch) {
+                console.warn(`[studio1826] postMessage version mismatch: iframe=${validated.version}, main=${VERSION}`);
                 return;
             }
 
-            /* Р-9: при кэшированном старом iframe структура payload могла
-             * измениться — тихо игнорируем несовместимые версии. */
-            if (data.version && data.version !== VERSION) {
-                console.warn(`[studio1826] postMessage version mismatch: iframe=${data.version}, main=${VERSION}`);
-                return;
-            }
-
-            if (!Array.isArray(data.records)) return;
-
-            const nextRecords = data.records
-                .filter(record =>
-                    record &&
-                    (record.hall === null || typeof record.hall === 'string') &&
-                    Array.isArray(record.items)
-                )
-                .map(record => ({
-                    hall: record.hall,
-                    items: record.items.filter(item => typeof item === 'string'),
-                    start: Number.isFinite(record.start) ? record.start : null,
-                    end: Number.isFinite(record.end) ? record.end : null
-                }));
+            const nextRecords = validated.records;
 
             if (nextRecords.length === 0 && records.length > 0) {
                 if (!cardsMissing) {
@@ -4759,10 +4806,12 @@
                 requestData();
             }
 
-            if (typeof data.selectedDate === 'string' && data.selectedDate) selectedDate = data.selectedDate;
+            if (typeof event.data.selectedDate === 'string' && event.data.selectedDate) {
+                selectedDate = event.data.selectedDate;
+            }
 
-            if (data.category === 'C' || data.category === 'P') {
-                setCategory(data.category, 'branch');
+            if (event.data.category === 'C' || event.data.category === 'P') {
+                setCategory(event.data.category, 'branch');
             } else {
                 const inferred = inferCategoryFromRecords();
 
@@ -5261,31 +5310,59 @@
     /* =========================================================
      * ЗАПУСК
      * ========================================================= */
-    if (location.hostname === '1826studio.bitrix24.ru') THEME.init();
+    /* В Tampermonkey/Safari UserScripts window/document/location всегда
+     * определены — эта проверка не меняет поведение в браузере. Она лишь
+     * позволяет require()-ить файл из node:test без браузерного окружения,
+     * чтобы тестировать чистые функции (см. ниже и tests/). */
+    const IS_BROWSER = typeof window !== 'undefined' &&
+        typeof document !== 'undefined' &&
+        typeof location !== 'undefined';
 
-    function launch() {
-        if (
-            location.hostname === 'app.bitrix24.ru' &&
-            location.pathname.startsWith(APP_PATH) &&
-            window !== window.top
-        ) {
-            startCollector();
-            return;
-        }
+    if (IS_BROWSER) {
+        if (location.hostname === '1826studio.bitrix24.ru') THEME.init();
 
-        if (
-            location.hostname === '1826studio.bitrix24.ru' &&
-            window === window.top &&
-            location.pathname.startsWith('/marketplace/app/129')
-        ) {
-            startMainUI();
+        let launch = function () {
+            if (
+                location.hostname === 'app.bitrix24.ru' &&
+                location.pathname.startsWith(APP_PATH) &&
+                window !== window.top
+            ) {
+                startCollector();
+                return;
+            }
+
+            if (
+                location.hostname === '1826studio.bitrix24.ru' &&
+                window === window.top &&
+                location.pathname.startsWith('/marketplace/app/129')
+            ) {
+                startMainUI();
+            }
+        };
+
+        /* Интерфейсу нужен готовый <body>: стартуем после разбора документа. */
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', launch, { once: true });
+        } else {
+            launch();
         }
     }
 
-    /* Интерфейсу нужен готовый <body>: стартуем после разбора документа. */
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', launch, { once: true });
-    } else {
-        launch();
+    /* Экспорт чистых функций для node:test (tests/*.test.js). Не влияет на
+     * поведение в Tampermonkey/UserScripts: там typeof module === 'undefined'. */
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = {
+            VERSION,
+            norm, parseNumber, containsKey, quantity, splitItems,
+            findEquipment, formatQuantity, equipmentLine,
+            hallLabel, hallNumber, hallDistance, hallPosition, categoryFromHall,
+            findHallName, formatClock,
+            buildDayList, parseDayList, analyzeTomorrow, computePayout,
+            validateCollectorPayload,
+            sanitizeFeatures, FEATURE_KEYS, COLOR_ITEMS,
+            money, formatAmount,
+            EQUIPMENT, SERVICES, HOURS_BONUSES,
+            EQUIPMENT_PERCENT, COFFEE_PERCENT, DEFAULT_RATE
+        };
     }
 })();
