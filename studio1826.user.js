@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v4.1.5 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v4.2.0 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      4.1.5
+// @version      4.2.0
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '4.1.5';
+    const VERSION = '4.2.0';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -581,6 +581,78 @@
                 background: #202020;
                 color: #fff;
             }
+            /* ===== 4.2.0: единая панель с вкладками вместо калькулятора
+             * как корня навигации — Обзор / Выплаты / Настройки. ===== */
+            #${WIDGET_ID} .s-tabs {
+                display: flex;
+                gap: 5px;
+                margin: 0 0 14px;
+                padding: 4px;
+                border: 1px solid #444;
+                border-radius: 7px;
+                background: #161616;
+            }
+            #${WIDGET_ID} .s-tabs button {
+                flex: 1;
+                min-width: 0;
+                padding: 8px 4px;
+                border: 1px solid transparent;
+                border-radius: 5px;
+                background: transparent;
+                color: #ccc;
+                font: inherit;
+                font-size: 12px;
+                font-weight: 650;
+                cursor: pointer;
+                transition: background .15s ease, color .15s ease;
+            }
+            #${WIDGET_ID} .s-tabs button[aria-selected="true"] {
+                background: #f2f2f2;
+                color: #171717;
+                font-weight: 700;
+            }
+            #${WIDGET_ID} .s-panel[hidden] { display: none !important; }
+            #${WIDGET_ID} .s-panel { max-height: calc(100vh - 260px); overflow-y: auto; }
+            #${WIDGET_ID} .s-overview-status {
+                margin-bottom: 14px;
+                padding: 10px 12px;
+                border: 1px solid #444;
+                border-radius: 7px;
+                background: #161616;
+                color: #ddd;
+                font-size: 12px;
+                line-height: 1.55;
+            }
+            #${WIDGET_ID} .s-overview-status strong { color: #fff; }
+            #${WIDGET_ID} .s-overview-actions {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+            #${WIDGET_ID} .da-btn {
+                padding: 11px 13px;
+                border: 1px solid #444;
+                border-radius: 7px;
+                background: #161616;
+                color: #fff;
+                font: inherit;
+                font-size: 13px;
+                font-weight: 650;
+                text-align: left;
+                cursor: pointer;
+                transition: background .15s ease;
+            }
+            #${WIDGET_ID} .da-btn:hover { background: #232323; }
+            #${WIDGET_ID} .s-summary {
+                display: flex;
+                align-items: flex-end;
+                justify-content: space-between;
+                gap: 10px;
+                margin-top: 16px;
+                padding-top: 14px;
+                border-top: 1px solid #444;
+            }
+            #${WIDGET_ID} .s-summary-main { min-width: 0; }
             #${WIDGET_ID}.collapsed {
                 width: auto;
                 transform: none;
@@ -605,40 +677,11 @@
             }
         `,
         settings: `
-            #${SETTINGS_ID} {
-                position: fixed;
-                z-index: 1000001;
-                width: 310px;
-                max-width: calc(100vw - 16px);
-                max-height: calc(100vh - 16px);
-                overflow: auto;
-                padding: 14px 15px 15px;
-                color: #fff;
-                background: #202020;
-                border: 1px solid #444;
-                border-radius: 10px;
-                box-shadow: 0 5px 24px #0006;
-                font: 13px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-            }
-            #${SETTINGS_ID}[hidden] { display: none !important; }
+            /* 4.2.0: настройки больше не отдельное плавающее окно (было
+             * position:fixed со своим z-index), а содержимое вкладки
+             * «Настройки» внутри ${WIDGET_ID} — позиционирование и фон
+             * наследуются от .s-panel/.s-body. */
             #${SETTINGS_ID} * { box-sizing: border-box; }
-            #${SETTINGS_ID} .st-head {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                margin-bottom: 4px;
-                font-weight: 700;
-            }
-            #${SETTINGS_ID} .st-close {
-                width: 28px;
-                height: 28px;
-                padding: 0;
-                border: 1px solid #555;
-                border-radius: 5px;
-                background: #202020;
-                color: #fff;
-                cursor: pointer;
-            }
             #${SETTINGS_ID} .st-title {
                 margin: 14px 0 8px;
                 color: #aaa;
@@ -647,6 +690,49 @@
                 letter-spacing: .08em;
                 text-transform: uppercase;
             }
+            /* Сворачиваемые группы настроек (4.2.0): уменьшают высоту
+             * панели при первом открытии и группируют функции по смыслу
+             * вместо одного плоского списка из 20+ контролов подряд. */
+            #${SETTINGS_ID} .st-group {
+                margin: 10px 0;
+                border: 1px solid #3a3a3a;
+                border-radius: 8px;
+                overflow: hidden;
+            }
+            #${SETTINGS_ID} .st-group:first-of-type { margin-top: 4px; }
+            #${SETTINGS_ID} .st-group > summary {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                padding: 9px 10px;
+                color: #ccc;
+                font-size: 10px;
+                font-weight: 750;
+                letter-spacing: .06em;
+                text-transform: uppercase;
+                cursor: pointer;
+                list-style: none;
+                user-select: none;
+            }
+            #${SETTINGS_ID} .st-group > summary::-webkit-details-marker { display: none; }
+            #${SETTINGS_ID} .st-group > summary::before {
+                content: '▸';
+                display: inline-block;
+                color: #888;
+                font-size: 9px;
+                transition: transform .12s ease;
+            }
+            #${SETTINGS_ID} .st-group[open] > summary::before { transform: rotate(90deg); }
+            #${SETTINGS_ID} .st-group > summary .st-group-count {
+                margin-left: auto;
+                color: #777;
+                font-weight: 600;
+                letter-spacing: 0;
+                text-transform: none;
+            }
+            #${SETTINGS_ID} .st-group-body { padding: 2px 10px 10px; }
+            #${SETTINGS_ID} .st-group .st-check,
+            #${SETTINGS_ID} .st-group .st-color { margin: 8px 0; }
             #${SETTINGS_ID} .st-check {
                 display: flex;
                 align-items: flex-start;
@@ -719,36 +805,13 @@
             }
         `,
         actions: `
-            #${ACTIONS_ID} {
-                position: fixed;
-                z-index: 999999;
-                display: flex;
-                align-items: stretch;
-                gap: 8px;
-                font: 12px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-            }
-            #${ACTIONS_ID} .da-btn {
-                padding: 0 13px;
-                border: 1px solid #444;
-                border-radius: 9px;
-                background: #202020;
-                color: #fff;
-                box-shadow: 0 5px 24px #0004;
-                font: inherit;
-                font-weight: 650;
-                white-space: nowrap;
-                cursor: pointer;
-                transition: background .15s ease;
-            }
-            #${ACTIONS_ID} .da-btn:hover { background: #303030; }
-            #${ACTIONS_ID} .da-arrows[aria-pressed="false"] { color: #999; background: #161616; }
-            #${ACTIONS_ID} .da-arrows[aria-pressed="true"] { border-color: #e11d48; }
-            #${ACTIONS_ID} .da-move[aria-pressed="false"] { color: #999; background: #161616; }
-            #${ACTIONS_ID} .da-move[aria-pressed="true"] { border-color: #2563eb; }
+            /* 4.2.0: отдельная плавающая панель действий дня (ACTIONS_ID)
+             * и кнопки-дублёры переключателей «Стрелки»/«Синие стрелки»
+             * упразднены — те же действия доступны во вкладке «Обзор»
+             * (кнопки) и вкладке «Настройки» → «Перенос оборудования»
+             * (единственное место переключения, без дублирования). */
             html.s26-overlay-open #${WIDGET_ID},
-            html.s26-overlay-open #${ACTIONS_ID},
             html.s26-overlay-open #${DAY_DIALOG_ID},
-            html.s26-overlay-open #${SETTINGS_ID},
             html.s26-overlay-open #${TOAST_ID} {
                 display: none !important;
             }
@@ -3481,10 +3544,9 @@
         let cardsMissing = false;
         let toastTimer = null;
         let toastFadeTimer = null;
-        let placeActions = () => {};
-        let refreshArrowButton = () => {};
         let closeDayDialog = () => {};
-        let closeSettings = () => {};
+        let activateTab = () => {};
+        let fillSettingsControls = () => {};
         let markKeys = [];
         let moveLinks = [];
         let markSignature = '';
@@ -3673,7 +3735,7 @@
             if (root) setCollapsed(root, true);
 
             closeDayDialog();
-            closeSettings();
+            activateTab('overview');
         }
 
         /*
@@ -3737,89 +3799,116 @@
             }
 
             resetWidgetPosition(root);
-            placeActions();
         }
 
-        /* Меню настроек (шестерёнка в заголовке). */
+        /*
+         * Вкладка «Настройки» (4.2.0: раньше — отдельное всплывающее окно
+         * по шестерёнке, теперь — содержимое вкладки внутри единой панели).
+         * Строится в контейнер #s-panel-settings, который уже существует
+         * в DOM к моменту вызова (создан в create()).
+         */
         function setupSettings(root) {
-            const panel = document.createElement('div');
-            panel.id = SETTINGS_ID;
-            panel.hidden = true;
+            const panel = document.getElementById(SETTINGS_ID);
 
-            panel.appendChild(el('div', { className: 'st-head' }, [
-                el('span', {}, ['Настройки']),
-                el('button', { type: 'button', className: 'st-close', 'aria-label': 'Закрыть' }, ['✕'])
-            ]));
+            /*
+             * Группа настроек как сворачиваемый <details>: не меняет ни
+             * одного data-атрибута контролов (вся логика ниже опирается на
+             * querySelectorAll('[data-feature]') и т.п., а не на структуру
+             * DOM), только группирует визуально. open=true держит группу
+             * развёрнутой по умолчанию — для часто используемых функций;
+             * цветовые группы (трогаются редко) свёрнуты по умолчанию.
+             */
+            function group(title, count, rows, { open = true } = {}) {
+                const details = el('details', { className: 'st-group' });
 
-            panel.appendChild(el('div', { className: 'st-title' }, ['Функции']));
+                if (open) details.open = true;
 
-            FEATURE_KEYS.forEach(key => {
-                const labelText = {
-                    compactCards: 'Компактные карточки',
-                    reuse: 'Не разбирать (куда и откуда)',
-                    fonHighlight: '«Фон» красным в окне',
-                    copyButton: 'Кнопка копирования в брони',
-                    hoverFocus: 'Выделять бронь при наведении',
-                    borders: 'Обводка броней с фоном/оборудованием',
-                    handoff: 'Полоска «Пересменки»',
-                    aliases: 'Подписи оборудования (бум, роллер…)',
-                    arrows: 'Стрелки переноса оборудования',
-                    moveArrows: 'Синие стрелки «не разбирать на завтра»',
-                    stripes: 'Завершённые брони — диагональные полоски'
-                }[key];
-
-                panel.appendChild(el('label', { className: 'st-check' }, [
-                    el('input', { type: 'checkbox', 'data-feature': key }),
-                    el('span', {}, [labelText])
+                details.appendChild(el('summary', {}, [
+                    title,
+                    el('span', { className: 'st-group-count' }, [String(count)])
                 ]));
-            });
 
-            panel.appendChild(el('div', { className: 'st-title' }, ['Интерфейс Bitrix24']));
+                const body = el('div', { className: 'st-group-body' }, rows);
 
-            panel.appendChild(el('label', { className: 'st-check' }, [
-                el('input', { type: 'checkbox', 'data-theme-hide': '1' }),
-                el('span', {}, ['Скрывать лишнее (Маркет, Copilot, футер…)'])
-            ]));
+                details.appendChild(body);
+                panel.appendChild(details);
 
-            panel.appendChild(el('label', { className: 'st-color' }, [
-                el('span', {}, ['Основной цвет']),
-                el('input', { type: 'color', 'data-theme-color': '1' })
-            ]));
+                return details;
+            }
 
-            panel.appendChild(el('div', { className: 'st-hex-row' }, [
-                el('input', {
-                    type: 'text',
-                    className: 'st-hex',
-                    maxlength: '7',
-                    spellcheck: 'false',
-                    placeholder: '#8F263F',
-                    'aria-label': 'HEX-код основного цвета'
-                }),
-                el('button', { type: 'button', className: 'st-theme-reset' }, ['Сбросить'])
-            ]));
+            const FEATURE_LABELS = {
+                compactCards: 'Компактные карточки',
+                reuse: 'Не разбирать (куда и откуда)',
+                fonHighlight: '«Фон» красным в окне',
+                copyButton: 'Кнопка копирования в брони',
+                hoverFocus: 'Выделять бронь при наведении',
+                borders: 'Обводка броней с фоном/оборудованием',
+                handoff: 'Полоска «Пересменки»',
+                aliases: 'Подписи оборудования (бум, роллер…)',
+                arrows: 'Стрелки переноса оборудования',
+                moveArrows: 'Синие стрелки «не разбирать на завтра»',
+                stripes: 'Завершённые брони — диагональные полоски'
+            };
 
-            panel.appendChild(el('div', { className: 'st-note' }, [
-                'Цвет и скрытие применяются сразу и сохраняются. ',
-                'Цвета, заданные в компонентах Bitrix напрямую, могут не измениться.'
-            ]));
+            const featureCheck = key => el('label', { className: 'st-check' }, [
+                el('input', { type: 'checkbox', 'data-feature': key }),
+                el('span', {}, [FEATURE_LABELS[key]])
+            ]);
 
-            panel.appendChild(el('div', { className: 'st-title' }, ['Цвета стадий']));
+            /* Карточки брони: визуальное отображение и подсветка. */
+            const CARD_DISPLAY_KEYS = [
+                'compactCards', 'fonHighlight', 'copyButton',
+                'hoverFocus', 'borders', 'handoff', 'stripes'
+            ];
 
-            STAGES.forEach(stage => {
-                panel.appendChild(el('label', { className: 'st-color' }, [
+            /* Перенос оборудования между бронями: связанная группа функций. */
+            const REUSE_KEYS = ['reuse', 'aliases', 'arrows', 'moveArrows'];
+
+            group('Карточки брони', CARD_DISPLAY_KEYS.length,
+                CARD_DISPLAY_KEYS.map(featureCheck));
+
+            group('Перенос оборудования', REUSE_KEYS.length,
+                REUSE_KEYS.map(featureCheck));
+
+            group('Интерфейс Bitrix24', 2, [
+                el('label', { className: 'st-check' }, [
+                    el('input', { type: 'checkbox', 'data-theme-hide': '1' }),
+                    el('span', {}, ['Скрывать лишнее (Маркет, Copilot, футер…)'])
+                ]),
+                el('label', { className: 'st-color' }, [
+                    el('span', {}, ['Основной цвет']),
+                    el('input', { type: 'color', 'data-theme-color': '1' })
+                ]),
+                el('div', { className: 'st-hex-row' }, [
+                    el('input', {
+                        type: 'text',
+                        className: 'st-hex',
+                        maxlength: '7',
+                        spellcheck: 'false',
+                        placeholder: '#8F263F',
+                        'aria-label': 'HEX-код основного цвета'
+                    }),
+                    el('button', { type: 'button', className: 'st-theme-reset' }, ['Сбросить'])
+                ]),
+                el('div', { className: 'st-note' }, [
+                    'Цвет и скрытие применяются сразу и сохраняются. ',
+                    'Цвета, заданные в компонентах Bitrix напрямую, могут не измениться.'
+                ])
+            ]);
+
+            group('Цвета стадий', STAGES.length,
+                STAGES.map(stage => el('label', { className: 'st-color' }, [
                     el('span', {}, [stage.name]),
                     el('input', { type: 'color', 'data-stage': stage.id })
-                ]));
-            });
+                ])),
+                { open: false });
 
-            panel.appendChild(el('div', { className: 'st-title' }, ['Цвета меток']));
-
-            MARK_COLORS.forEach(mark => {
-                panel.appendChild(el('label', { className: 'st-color' }, [
+            group('Цвета меток', MARK_COLORS.length,
+                MARK_COLORS.map(mark => el('label', { className: 'st-color' }, [
                     el('span', {}, [mark.name]),
                     el('input', { type: 'color', 'data-stage': mark.id })
-                ]));
-            });
+                ])),
+                { open: false });
 
             panel.appendChild(el('div', { className: 'st-actions' }, [
                 el('button', { type: 'button', className: 'st-save' }, ['Сохранить']),
@@ -3830,8 +3919,6 @@
                 'Переключатели действуют сразу. Цвета применяются после «Сохранить».',
                 ' «Сбросить цвета» возвращает исходные цвета Bitrix сразу.'
             ]));
-
-            document.body.appendChild(panel);
 
             let draft = { ...features.colors };
 
@@ -3862,46 +3949,14 @@
                 });
             }
 
-            function place() {
-                const rect = root.getBoundingClientRect();
-
-                panel.style.visibility = 'hidden';
-                panel.hidden = false;
-
-                const width = panel.offsetWidth;
-                const height = panel.offsetHeight;
-
-                const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
-
-                let top = rect.top - height - 8;
-
-                if (top < 8) top = Math.min(rect.bottom + 8, window.innerHeight - height - 8);
-
-                panel.style.left = left + 'px';
-                panel.style.top = Math.max(8, top) + 'px';
-                panel.style.visibility = '';
-            }
-
-            function close() { panel.hidden = true; }
-
-            closeSettings = close;
-
-            root.querySelector('.s-gear').addEventListener('click', () => {
-                if (!panel.hidden) {
-                    close();
-                    return;
-                }
-
+            /* 4.2.0: настройки — вкладка, а не всплывающее окно, поэтому
+             * «место» и «закрытие» ей не нужны. Контролы синхронизируются
+             * с сохранённым состоянием каждый раз при переходе на вкладку
+             * (см. activateTab() в create()), а не по клику шестерёнки. */
+            fillSettingsControls = () => {
                 draft = { ...features.colors };
                 fillControls();
-                place();
-            });
-
-            panel.querySelector('.st-close').addEventListener('click', close);
-
-            document.addEventListener('keydown', event => {
-                if (event.key === 'Escape' && !panel.hidden) close();
-            });
+            };
 
             panel.querySelectorAll('[data-feature]').forEach(input => {
                 input.addEventListener('change', () => {
@@ -3912,7 +3967,6 @@
 
                     saveFeatures(features);
                     requestData();
-                    refreshArrowButton();
                 });
             });
 
@@ -3962,38 +4016,26 @@
             });
         }
 
-        /* Две кнопки справа от плашки: список за день и «не разбирать на завтра». */
+        /*
+         * Действия дня во вкладке «Обзор» (4.2.0: раньше — отдельная
+         * плавающая панель справа от плашки): список оборудования за день
+         * и окно «не разбирать на завтра». Кнопки-дублёры переключателей
+         * стрелок удалены — они дублировали чекбоксы в «Настройки».
+         */
         function setupDayTools(root) {
-            const bar = document.createElement('div');
-            bar.id = ACTIONS_ID;
+            const bar = root.querySelector('#s-actions');
 
             bar.appendChild(el('button', {
                 type: 'button',
                 className: 'da-btn da-copy',
                 title: 'Копировать список оборудования за день. Звёздочкой отмечено то, что нужно первой брони зала.'
-            }, ['Копировать оборудование за день']));
+            }, ['Скопировать оборудование за день']));
 
             bar.appendChild(el('button', {
                 type: 'button',
                 className: 'da-btn da-plan',
                 title: 'Посчитать, что не нужно разбирать на завтра'
-            }, ['Не разбирать на завтра']));
-
-            bar.appendChild(el('button', {
-                type: 'button',
-                className: 'da-btn da-arrows',
-                'aria-pressed': 'true',
-                title: 'Стрелки: куда и откуда поедет оборудование между бронями'
-            }, ['Стрелки: вкл']));
-
-            bar.appendChild(el('button', {
-                type: 'button',
-                className: 'da-btn da-move',
-                'aria-pressed': 'true',
-                title: 'Синие стрелки: куда перенести оборудование из результата «Не разбирать на завтра»'
-            }, ['Синие стрелки: вкл']));
-
-            document.body.appendChild(bar);
+            }, ['Не разбирать на завтра…']));
 
             const dialog = document.createElement('div');
             dialog.id = DAY_DIALOG_ID;
@@ -4089,68 +4131,28 @@
                     return;
                 }
 
-                const barRect = bar.getBoundingClientRect();
+                /* Якорь — сама панель: окно открывается рядом с ней, слева или справа. */
+                const anchor = root.getBoundingClientRect();
 
                 dialog.style.visibility = 'hidden';
 
                 const width = dialog.offsetWidth;
                 const height = dialog.offsetHeight;
-                const left = Math.max(8, Math.min(barRect.left, window.innerWidth - width - 8));
 
-                let top = barRect.top - height - 8;
+                let left = anchor.right + 8;
 
-                if (top < 8) top = Math.min(barRect.bottom + 8, window.innerHeight - height - 8);
+                if (left + width > window.innerWidth - 8) left = anchor.left - 8 - width;
+
+                left = Math.max(8, Math.min(left, window.innerWidth - width - 8));
+
+                const top = Math.max(8, Math.min(anchor.bottom - height, window.innerHeight - height - 8));
 
                 dialog.style.left = left + 'px';
-                dialog.style.top = Math.max(8, top) + 'px';
+                dialog.style.top = top + 'px';
                 dialog.style.visibility = '';
             }
 
-            function placeBar() {
-                const headRect = root.querySelector('.s-head').getBoundingClientRect();
-                const rootRect = root.getBoundingClientRect();
-
-                /* Нижний край кнопок совпадает с нижним краем плашки: при раскрытии меню они не поднимаются. */
-                bar.style.height = headRect.height + 'px';
-                bar.style.top = (rootRect.bottom - headRect.height) + 'px';
-                bar.style.left = (rootRect.right + 8) + 'px';
-
-                const width = bar.offsetWidth;
-
-                if (rootRect.right + 8 + width > window.innerWidth - 8) {
-                    bar.style.left = Math.max(8, rootRect.left - 8 - width) + 'px';
-                }
-
-                if (!dialog.hidden) placeDialog();
-            }
-
-            placeActions = placeBar;
             closeDayDialog = () => { dialog.hidden = true; };
-
-            const arrowsButton = bar.querySelector('.da-arrows');
-            const moveButton = bar.querySelector('.da-move');
-
-            refreshArrowButton = () => {
-                arrowsButton.setAttribute('aria-pressed', String(!!features.arrows));
-                arrowsButton.textContent = features.arrows ? 'Стрелки: вкл' : 'Стрелки: выкл';
-                moveButton.setAttribute('aria-pressed', String(!!features.moveArrows));
-                moveButton.textContent = features.moveArrows ? 'Синие стрелки: вкл' : 'Синие стрелки: выкл';
-                placeBar();
-            };
-
-            moveButton.addEventListener('click', () => {
-                features = sanitizeFeatures({ ...features, moveArrows: !features.moveArrows });
-                saveFeatures(features);
-                requestData();
-                refreshArrowButton();
-            });
-
-            arrowsButton.addEventListener('click', () => {
-                features = sanitizeFeatures({ ...features, arrows: !features.arrows });
-                saveFeatures(features);
-                requestData();
-                refreshArrowButton();
-            });
 
             /* Перетаскивание окна за заголовок. */
             const dialogHead = dialog.querySelector('.dd-head');
@@ -4186,14 +4188,6 @@
             dialogHead.addEventListener('pointerup', stopDialogDrag);
             dialogHead.addEventListener('pointercancel', stopDialogDrag);
             dialogHead.addEventListener('lostpointercapture', stopDialogDrag);
-
-            window.addEventListener('resize', placeBar);
-
-            if (typeof ResizeObserver === 'function') {
-                new ResizeObserver(placeBar).observe(root);
-            }
-
-            refreshArrowButton();
 
             /* Кнопка 1: копирование списка оборудования за день. */
             bar.querySelector('.da-copy').addEventListener('click', async () => {
@@ -4516,14 +4510,34 @@
             root.id = WIDGET_ID;
 
             root.appendChild(el('div', { className: 's-head' }, [
-                el('span', {}, ['STUDIO 1826 · РАСЧЁТ']),
+                el('span', {}, ['STUDIO 1826']),
                 el('span', { className: 's-head-buttons' }, [
-                    el('button', { type: 'button', className: 's-icon s-gear', title: 'Настройки' }, ['⚙']),
                     el('button', { type: 'button', className: 's-icon s-collapse', title: 'Развернуть' }, ['☰'])
                 ])
             ]));
 
-            root.appendChild(el('div', { className: 's-body' }, [
+            const TABS = [
+                ['overview', 'Обзор'],
+                ['payout', 'Выплаты'],
+                ['settings', 'Настройки']
+            ];
+
+            const tabs = el('div', { className: 's-tabs', role: 'tablist', 'aria-label': 'Разделы' },
+                TABS.map(([id, label]) => el('button', {
+                    type: 'button',
+                    role: 'tab',
+                    'data-tab': id,
+                    'aria-selected': id === 'overview' ? 'true' : 'false'
+                }, [label])));
+
+            /* Обзор — стартовая страница: где я и что можно сделать за один клик. */
+            const overview = el('div', { id: 's-panel-overview', className: 's-panel', role: 'tabpanel' }, [
+                el('div', { id: 's-branch-status', className: 's-overview-status' }, ['Загрузка данных…']),
+                el('div', { id: 's-actions', className: 's-overview-actions' })
+            ]);
+
+            /* Выплаты — подробный расчёт и параметры (раньше — главный экран). */
+            const payoutPanel = el('div', { id: 's-panel-payout', className: 's-panel', role: 'tabpanel', hidden: 'hidden' }, [
                 el('div', { className: 's-title' }, ['Бонусы · на одного']),
                 el('label', { className: 's-check' }, [
                     el('input', { id: 's3-light-on', type: 'checkbox' }),
@@ -4550,10 +4564,6 @@
                     ])
                 ]),
                 el('div', { className: 's-divider' }),
-                el('div', { className: 's-title' }, ['Выплата']),
-                el('div', { className: 's-muted' }, ['К выплате на одного']),
-                el('div', { id: 's3-payout', className: 's-payout' }, ['0 ₽']),
-                el('div', { id: 's3-rate-note', className: 's-muted' }, ['Ставка не учитывается']),
                 el('div', { className: 's-bottom-controls' }, [
                     el('div', { className: 's-title' }, ['Количество администраторов']),
                     el('div', { className: 's-switch', 'aria-label': 'Администраторы' }, [
@@ -4577,15 +4587,47 @@
                         })
                     ])
                 ])
-            ]));
+            ]);
+
+            /* Настройки — содержимое строит setupSettings(). */
+            const settingsPanel = el('div', { id: SETTINGS_ID, className: 's-panel', role: 'tabpanel', hidden: 'hidden' });
+
+            /* Итог выплаты виден на любой вкладке. */
+            const summary = el('div', { className: 's-summary' }, [
+                el('div', { className: 's-summary-main' }, [
+                    el('div', { id: 's3-summary-label', className: 's-muted' }, ['К выплате на одного']),
+                    el('div', { id: 's3-payout', className: 's-payout' }, ['0 ₽']),
+                    el('div', { id: 's3-rate-note', className: 's-muted' }, ['Ставка не учитывается'])
+                ]),
+                el('button', { type: 'button', className: 's-copy-button', title: 'Копировать расчёт' }, ['Копировать'])
+            ]);
+
+            root.appendChild(el('div', { className: 's-body' }, [tabs, overview, payoutPanel, settingsPanel, summary]));
 
             root.appendChild(el('div', { className: 's-footer' }, [
                 el('span', { className: 's-version' }, [
                     `v ${VERSION} · `,
                     el('span', { className: 's-credit' }, ['by ILYA ZINOVIEV'])
-                ]),
-                el('button', { type: 'button', className: 's-copy-button', title: 'Копировать расчёт' }, ['Копировать'])
+                ])
             ]));
+
+            activateTab = name => {
+                const target = TABS.some(([id]) => id === name) ? name : 'overview';
+
+                tabs.querySelectorAll('[data-tab]').forEach(button => {
+                    button.setAttribute('aria-selected', String(button.dataset.tab === target));
+                });
+
+                [['overview', overview], ['payout', payoutPanel], ['settings', settingsPanel]].forEach(([id, node]) => {
+                    node.hidden = id !== target;
+                });
+
+                if (target === 'settings') fillSettingsControls();
+            };
+
+            tabs.querySelectorAll('[data-tab]').forEach(button => {
+                button.addEventListener('click', () => activateTab(button.dataset.tab));
+            });
 
             root.querySelector('#s3-light-on').checked = lightSetupEnabled;
             root.querySelector('#s3-coffee-on').checked = coffeeEnabled;
@@ -4689,7 +4731,6 @@
 
                 root.style.left = Math.max(0, Math.min(maxLeft, drag.left + event.clientX - drag.x)) + 'px';
                 root.style.top = Math.max(0, Math.min(maxTop, drag.top + event.clientY - drag.y)) + 'px';
-                placeActions();
             });
 
             const stopDragging = () => { drag = null; };
@@ -4764,6 +4805,16 @@
             root.querySelector('#s3-rate-note').textContent = rateEnabled
                 ? `Ставка ${money(s.rate)} добавлена каждому без деления`
                 : 'Ставка не учитывается';
+
+            root.querySelector('#s3-summary-label').textContent = `К выплате на одного · ${admins} ${admins === 1 ? 'админ' : 'админа'}`;
+
+            const branchName = category === 'P' ? 'Павелецкая' : 'Серпуховская';
+            const status = root.querySelector('#s-branch-status');
+
+            status.replaceChildren(
+                el('div', {}, ['Филиал: ', el('strong', {}, [branchName]), categorySource === 'default' ? ' (по умолчанию)' : '']),
+                el('div', {}, [`Броней на экране: ${records.length}`, selectedDate ? ` · ${selectedDate}` : ''])
+            );
         }
 
         /* Приём данных от iframe */
