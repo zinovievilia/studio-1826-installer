@@ -1,7 +1,7 @@
 {
   "name": "studio1826-userscript",
   "private": true,
-  "version": "5.4.0",
+  "version": "5.4.1",
   "description": "Тесты и dev-инструменты для studio1826.user.js (сам userscript распространяется напрямую, без npm/сборщика)",
   "scripts": {
     "test": "node --test tests/*.test.js"

@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v5.4.0 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v5.4.1 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      5.4.0
+// @version      5.4.1
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '5.4.0';
+    const VERSION = '5.4.1';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -259,6 +259,8 @@
             .s26-tile {
                 position: absolute;
                 box-sizing: border-box;
+                pointer-events: auto;
+                cursor: default;
                 overflow: hidden;
                 border: 2px dashed #7c3aed;
                 border-radius: 8px;
@@ -300,6 +302,8 @@
                 stroke-linecap: round;
             }
             .s26-moves .s26-tile-arrow { fill: #7c3aed; }
+            .s26-moves .s26-tile-path.move { stroke: var(--s26-moveArrow, #2563eb); stroke-dasharray: none; stroke-width: 2.8; }
+            .s26-moves .s26-tile-arrow.move { fill: var(--s26-moveArrow, #2563eb); }
             .deal-item-contaner .booking-copy-button {
                 position: absolute !important;
                 top: 4px !important;
@@ -4268,6 +4272,38 @@
             return lowest + 30;
         }
 
+        /* Окно «Информация» при наведении на плашку «ЗАВТРА» — тот же вид, что у броней. */
+        function showTilePanel(tile, node) {
+            clearTimeout(panelHideTimer);
+            panel.replaceChildren();
+            panel.appendChild(el('div', { className: 'p-title' }, ['Завтра — подготовить зал']));
+            panel.appendChild(el('div', { className: 'p-hall' }, [
+                tile.hall,
+                Number.isFinite(tile.start) ? el('span', { className: 'p-time' }, [` · первая бронь в ${formatClock(tile.start)}`]) : ''
+            ]));
+
+            const qtyText = item => (item.qty > 1 ? ` — ${formatQuantity(item.qty)} шт.` : '');
+            const afterText = item => (Number.isFinite(item.after) ? ` (после ${formatClock(item.after)})` : '');
+            const byKind = kind => tile.items.filter(item => item.kind === kind);
+
+            if (byKind('keep').length) {
+                addPanelSection('Оставить — не разбирать', byKind('keep').map(item => `${item.name}${qtyText(item)}${afterText(item)}`), { itemClass: 'keep' });
+            }
+            if (byKind('move').length) {
+                addPanelSection('Перекатить', byKind('move').map(item => `${item.name}${qtyText(item)} — из ${item.from}${afterText(item)}`));
+            }
+            if (byKind('missing').length) {
+                addPanelSection('Собрать с нуля', byKind('missing').map(item => `${item.name}${qtyText(item)}`), { itemClass: 'keep' });
+            }
+            if (byKind('later').length) {
+                addPanelSection('Позже днём', byKind('later').map(item => `к ${Number.isFinite(item.at) ? formatClock(item.at) : '?'}: ${item.name}${qtyText(item)}`));
+            }
+
+            positionPanel(node);
+            panel.classList.add('visible');
+            panel.setAttribute('aria-hidden', 'false');
+        }
+
         function clearTiles() {
             if (tileLayer && tileLayer.isConnected) tileLayer.replaceChildren();
         }
@@ -4360,7 +4396,7 @@
                 const node = el('div', { className: 's26-tile' }, [
                     el('div', { className: 's26-tile-head' }, [
                         close,
-                        `ЗАВТРА${Number.isFinite(tile.start) ? ' · с ' + formatClock(tile.start) : ''}`
+                        `ЗАВТРА${Number.isFinite(tile.start) ? ' ' + formatClock(tile.start) : ''}`
                     ])
                 ]);
 
@@ -4377,7 +4413,11 @@
                     node.appendChild(line);
                 });
 
-                const width = Math.max(90, col.right - col.left - 6);
+                /* Узкие колонки: плашка шире колонки, чтобы текст читался. */
+                const width = Math.max(120, col.right - col.left - 6);
+
+                node.addEventListener('mouseenter', () => showTilePanel(tile, node));
+                node.addEventListener('mouseleave', () => hidePanel());
                 const top = col.bottom + 10;
 
                 node.style.left = `${col.left + 3}px`;
@@ -4400,17 +4440,33 @@
                 const tx = dst.left + dst.width / 2;
                 const ty = dst.top - 2;
                 const dy = Math.max(10, Math.abs(ty - sy) / 2);
+                const move = linkItem.kind === 'move';
 
                 layer.append(
                     svgNode('path', {
-                        class: 's26-tile-path',
+                        class: move ? 's26-tile-path move' : 's26-tile-path',
                         d: `M${sx} ${sy} C${sx} ${sy + dy} ${tx} ${ty - dy} ${tx} ${ty - 9}`
                     }),
                     svgNode('polygon', {
-                        class: 's26-tile-arrow',
+                        class: move ? 's26-tile-arrow move' : 's26-tile-arrow',
                         points: `${tx},${ty} ${tx - 6},${ty - 10} ${tx + 6},${ty - 10}`
                     })
                 );
+
+                /* Синяя стрелка «перекатить»: подпись посередине пути. */
+                if (move) {
+                    const mx = (sx + tx) / 2;
+                    const my = (sy + ty) / 2;
+                    const text = 'перекатить';
+                    const width = text.length * 6.4 + 14;
+                    const caption = svgNode('text', { class: 's26-move-text', x: mx, y: my + 4 });
+
+                    caption.textContent = text;
+                    layer.append(
+                        svgNode('rect', { class: 's26-move-pill', x: mx - width / 2, y: my - 9, width, height: 18, rx: 9 }),
+                        caption
+                    );
+                }
             });
         }
 
