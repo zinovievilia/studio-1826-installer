@@ -430,7 +430,7 @@ test('exportSettings/parseSettingsImport: круговой обмен и отк�
 
     const dirty = parseSettingsImport('{"app":"studio1826","schema":1,"features":{"arrows":"yes","colors":{"kEq":"red"}}}');
     assert.strictEqual(dirty.arrows, false);
-    assert.strictEqual(dirty.colors.kEq, '#2563eb');
+    assert.strictEqual(dirty.colors.kEq, '#dc2626');
 });
 
 

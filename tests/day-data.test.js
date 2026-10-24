@@ -86,7 +86,7 @@ test('оборудование на завтра, Павелецкая: как �
     const records = m.recordsOfCategory(recordsFromFixture(fixture), 'P');
     const summary = m.summarizeEquipment(records);
 
-    assert.equal(summary.text, 'Зал 100\nФон холщовый короткий Желто-коричневый - Песочный — 1 шт.');
+    assert.equal(summary.text, 'Зал 100\n1 шт. | Фон холщовый короткий Желто-коричневый - Песочный');
     assert.equal(summary.starCount, 0);
     assert.deepEqual(summary.totals, [{ name: 'Фон холщовый короткий Желто-коричневый - Песочный', qty: 1, halls: 1 }]);
     assert.equal(summary.halls[0].items[0].sources.length, 1);
@@ -96,7 +96,7 @@ test('оборудование на завтра, Павелецкая: как �
 test('оборудование на завтра, Серпуховская: два зала, источники и итог по студии', () => {
     const summary = m.summarizeEquipment(m.recordsOfCategory(recordsFromFixture(fixture), 'C'));
 
-    assert.equal(summary.text, 'Зал 75\nФон холщовый короткий Тёмный — 1 шт.\n\nЗал 105\nProfoto Zoom 2 — 2 шт.');
+    assert.equal(summary.text, 'Зал 75\n1 шт. | Фон холщовый короткий Тёмный\n\nЗал 105\n2 шт. | Profoto Zoom 2');
     assert.deepEqual(summary.totals.map(total => [total.name, total.qty]), [
         ['Фон холщовый короткий Тёмный', 1],
         ['Profoto Zoom 2', 2]
@@ -244,5 +244,32 @@ test('sanitizeFeatures 5.6.0: новый пользователь — всё в�
     assert.equal(legacy.arrows, false);
     assert.equal(legacy.borders, true);
 
-    assert.deepEqual([fresh.colors.kEq, fresh.colors.kFrame, fresh.colors.kBg], ['#2563eb', '#f59e0b', '#dc2626']);
+    assert.deepEqual([fresh.colors.kEq, fresh.colors.kFrame, fresh.colors.kBg], ['#dc2626', '#dc2626', '#dc2626']);
+});
+
+test('5.6.1: прежние цвета обводки по умолчанию становятся красными, свой цвет остаётся; цвет плашек', () => {
+    const old = m.sanitizeFeatures({ colors: { kEq: '#2563eb', kFrame: '#f59e0b', kBg: '#123456' } }, true);
+    assert.deepEqual([old.colors.kEq, old.colors.kFrame, old.colors.kBg], ['#dc2626', '#dc2626', '#123456']);
+    assert.equal(m.sanitizeFeatures({}).colors.tile, '#7c3aed');
+    assert.equal(m.sanitizeFeatures({ colors: { tile: '#0EA5E9' } }).colors.tile, '#0ea5e9');
+});
+
+test('5.6.1: список дня в формате «1 шт. | название», звёздочка и «утром» читаются обратно', () => {
+    const records = [
+        { hall: 'Зал 50 (П)', start: 600, end: 720, items: ['Aputure Lantern 90 - 1 шт.', 'Amaran 300c - 1 шт.'] },
+        { hall: 'Зал 50 (П)', start: 780, end: 900, items: ['Amaran 300c - 2 шт.'] }
+    ];
+    const day = m.buildDayList(records);
+    assert.equal(day.text, 'Зал 50\n1 шт. | Aputure Lantern 90 *\n2 шт. | Amaran 300c (утром 1) *');
+
+    const halls = m.parseDayList(day.text);
+    assert.equal(halls[0].label, 'Зал 50');
+    assert.deepEqual(halls[0].items.map(i => [i.name, i.qty, i.needQty, i.star, i.known]),
+        [['Aputure Lantern 90', 1, 1, true, true], ['Amaran 300c', 2, 1, true, true]]);
+
+    const umbrella = m.parseDayList(m.buildDayList([{ hall: 'Зал 70 (П)', start: 600, end: 700, items: ['Зонт - Umbrella 165см Deep white - 1 шт.'] }]).text);
+    assert.deepEqual([umbrella[0].items[0].known, umbrella[0].items[0].key], [true, 'зонт - umbrella 165см deep white']);
+
+    const oldFormat = m.parseDayList('Зал 50\nAmaran 300c — 2 шт. *');
+    assert.deepEqual([oldFormat[0].items[0].qty, oldFormat[0].items[0].star], [2, true]);
 });
