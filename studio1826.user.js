@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v5.4.1 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v5.4.2 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      5.4.1
+// @version      5.4.2
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '5.4.1';
+    const VERSION = '5.4.2';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -2757,14 +2757,10 @@
         });
         ((analysis && analysis.missing) || []).forEach(({ need, qty }) => add(need.hall, need.name, qty, 'missing', ''));
 
-        /* 5.4.0: остальное оборудование завтрашнего дня (не к первой брони зала) — «к ЧЧ:ММ». */
-        summarizeEquipment(tomorrowRecords || []).halls.forEach(hall => {
-            hall.items.filter(item => !item.star).forEach(item => {
-                const at = item.sources.length && Number.isFinite(item.sources[0].start) ? item.sources[0].start : null;
-
-                add(hall.label, item.name, item.qty, 'later', '', null, at);
-            });
-        });
+        /*
+         * 5.4.2: только то, что нужно к первой брони зала. Оборудование, нужное позже днём, на ночь
+         * разбирают — плашки для него нет (правило студии, подтвердил Илья 24.10.2026).
+         */
 
         return {
             tiles: [...tiles.values()].sort((a, b) => hallNumber(a.hall) - hallNumber(b.hall) || a.hall.localeCompare(b.hall, 'ru')),
@@ -4273,7 +4269,10 @@
         }
 
         /* Окно «Информация» при наведении на плашку «ЗАВТРА» — тот же вид, что у броней. */
+        let tilePanelOpen = false;
+
         function showTilePanel(tile, node) {
+            tilePanelOpen = true;
             clearTimeout(panelHideTimer);
             panel.replaceChildren();
             panel.appendChild(el('div', { className: 'p-title' }, ['Завтра — подготовить зал']));
@@ -4294,9 +4293,6 @@
             }
             if (byKind('missing').length) {
                 addPanelSection('Собрать с нуля', byKind('missing').map(item => `${item.name}${qtyText(item)}`), { itemClass: 'keep' });
-            }
-            if (byKind('later').length) {
-                addPanelSection('Позже днём', byKind('later').map(item => `к ${Number.isFinite(item.at) ? formatClock(item.at) : '?'}: ${item.name}${qtyText(item)}`));
             }
 
             positionPanel(node);
@@ -4366,6 +4362,13 @@
 
             moveSignature = signature;
             layer.replaceChildren();
+
+            /* Плашку под курсором перерисовали — mouseleave не придёт, окно закрываем сами. */
+            if (tilePanelOpen) {
+                tilePanelOpen = false;
+                hidePanel(0);
+            }
+
             tileLayer.replaceChildren();
 
             const placed = new Map();
@@ -4417,7 +4420,10 @@
                 const width = Math.max(120, col.right - col.left - 6);
 
                 node.addEventListener('mouseenter', () => showTilePanel(tile, node));
-                node.addEventListener('mouseleave', () => hidePanel());
+                node.addEventListener('mouseleave', () => {
+                    tilePanelOpen = false;
+                    hidePanel();
+                });
                 const top = col.bottom + 10;
 
                 node.style.left = `${col.left + 3}px`;
