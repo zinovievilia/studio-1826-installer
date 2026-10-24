@@ -47,3 +47,10 @@ test('уже оформлен: имя и дата в строке таблицы
   assert.ok(!rowMatches(row, 'Воронцова Лилия', '2026-10-25'));
   assert.ok(rowMatches('Хван Валерия 25.10.26', 'Хван Валерия', '2026-10-25'));
 });
+
+test('версия одна и та же в @name, @version и VERSION', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'studio1826-passes.user.js'), 'utf8');
+  const { VERSION } = require('../studio1826-passes.user.js');
+  assert.strictEqual(/@version\s+(\S+)/.exec(src)[1], VERSION);
+  assert.strictEqual(/@name\s+v(\S+)/.exec(src)[1], VERSION);
+});
