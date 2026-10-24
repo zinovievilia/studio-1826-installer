@@ -311,12 +311,12 @@ test('sanitizeFeatures: заполняет дефолты при пустом/б
 
 test('sanitizeFeatures: отбрасывает некорректные значения цветов и флагов', () => {
     const r = m.sanitizeFeatures({
-        compactCards: 'yes', // не boolean — должен стать true (дефолт)
-        colors: { border: 'не-цвет', handoff: '#ZZZZZZ', last: '#123abc' }
+        compactCards: 'yes', // не boolean — должен стать false (5.6.0: по умолчанию всё выключено)
+        colors: { kEq: 'не-цвет', handoff: '#ZZZZZZ', last: '#123abc' }
     });
 
-    assert.equal(r.compactCards, true);
-    assert.notEqual(r.colors.border, 'не-цвет');
+    assert.equal(r.compactCards, false);
+    assert.notEqual(r.colors.kEq, 'не-цвет');
     assert.notEqual(r.colors.handoff, '#zzzzzz');
     assert.equal(r.colors.last, '#123abc');
 });
@@ -420,7 +420,7 @@ test('validateCollectorPayload: лимиты на число записей, п�
 
 test('exportSettings/parseSettingsImport: круговой обмен и отказ на чужом тексте', () => {
     const { exportSettings, parseSettingsImport, sanitizeFeatures } = require('../studio1826.user.js');
-    const features = sanitizeFeatures({ arrows: false, colors: { border: '#112233' } });
+    const features = sanitizeFeatures({ arrows: false, colors: { kEq: '#112233' } });
 
     assert.deepStrictEqual(parseSettingsImport(exportSettings(features)), features);
     assert.strictEqual(parseSettingsImport('не json'), null);
@@ -428,9 +428,9 @@ test('exportSettings/parseSettingsImport: круговой обмен и отк�
     assert.strictEqual(parseSettingsImport('{"app":"studio1826","schema":99,"features":{}}'), null);
     assert.strictEqual(parseSettingsImport('x'.repeat(20001)), null);
 
-    const dirty = parseSettingsImport('{"app":"studio1826","schema":1,"features":{"arrows":"yes","colors":{"border":"red"}}}');
-    assert.strictEqual(dirty.arrows, true);
-    assert.strictEqual(dirty.colors.border, '#000000');
+    const dirty = parseSettingsImport('{"app":"studio1826","schema":1,"features":{"arrows":"yes","colors":{"kEq":"red"}}}');
+    assert.strictEqual(dirty.arrows, false);
+    assert.strictEqual(dirty.colors.kEq, '#2563eb');
 });
 
 

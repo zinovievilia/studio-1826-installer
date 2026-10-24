@@ -231,3 +231,18 @@ test('цвета стадий по умолчанию (5.5.2) и перенос 
     assert.equal(migrated.colors.done, '#cce8b5');
     assert.equal(migrated.colors.prepaid, '#123456');
 });
+
+test('sanitizeFeatures 5.6.0: новый пользователь — всё выключено; сохранённое не меняется; давнему недостающее включено', () => {
+    const fresh = m.sanitizeFeatures({});
+    m.FEATURE_KEYS.forEach(key => assert.equal(fresh[key], false));
+
+    const saved = m.sanitizeFeatures({ borders: true, arrows: false });
+    assert.equal(saved.borders, true);
+    assert.equal(saved.arrows, false);
+
+    const legacy = m.sanitizeFeatures({ arrows: false }, true);
+    assert.equal(legacy.arrows, false);
+    assert.equal(legacy.borders, true);
+
+    assert.deepEqual([fresh.colors.kEq, fresh.colors.kFrame, fresh.colors.kBg], ['#2563eb', '#f59e0b', '#dc2626']);
+});
