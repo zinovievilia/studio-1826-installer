@@ -28,17 +28,16 @@ const { chromium } = require('playwright');
     const result = await page.evaluate(() => {
         const w = document.getElementById('studio1826-widget-v3');
         if (!w) return null;
-        const visible = () => [...w.querySelectorAll('.s-panel')].filter(p => !p.hidden).map(p => p.id);
-        const out0 = { collapsedTitle: null };
-        const out = { tabs: [...w.querySelectorAll('[data-tab]')].map(b => b.dataset.tab), first: visible() };
+        const visible = () => w.dataset.view;
+        const out = { views: [...w.querySelectorAll('.s-view')].length, first: visible() };
         w.querySelector('.s-collapse').click(); // развернуть
         w.querySelector('.s-collapse').click(); // свернуть
         out.collapsedTitle = w.querySelector('#s-head-title').textContent;
         w.querySelector('.s-collapse').click();
-        w.querySelector('[data-tab=settings]').click();
+        w.querySelector('.s-open-settings').click();
         out.settings = visible();
         out.features = w.querySelectorAll('[data-feature]').length;
-        w.querySelector('[data-tab=payout]').click();
+        w.querySelector('.s-back').click();
         out.payout = visible();
         return out;
     });
@@ -91,10 +90,10 @@ const { chromium } = require('playwright');
 
     const ok = settingsResult.replies > 0 && newErrors.length === 0 &&
         settingsResult.styled && result &&
-        result.tabs.join() === 'overview,payout,settings' &&
-        result.first.join() === 's-panel-overview' &&
-        result.settings.join() === 'studio1826-settings-v32' &&
-        result.payout.join() === 's-panel-payout' &&
+        result.views === 2 &&
+        result.first === 'home' &&
+        result.settings === 'settings' &&
+        result.payout === 'home' &&
         result.features === 11 &&
         /₽/.test(result.collapsedTitle) &&
         errors.length === 0 &&

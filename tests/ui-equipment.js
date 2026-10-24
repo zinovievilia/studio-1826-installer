@@ -60,15 +60,13 @@ const STUB = `(${function (fx) {
     const r = {};
     await page.evaluate(() => document.querySelector('.s-collapse').click());
     await page.waitForTimeout(600);
-    r.overviewLine = await page.evaluate(() => document.querySelector('.s-link').textContent);
-    await page.click('[data-tab=equipment]');
-    await page.waitForTimeout(500);
+    r.view = await page.evaluate(() => document.getElementById('studio1826-widget-v3').dataset.view);
     r.tab = await page.evaluate(() => ({
         pressed: [...document.querySelectorAll('[data-eq-day]')].map(b => b.dataset.eqDay + ':' + b.getAttribute('aria-pressed')),
         status: document.querySelector('.eq-status').textContent,
         halls: [...document.querySelectorAll('.eq-hall')].map(n => n.textContent),
         items: [...document.querySelectorAll('.eq-item > summary')].map(n => n.textContent),
-        totals: [...document.querySelectorAll('.eq-total')].map(n => n.textContent),
+        totals: [...document.querySelectorAll('.eq-totals .eq-total')].map(n => n.textContent),
         sources: document.querySelectorAll('.eq-src').length
     }));
     /* раскрытие источников: ссылка на сделку */
@@ -88,7 +86,6 @@ const STUB = `(${function (fx) {
     r.callsAfterSwitch = (await page.evaluate(() => window.__bx.calls)) - callsBefore;
 
     /* «Не разбирать на завтра»: список подставляется сам */
-    await page.click('[data-tab=overview]');
     await page.click('.da-plan');
     await page.waitForTimeout(700);
     r.dialog = await page.evaluate(() => ({
@@ -109,7 +106,6 @@ const STUB = `(${function (fx) {
 
     /* сбой Bitrix: понятное сообщение, не пустой экран, потом восстановление */
     await page.evaluate(() => { window.__bx.fail = true; });
-    await page.click('[data-tab=equipment]');
     await page.click('[data-eq-day=today]');
     await page.click('.eq-refresh');
     await page.waitForTimeout(500);
@@ -125,9 +121,9 @@ const STUB = `(${function (fx) {
     await browser.close();
 
     const checks = [
-        /^Оборудование на завтра: 2 поз. в 2 зал/.test(r.overviewLine),
+        r.view === 'home',
         r.tab.pressed.join() === 'today:false,tomorrow:true',
-        r.tab.halls.slice(0, 2).join() === 'Зал 75,Зал 105',
+        r.tab.halls.join() === 'Зал 75,Зал 105',
         r.tab.items.length === 2, r.tab.totals.length === 2,
         /^\/crm\/deal\/details\/\d+\/$/.test(r.link || ''),
         r.openKept === 1, r.copyEnabled, r.callsAfterSwitch <= 4,

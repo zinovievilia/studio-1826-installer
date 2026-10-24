@@ -19,20 +19,20 @@ const file = process.argv[2] || require('path').join(__dirname, '..', 'studio182
   out.skinDefault = await page.evaluate(() => document.getElementById('studio1826-widget-v3').dataset.skin);
   out.bgLight = await page.evaluate(() => { const w = document.getElementById('studio1826-widget-v3'); w.querySelector('.s-collapse').click(); return getComputedStyle(w).backgroundColor; });
   // settings tab, switch to dark
-  await page.evaluate(() => document.querySelector('[data-tab=settings]').click());
+  await page.evaluate(() => document.querySelector('.s-open-settings').click());
   out.pressedBefore = await page.evaluate(() => [...document.querySelectorAll('[data-skin-choice]')].map(b => b.dataset.skinChoice + ':' + b.getAttribute('aria-pressed')));
   await page.evaluate(() => document.querySelector('[data-skin-choice=dark]').click());
   out.afterDark = await page.evaluate(() => { const w = document.getElementById('studio1826-widget-v3'); return [w.dataset.skin, getComputedStyle(w).backgroundColor, localStorage.getItem('studio1826.v4.ui')]; });
   // tab choice must keep skin
-  await page.evaluate(() => document.querySelector('[data-tab=payout]').click());
+  await page.evaluate(() => document.querySelector('.s-back').click());
   out.uiAfterTab = await page.evaluate(() => localStorage.getItem('studio1826.v4.ui'));
   // reload persists dark + tab
   await page.reload();
   await page.addScriptTag({ content: fs.readFileSync(file, 'utf8') });
   await page.waitForTimeout(800);
-  out.afterReload = await page.evaluate(() => { const w = document.getElementById('studio1826-widget-v3'); return [w.dataset.skin, !!document.querySelector('#s-panel-payout:not([hidden])'), document.querySelectorAll('#studio1826-widget-v3').length]; });
+  out.afterReload = await page.evaluate(() => { const w = document.getElementById('studio1826-widget-v3'); return [w.dataset.skin, w.dataset.view === 'home', document.querySelectorAll('#studio1826-widget-v3').length]; });
   // back to light, low viewport: header reachable
-  await page.evaluate(() => { document.querySelector('[data-tab=settings]').click(); document.querySelector('[data-skin-choice=light]').click(); });
+  await page.evaluate(() => { document.querySelector('.s-open-settings').click(); document.querySelector('[data-skin-choice=light]').click(); });
   await page.evaluate(() => { const w=document.getElementById('studio1826-widget-v3'); if (w.classList.contains('collapsed')) w.querySelector('.s-collapse').click(); });
   for (const h of [900, 600, 440, 360]) {
     await page.setViewportSize({ width: 1000, height: h });

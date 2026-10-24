@@ -56,7 +56,7 @@ const HEADER = `<header id="app-header"><div id="header" class="air-header" styl
     await page.keyboard.press('Escape');
     r.afterEsc = await st();
     await page.click('#studio1826-chip');
-    await page.click('[data-tab=settings]');
+    await page.click('.s-open-settings');
     await page.click('[data-skin-choice=dark]');
     r.stillOpenAfterInsideClicks = (await st()).collapsed === false;
     await page.click('.s-collapse');
