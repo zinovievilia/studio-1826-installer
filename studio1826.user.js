@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v4.6.0 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v4.7.0 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      4.6.0
+// @version      4.7.0
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '4.6.0';
+    const VERSION = '4.7.0';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -58,6 +58,8 @@
     const SETTINGS_ID = 'studio1826-settings-v32';
     const ACTIONS_ID = 'studio1826-actions-v34';
     const DAY_DIALOG_ID = 'studio1826-day-dialog-v34';
+    const CHIP_ID = 'studio1826-chip';
+    const CHIP_SLOT_ID = 'studio1826-chip-slot';
 
     /* =========================================================
      * СТИЛИ (Вынесено из функций для чистоты и поддержки)
@@ -1064,7 +1066,9 @@
          * и всплывающие подсказки остаются тёмными. */
         skin: `
             #${WIDGET_ID}[data-skin="light"] {
-                --s-accent: #2067b0;
+                /* Акцент и шрифт берём у самого Bitrix24 (ваша тема), запасные значения — если токенов нет. */
+                --s-accent: var(--ui-color-primary, #2067b0);
+                font-family: var(--ui-font-family-primary, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
                 background: #fff;
                 color: #333;
                 border-color: #dfe3e8;
@@ -1106,9 +1110,9 @@
             #${WIDGET_ID}[data-skin="light"] .s-check:not(.s-rate-toggle):has(input:checked),
             #${WIDGET_ID}[data-skin="light"] .s-rate-controls .s-rate-toggle:has(input:checked),
             #${WIDGET_ID}[data-skin="light"] .st-check:has(input:checked) {
-                background: #e8f1fa;
+                background: color-mix(in srgb, var(--s-accent) 10%, #fff);
                 border-color: var(--s-accent);
-                color: #17487d;
+                color: color-mix(in srgb, var(--s-accent) 72%, #000);
                 font-weight: 700;
             }
             #${WIDGET_ID}[data-skin="light"] .s-switch button[aria-pressed=true],
@@ -1146,7 +1150,7 @@
                 color: #fff !important;
             }
             #${WIDGET_ID}[data-skin="light"] button.s-copy-button:hover {
-                background: #1a548f !important;
+                background: color-mix(in srgb, var(--s-accent) 85%, #000) !important;
                 color: #fff !important;
             }
             #${WIDGET_ID}[data-skin="light"] button:focus-visible,
@@ -1166,6 +1170,37 @@
                 border-color: var(--s-accent);
                 color: #fff;
             }
+        `,
+        /* 4.7.0: «встроено в шапку Bitrix24». Кнопка с суммой — в шапке, панель — всплывающее окно под ней.
+         * Без шапки (или если кнопка не помещается) режим data-mode="float" — прежняя плавающая плашка. */
+        native: `
+            /* Внешний вид кнопки — штатные классы Bitrix (air-header__button / air-header-button),
+             * как у «Пригласить» и «Мой тариф»; здесь только позиция в свободном месте шапки. */
+            #${CHIP_SLOT_ID} {
+                position: absolute;
+                left: 0;
+                top: 50%;
+                transform: translateY(-50%);
+                z-index: 3;
+            }
+            #${CHIP_SLOT_ID}[hidden] { display: none; }
+            #${CHIP_ID} .s-chip-sum { font-weight: 700; font-variant-numeric: tabular-nums; }
+            html.s26-overlay-open #${CHIP_SLOT_ID} { display: none; }
+            #${WIDGET_ID}[data-mode="header"] {
+                position: fixed;
+                left: auto;
+                bottom: auto;
+                z-index: 1000;
+                width: 360px;
+                max-width: calc(100vw - 24px);
+                transform: none;
+                border-radius: 12px;
+                box-shadow: 0 8px 28px #1f2d3d38, 0 0 0 1px #0000000a;
+            }
+            #${WIDGET_ID}[data-mode="header"].collapsed { display: none; }
+            #${WIDGET_ID}[data-mode="header"] .s-head { cursor: default; border-radius: 11px 11px 0 0; }
+            #${WIDGET_ID}[data-mode="header"] .s-footer { border-radius: 0 0 11px 11px; }
+            #${WIDGET_ID}[data-mode="header"] .s-head-copy { display: none; }
         `,
         toast: `
             #${TOAST_ID} {
@@ -4067,6 +4102,7 @@
                 STYLES.actions,
                 STYLES.dayDialog,
                 STYLES.skin,
+                STYLES.native,
                 STYLES.toast
             ].join('\n');
 
@@ -4124,7 +4160,30 @@
             document.documentElement.classList.toggle('s26-overlay-open', hide);
         }
 
+        /* Окно под кнопкой в шапке: правый край — по кнопке, высота — до низа экрана. */
+        function positionPopup(root) {
+            const chip = document.getElementById(CHIP_ID);
+
+            if (!chip) return;
+
+            const rect = chip.getBoundingClientRect();
+            const top = Math.round(rect.bottom + 8);
+
+            root.style.left = 'auto';
+            root.style.bottom = 'auto';
+            root.style.transform = 'none';
+            root.style.top = top + 'px';
+            root.style.right = Math.max(12, Math.round(window.innerWidth - rect.right)) + 'px';
+            root.style.maxHeight = `calc(100vh - ${top + 12}px)`;
+        }
+
         function resetWidgetPosition(root) {
+            if (root.dataset.mode === 'header') {
+                positionPopup(root);
+                return;
+            }
+
+            root.style.maxHeight = '';
             root.style.left = '20px';
             root.style.right = 'auto';
             root.style.top = 'auto';
@@ -4134,6 +4193,73 @@
 
         let lastPayoutText = '';
 
+        /*
+         * Кнопка в шапке Bitrix24 (#header.air-header). Позиционируется абсолютно в свободной части
+         * шапки и не участвует в раскладке меню Bitrix (его расчёт ширины и «Еще» не меняется).
+         * Цвета берутся у соседних пунктов меню. Нет шапки или кнопка налезает на меню — режим
+         * «float» (плавающая плашка, как до 4.7.0). Вызывается при создании, при смене размера
+         * окна и из редкого таймера: Bitrix может перерисовать шапку.
+         */
+        function setMode(root, mode) {
+            if (root.dataset.mode === mode) return;
+
+            root.dataset.mode = mode;
+            resetWidgetPosition(root);
+        }
+
+        function ensureChip(root) {
+            const header = document.querySelector('#header.air-header');
+            let slot = document.getElementById(CHIP_SLOT_ID);
+
+            if (!header) {
+                if (slot) slot.remove();
+                setMode(root, 'float');
+                return;
+            }
+
+            if (!slot) {
+                const button = el('button', {
+                    id: CHIP_ID,
+                    type: 'button',
+                    className: 'air-header-button',
+                    'aria-haspopup': 'dialog',
+                    'aria-expanded': String(!collapsed),
+                    title: 'Выплаты администраторов'
+                }, [
+                    el('span', { className: 'air-header-button__text' }, [
+                        'Выплата ',
+                        el('span', { className: 's-chip-sum' }, [lastPayoutText || '—'])
+                    ])
+                ]);
+
+                button.addEventListener('click', () => setCollapsed(root, !collapsed));
+                slot = el('div', { id: CHIP_SLOT_ID, className: 'air-header__button', 'data-id': 'studio1826' }, [button]);
+            }
+
+            if (slot.parentElement !== header) header.appendChild(slot);
+
+            /* Свободное место — между последним пунктом меню и ближайшим занятым блоком справа
+             * (поиск, «Пригласить», «Мой тариф» и т.п. показываются не всегда; справа остаётся поле под аватар).
+             * Слот абсолютный, раскладку шапки и расчёт пункта «Еще» не меняет. Не помещается — плавающая плашка. */
+            const items = [...header.querySelectorAll('#air-header-menu .main-buttons-item')];
+
+            slot.hidden = false;
+
+            const headerRect = header.getBoundingClientRect();
+            const menuRight = Math.max(0, ...items.map(item => item.getBoundingClientRect().right));
+            const rightBlockers = [...header.querySelectorAll('.air-header__personal-info > *')]
+                .map(node => node.getBoundingClientRect())
+                .filter(rect => rect.width > 0 && rect.height > 0 && rect.left >= menuRight);
+            const limit = Math.min(headerRect.right - 152, ...rightBlockers.map(rect => rect.left));
+            const start = menuRight + 16;
+            const width = slot.getBoundingClientRect().width;
+            const fits = items.length > 0 && width > 0 && start + width + 8 <= limit;
+
+            slot.style.left = Math.round(start - headerRect.left) + 'px';
+            slot.hidden = !fits;
+            setMode(root, fits ? 'header' : 'float');
+            if (fits && !collapsed) positionPopup(root);
+        }
         /* В свёрнутом виде в заголовке видна сумма выплаты. */
         function refreshHeadTitle(root, payout) {
             if (typeof payout === 'number') lastPayoutText = money(payout);
@@ -4141,12 +4267,20 @@
             const title = root.querySelector('#s-head-title');
 
             if (title) title.textContent = collapsed && lastPayoutText ? `STUDIO 1826 · ${lastPayoutText}` : 'STUDIO 1826';
+
+            const chipSum = document.querySelector(`#${CHIP_ID} .s-chip-sum`);
+
+            if (chipSum) chipSum.textContent = lastPayoutText || '—';
         }
 
         function setCollapsed(root, value) {
             collapsed = value;
             refreshHeadTitle(root);
             root.classList.toggle('collapsed', collapsed);
+
+            const chip = document.getElementById(CHIP_ID);
+
+            if (chip) chip.setAttribute('aria-expanded', String(!collapsed));
 
             const button = root.querySelector('.s-collapse');
 
@@ -5118,6 +5252,24 @@
             resetWidgetPosition(root);
 
             document.body.appendChild(root);
+            ensureChip(root);
+
+            /* Окно-«попап» под кнопкой: закрывается кликом снаружи и Esc. Диалог дня — часть панели. */
+            document.addEventListener('pointerdown', event => {
+                if (root.dataset.mode !== 'header' || collapsed) return;
+                if (root.contains(event.target) || event.target.closest(`#${CHIP_ID}, #${DAY_DIALOG_ID}`)) return;
+
+                setCollapsed(root, true);
+            }, true);
+
+            document.addEventListener('keydown', event => {
+                if (event.key !== 'Escape' || root.dataset.mode !== 'header' || collapsed) return;
+
+                setCollapsed(root, true);
+                document.getElementById(CHIP_ID)?.focus();
+            });
+
+            window.addEventListener('resize', () => ensureChip(root));
 
             const toast = document.createElement('div');
             toast.id = TOAST_ID;
@@ -5202,6 +5354,7 @@
             let drag = null;
 
             header.addEventListener('pointerdown', event => {
+                if (root.dataset.mode === 'header') return;
                 if (event.target.closest('button') || event.button !== 0) return;
 
                 const rect = root.getBoundingClientRect();
@@ -5527,7 +5680,13 @@
             attributeFilter: ['class', 'style']
         });
 
-        setInterval(updateOverlayVisibility, 1500);
+        setInterval(() => {
+            updateOverlayVisibility();
+
+            const widget = document.getElementById(WIDGET_ID);
+
+            if (widget) ensureChip(widget);
+        }, 1500);
     }
 
     /* =========================================================
