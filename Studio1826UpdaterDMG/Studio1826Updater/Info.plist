@@ -7,11 +7,11 @@
     <key>CFBundleName</key>
     <string>Studio1826Updater</string>
     <key>CFBundleDisplayName</key>
-    <string>Studio 1826 Updater</string>
+    <string>Studio 1826</string>
     <key>CFBundleVersion</key>
     <string>1</string>
     <key>CFBundleShortVersionString</key>
-    <string>2.0.0</string>
+    <string>4.0.0</string>
     <key>CFBundleIconName</key>
     <string>AppIcon</string>
     <key>CFBundleExecutable</key>

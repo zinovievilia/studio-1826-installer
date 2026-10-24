@@ -10,18 +10,47 @@
 		A001 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = F001 /* App.swift */; };
 		A002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F002 /* AppDelegate.swift */; };
 		A003 /* UpdaterService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F003 /* UpdaterService.swift */; };
-		A004 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F004 /* ContentView.swift */; };
+		A010 /* AppVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = F010 /* AppVersion.swift */; };
+		A011 /* Calculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F011 /* Calculator.swift */; };
+		A012 /* Studio.swift in Sources */ = {isa = PBXBuildFile; fileRef = F012 /* Studio.swift */; };
+		A013 /* Browsers.swift in Sources */ = {isa = PBXBuildFile; fileRef = F013 /* Browsers.swift */; };
+		A014 /* ReplyLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = F014 /* ReplyLibrary.swift */; };
+		A020 /* BrowserService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F020 /* BrowserService.swift */; };
+		A021 /* ReplyStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F021 /* ReplyStore.swift */; };
+		A022 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F022 /* AppState.swift */; };
+		A030 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = F030 /* Components.swift */; };
+		A031 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F031 /* MainView.swift */; };
+		A032 /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F032 /* SetupView.swift */; };
+		A033 /* LinksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F033 /* LinksView.swift */; };
+		A034 /* CashReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F034 /* CashReportView.swift */; };
+		A035 /* RepliesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F035 /* RepliesView.swift */; };
+		A036 /* ReplyEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F036 /* ReplyEditorView.swift */; };
 		A005 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F005 /* Assets.xcassets */; };
-		A006 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = F006 /* Info.plist */; };
+		A040 /* ReplyLibrary.json in Resources */ = {isa = PBXBuildFile; fileRef = F040 /* ReplyLibrary.json */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		F001 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
 		F002 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		F003 /* UpdaterService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterService.swift; sourceTree = "<group>"; };
-		F004 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		F010 /* AppVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppVersion.swift; sourceTree = "<group>"; };
+		F011 /* Calculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Calculator.swift; sourceTree = "<group>"; };
+		F012 /* Studio.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Studio.swift; sourceTree = "<group>"; };
+		F013 /* Browsers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Browsers.swift; sourceTree = "<group>"; };
+		F014 /* ReplyLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplyLibrary.swift; sourceTree = "<group>"; };
+		F020 /* BrowserService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserService.swift; sourceTree = "<group>"; };
+		F021 /* ReplyStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplyStore.swift; sourceTree = "<group>"; };
+		F022 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		F030 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		F031 /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
+		F032 /* SetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupView.swift; sourceTree = "<group>"; };
+		F033 /* LinksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinksView.swift; sourceTree = "<group>"; };
+		F034 /* CashReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CashReportView.swift; sourceTree = "<group>"; };
+		F035 /* RepliesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepliesView.swift; sourceTree = "<group>"; };
+		F036 /* ReplyEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplyEditorView.swift; sourceTree = "<group>"; };
 		F005 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		F040 /* ReplyLibrary.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ReplyLibrary.json; sourceTree = "<group>"; };
 		FAPP /* Studio1826Updater.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Studio1826Updater.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -48,11 +77,58 @@
 				F001 /* App.swift */,
 				F002 /* AppDelegate.swift */,
 				F003 /* UpdaterService.swift */,
-				F004 /* ContentView.swift */,
+				GCORE /* Core */,
+				GSVC /* Services */,
+				GVIEW /* Views */,
+				GRES /* Resources */,
 				F005 /* Assets.xcassets */,
 				F006 /* Info.plist */,
 			);
 			path = Studio1826Updater;
+			sourceTree = "<group>";
+		};
+		GCORE /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				F010 /* AppVersion.swift */,
+				F011 /* Calculator.swift */,
+				F012 /* Studio.swift */,
+				F013 /* Browsers.swift */,
+				F014 /* ReplyLibrary.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		GSVC /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				F020 /* BrowserService.swift */,
+				F021 /* ReplyStore.swift */,
+				F022 /* AppState.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		GVIEW /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				F030 /* Components.swift */,
+				F031 /* MainView.swift */,
+				F032 /* SetupView.swift */,
+				F033 /* LinksView.swift */,
+				F034 /* CashReportView.swift */,
+				F035 /* RepliesView.swift */,
+				F036 /* ReplyEditorView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		GRES /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				F040 /* ReplyLibrary.json */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -115,7 +191,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A005 /* Assets.xcassets in Resources */,
-				A006 /* Info.plist in Resources */,
+				A040 /* ReplyLibrary.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -129,7 +205,21 @@
 				A001 /* App.swift in Sources */,
 				A002 /* AppDelegate.swift in Sources */,
 				A003 /* UpdaterService.swift in Sources */,
-				A004 /* ContentView.swift in Sources */,
+				A010 /* AppVersion.swift in Sources */,
+				A011 /* Calculator.swift in Sources */,
+				A012 /* Studio.swift in Sources */,
+				A013 /* Browsers.swift in Sources */,
+				A014 /* ReplyLibrary.swift in Sources */,
+				A020 /* BrowserService.swift in Sources */,
+				A021 /* ReplyStore.swift in Sources */,
+				A022 /* AppState.swift in Sources */,
+				A030 /* Components.swift in Sources */,
+				A031 /* MainView.swift in Sources */,
+				A032 /* SetupView.swift in Sources */,
+				A033 /* LinksView.swift in Sources */,
+				A034 /* CashReportView.swift in Sources */,
+				A035 /* RepliesView.swift in Sources */,
+				A036 /* ReplyEditorView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -275,7 +365,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 4.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = studio1826.updater;
 				PRODUCT_NAME = Studio1826Updater;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -299,7 +389,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 4.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = studio1826.updater;
 				PRODUCT_NAME = Studio1826Updater;
 				SWIFT_EMIT_LOC_STRINGS = YES;

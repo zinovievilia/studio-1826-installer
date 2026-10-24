@@ -4,61 +4,13 @@ import AppKit
 
 // MARK: - Constants
 
-private let repoRaw       = "https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main"
-private let scriptURL     = URL(string: "\(repoRaw)/studio1826.user.js")!
+private let repoRaw       = StudioRepo.raw
 private let appVersionURL = URL(string: "\(repoRaw)/app.version")!
 private let appDMGURL     = URL(string: "\(repoRaw)/Studio1826Updater.dmg")!
 
-/// Текущая версия приложения — должна совпадать с содержимым app.version в репо
-let APP_VERSION = "3.0.0"
-
-// MARK: - ScriptManager (пути к файлам расширений)
-
-enum ScriptManager: String, CaseIterable, Identifiable {
-    case userscripts  = "Userscripts"
-    case tampermonkey = "Tampermonkey"
-
-    var id: String { rawValue }
-
-    /// Путь к файлу скрипта внутри расширения
-    var scriptPath: String {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        switch self {
-        case .userscripts:
-            return home
-                .appendingPathComponent("Library/Containers/com.userscripts.macos.Userscripts-Extension/Data/Documents/scripts/studio1826.user.js")
-                .path
-        case .tampermonkey:
-            return home
-                .appendingPathComponent("Library/Application Support/Google/Chrome/Default/Extensions")
-                .appendingPathComponent("dhdgffkkebhmkfjojejmpbldmpobfkfo")
-                .path + "/studio1826.user.js"
-        }
-    }
-
-    /// Папка существует (расширение установлено)
-    var isInstalled: Bool {
-        switch self {
-        case .userscripts:
-            let dir = (scriptPath as NSString).deletingLastPathComponent
-            return FileManager.default.fileExists(atPath: dir)
-        case .tampermonkey:
-            if let custom = UserDefaults.standard.string(forKey: "tampermonkeyPath"), !custom.isEmpty {
-                return FileManager.default.fileExists(atPath: (custom as NSString).deletingLastPathComponent)
-            }
-            return false
-        }
-    }
-
-    func resolvedPath() -> String {
-        if self == .tampermonkey,
-           let custom = UserDefaults.standard.string(forKey: "tampermonkeyPath"),
-           !custom.isEmpty {
-            return custom
-        }
-        return scriptPath
-    }
-}
+/// Текущая версия приложения — должна совпадать с содержимым app.version в репо.
+/// build.sh берёт версию отсюда: строка должна начинаться с `let APP_VERSION = "`.
+let APP_VERSION = "4.0.0"
 
 // MARK: - ScheduleMode
 
@@ -91,29 +43,38 @@ enum ScheduleMode: String, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - Состояние одного скрипта студии
+
+struct ScriptState {
+    /// Версия файла в папке Userscripts (только Safari)
+    var localVersion: String?
+    /// Последняя версия на GitHub
+    var remoteVersion: String?
+    var status: String = "Ещё не проверялся"
+    var isBusy = false
+    var lastCheck: Date?
+    var lastUpdate: Date?
+    var hasError = false
+}
+
 // MARK: - UpdaterService
 
 @MainActor
 class UpdaterService: ObservableObject {
 
-    // --- Script ---
-    @Published var scriptVersion: String  = "—"
-    @Published var scriptStatus: String   = "Ожидание…"
-    @Published var scriptLastCheck: Date?
-    @Published var scriptLastUpdate: Date?
-    @Published var isCheckingScript: Bool = false
+    // --- Скрипты студии ---
+    @Published var scripts: [String: ScriptState] = [:]
 
-    @Published var enabledManagers: Set<ScriptManager> = []
-
-    // --- App ---
+    // --- Приложение ---
     @Published var appVersion: String        = APP_VERSION
     @Published var appLatestVersion: String? = nil
-    @Published var appStatus: String         = "—"
+    @Published var appStatus: String         = "Обновления ещё не проверялись"
     @Published var isCheckingApp: Bool       = false
     @Published var isInstallingApp: Bool     = false
     @Published var installProgress: Double   = 0
+    @Published var appLastCheck: Date?
 
-    // --- Schedule ---
+    // --- Расписание ---
     @Published var scheduleActive: Bool = true
     @Published var nextCheck: Date?
 
@@ -135,14 +96,7 @@ class UpdaterService: ObservableObject {
 
     static let availableIntervals: [Int] = [1, 2, 3, 6, 12, 24]
 
-    // --- Tampermonkey custom path ---
-    @Published var tampermonkeyPath: String {
-        didSet {
-            UserDefaults.standard.set(tampermonkeyPath, forKey: "tampermonkeyPath")
-            detectManagers()
-        }
-    }
-
+    let browsers: BrowserService
     private var timer: Timer?
     private var mountedPath: String?
 
@@ -150,32 +104,55 @@ class UpdaterService: ObservableObject {
         TimeInterval(checkIntervalHours) * 3600
     }
 
-    init() {
-        tampermonkeyPath = UserDefaults.standard.string(forKey: "tampermonkeyPath") ?? ""
+    var isChecking: Bool {
+        isCheckingApp || scripts.values.contains { $0.isBusy }
+    }
+
+    init(browsers: BrowserService) {
+        self.browsers = browsers
 
         let savedMode = UserDefaults.standard.string(forKey: "scheduleMode") ?? ""
         scheduleMode = ScheduleMode(rawValue: savedMode) ?? .schedule22
 
         let savedInterval = UserDefaults.standard.integer(forKey: "checkIntervalHours")
         checkIntervalHours = Self.availableIntervals.contains(savedInterval) ? savedInterval : 6
+
+        for script in StudioUserscript.all {
+            scripts[script.id] = ScriptState()
+        }
+        refreshLocalVersions()
     }
 
     // MARK: Start
 
     func start() {
-        detectManagers()
-        refreshScriptVersion()
         scheduleTimer()
         Task {
-            await checkScript(force: false)
+            await checkScripts(trigger: .automatic)
             await checkApp()
         }
     }
 
     // MARK: Public
 
-    func forceUpdateScript() {
-        Task { await checkScript(force: true) }
+    /// Кнопка «Проверить обновления»: приложение + скрипты, вне графика.
+    func checkForUpdates() {
+        Task {
+            await checkApp()
+            await checkScripts(trigger: .manual)
+        }
+    }
+
+    /// Установить или переустановить скрипт прямо сейчас.
+    /// Safari — файл кладётся в папку Userscripts; Chromium — скрипт открывается в браузере,
+    /// Tampermonkey показывает страницу установки.
+    func install(_ script: StudioUserscript) {
+        guard let browser = browsers.selected else { return }
+        if browser == .safari {
+            Task { await updateScript(script, force: true) }
+        } else {
+            browsers.open(script.downloadURL, in: browser)
+        }
     }
 
     func checkAppNow() {
@@ -187,12 +164,16 @@ class UpdaterService: ObservableObject {
         Task { await performAppInstall(remoteVersion: v) }
     }
 
-    func detectManagers() {
-        var found: Set<ScriptManager> = []
-        for m in ScriptManager.allCases {
-            if m.isInstalled { found.insert(m) }
+    func state(of script: StudioUserscript) -> ScriptState {
+        scripts[script.id] ?? ScriptState()
+    }
+
+    func refreshLocalVersions() {
+        for script in StudioUserscript.all {
+            let path = BrowserService.userscriptsFolder.appendingPathComponent(script.fileName)
+            let text = (try? String(contentsOf: path, encoding: .utf8)) ?? ""
+            scripts[script.id, default: ScriptState()].localVersion = UserscriptText.version(in: text)
         }
-        enabledManagers = found
     }
 
     // MARK: Timer
@@ -211,7 +192,7 @@ class UpdaterService: ObservableObject {
         ) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor in
-                await self.checkScript(force: false)
+                await self.checkScripts(trigger: .automatic)
                 await self.checkApp()
             }
         }
@@ -221,7 +202,9 @@ class UpdaterService: ObservableObject {
 
     // MARK: Script update
 
-    private func checkScript(force: Bool) async {
+    enum Trigger { case automatic, manual }
+
+    private func checkScripts(trigger: Trigger) async {
         let workDay = scheduleMode.isActiveDay()
         scheduleActive = workDay || scheduleMode == .manual
 
@@ -229,69 +212,70 @@ class UpdaterService: ObservableObject {
             nextCheck = Date(timeIntervalSinceNow: checkInterval)
         }
 
-        if !force && scheduleMode != .manual && !workDay {
-            scriptStatus = "Пропущено по расписанию «\(scheduleMode.rawValue)»"
+        if trigger == .automatic && scheduleMode != .manual && !workDay {
+            for script in StudioUserscript.all {
+                scripts[script.id, default: ScriptState()].status = "Пропущено по расписанию «\(scheduleMode.rawValue)»"
+            }
             return
         }
 
-        if enabledManagers.isEmpty {
-            scriptStatus = "Расширения не найдены — укажите путь в настройках"
-            return
+        for script in StudioUserscript.all {
+            await updateScript(script, force: false)
         }
+    }
 
-        isCheckingScript = true
-        scriptStatus = "Скачиваю скрипт…"
+    /// Скачать скрипт; в Safari — записать в папку Userscripts, если версия отличается (или force).
+    private func updateScript(_ script: StudioUserscript, force: Bool) async {
+        var st = scripts[script.id] ?? ScriptState()
+        st.isBusy = true
+        st.hasError = false
+        st.status = "Скачиваю…"
+        scripts[script.id] = st
+
+        defer {
+            scripts[script.id]?.isBusy = false
+            refreshLocalVersions()
+        }
 
         do {
-            let (data, _) = try await URLSession.shared.data(from: scriptURL)
-            guard let text = String(data: data, encoding: .utf8) else {
-                throw Err("Не удалось декодировать файл")
+            var request = URLRequest(url: script.downloadURL)
+            request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+            let (data, response) = try await URLSession.shared.data(for: request)
+            if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+                throw Err("GitHub ответил \(http.statusCode)")
+            }
+            guard let text = String(data: data, encoding: .utf8), UserscriptText.looksLikeUserscript(text) else {
+                throw Err("скачался не userscript — файл не тронут")
+            }
+            let remote = UserscriptText.version(in: text) ?? "?"
+            scripts[script.id]?.remoteVersion = remote
+            scripts[script.id]?.lastCheck = Date()
+
+            guard browsers.selected == .safari else {
+                // Tampermonkey обновляет скрипты сам по @updateURL
+                scripts[script.id]?.status = "Последняя версия \(remote)"
+                return
             }
 
-            let remote = parseVersion(text) ?? "?"
-            var updatedAny = false
-            var skippedAny = false
-            var errors: [String] = []
-
-            for manager in ScriptManager.allCases where enabledManagers.contains(manager) {
-                let path = manager.resolvedPath()
-
-                if !force {
-                    let local = parseVersion((try? String(contentsOfFile: path, encoding: .utf8)) ?? "")
-                    if local == remote {
-                        skippedAny = true
-                        continue
-                    }
-                }
-
-                do {
-                    let dir = (path as NSString).deletingLastPathComponent
-                    try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
-                    try data.write(to: URL(fileURLWithPath: path), options: .atomic)
-                    updatedAny = true
-                } catch {
-                    errors.append("\(manager.rawValue): \(error.localizedDescription)")
-                }
+            let folder = BrowserService.userscriptsFolder
+            guard FileManager.default.fileExists(atPath: folder.path) else {
+                throw Err("нет папки Userscripts — откройте приложение Userscripts один раз")
             }
+            let path = folder.appendingPathComponent(script.fileName)
+            let local = UserscriptText.version(in: (try? String(contentsOf: path, encoding: .utf8)) ?? "")
 
-            scriptLastCheck = Date()
-
-            if !errors.isEmpty {
-                scriptStatus = "Ошибка записи: \(errors.joined(separator: "; "))"
-            } else if updatedAny {
-                scriptLastUpdate = Date()
-                scriptStatus = "Обновлено до \(remote)"
-            } else if skippedAny {
-                scriptStatus = "Актуальная версия \(remote)"
+            if !force && local == remote {
+                scripts[script.id]?.status = "Актуальная версия \(remote)"
+                return
             }
-
+            try data.write(to: path, options: .atomic)
+            scripts[script.id]?.lastUpdate = Date()
+            scripts[script.id]?.status = local == nil ? "Установлен \(remote)" : "Обновлён до \(remote)"
         } catch {
-            scriptStatus = "Ошибка: \(error.localizedDescription)"
-            scriptLastCheck = Date()
+            scripts[script.id]?.hasError = true
+            scripts[script.id]?.status = "Ошибка: \(error.localizedDescription)"
+            scripts[script.id]?.lastCheck = Date()
         }
-
-        isCheckingScript = false
-        refreshScriptVersion()
     }
 
     // MARK: App update — check
@@ -299,6 +283,10 @@ class UpdaterService: ObservableObject {
     private func checkApp() async {
         isCheckingApp = true
         appStatus = "Проверяю версию приложения…"
+        defer {
+            isCheckingApp = false
+            appLastCheck = Date()
+        }
 
         do {
             var request = URLRequest(url: appVersionURL)
@@ -310,13 +298,11 @@ class UpdaterService: ObservableObject {
                 if http.statusCode == 404 {
                     appStatus = "app.version не найден в репозитории"
                     appLatestVersion = nil
-                    isCheckingApp = false
                     return
                 }
                 if http.statusCode != 200 {
                     appStatus = "Ошибка сервера: \(http.statusCode)"
                     appLatestVersion = nil
-                    isCheckingApp = false
                     return
                 }
             }
@@ -326,18 +312,16 @@ class UpdaterService: ObservableObject {
             }
             let remote = raw.trimmingCharacters(in: .whitespacesAndNewlines)
 
-            if remote != APP_VERSION {
+            if AppVersion.isNewer(remote, than: APP_VERSION) {
                 appLatestVersion = remote
-                appStatus = "Доступна v\(remote)"
+                appStatus = "Доступна версия \(remote)"
             } else {
                 appLatestVersion = nil
-                appStatus = "v\(APP_VERSION) — актуальная"
+                appStatus = "Установлена последняя версия"
             }
         } catch {
             appStatus = "Ошибка проверки: \(error.localizedDescription)"
         }
-
-        isCheckingApp = false
     }
 
     // MARK: App update — install
@@ -345,7 +329,7 @@ class UpdaterService: ObservableObject {
     private func performAppInstall(remoteVersion: String) async {
         isInstallingApp = true
         installProgress = 0
-        appStatus = "Скачиваю v\(remoteVersion)…"
+        appStatus = "Скачиваю \(remoteVersion)…"
 
         let tmp = FileManager.default.temporaryDirectory
             .appendingPathComponent("s1826-upd-\(UUID().uuidString)")
@@ -354,7 +338,12 @@ class UpdaterService: ObservableObject {
             try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
 
             let dmgPath = tmp.appendingPathComponent("update.dmg")
-            let (dmgData, _) = try await URLSession.shared.data(from: appDMGURL)
+            var request = URLRequest(url: appDMGURL)
+            request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+            let (dmgData, response) = try await URLSession.shared.data(for: request)
+            if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+                throw Err("GitHub ответил \(http.statusCode) на запрос DMG")
+            }
             try dmgData.write(to: dmgPath)
             installProgress = 0.35
             appStatus = "Монтирую образ…"
@@ -370,6 +359,11 @@ class UpdaterService: ObservableObject {
             guard let bundle = contents.first(where: { $0.pathExtension == "app" }) else {
                 throw Err(".app не найден в DMG")
             }
+            // Пустой .app в DMG уже был — не ставим такой поверх рабочего
+            let executable = bundle.appendingPathComponent("Contents/MacOS/Studio1826Updater")
+            guard FileManager.default.isExecutableFile(atPath: executable.path) else {
+                throw Err("в DMG повреждённое приложение — установка отменена")
+            }
 
             let dest = URL(fileURLWithPath: "/Applications/Studio1826Updater.app")
             let fm = FileManager.default
@@ -378,7 +372,11 @@ class UpdaterService: ObservableObject {
             try fm.copyItem(at: bundle, to: staged)
             installProgress = 0.75
 
-            _ = try fm.replaceItemAt(dest, withItemAt: staged)
+            if fm.fileExists(atPath: dest.path) {
+                _ = try fm.replaceItemAt(dest, withItemAt: staged)
+            } else {
+                try fm.moveItem(at: staged, to: dest)
+            }
             installProgress = 0.85
 
             mountedPath = nil
@@ -386,7 +384,7 @@ class UpdaterService: ObservableObject {
             try? fm.removeItem(at: tmp)
 
             installProgress = 1.0
-            appStatus = "Установлено v\(remoteVersion) — перезапуск…"
+            appStatus = "Установлена \(remoteVersion) — перезапуск…"
 
             try await Task.sleep(nanoseconds: 1_500_000_000)
             relaunch(appAt: dest)
@@ -425,27 +423,6 @@ class UpdaterService: ObservableObject {
                 try t.run()
             } catch { cont.resume(throwing: error) }
         }
-    }
-
-    private func parseVersion(_ text: String) -> String? {
-        for pattern in [#"@version\s+([\d.]+)"#, #"VERSION\s*=\s*'([\d.]+)'"#] {
-            if let m = text.range(of: pattern, options: .regularExpression),
-               let v = text[m].firstMatch(of: /[\d.]+/) {
-                return String(v.output)
-            }
-        }
-        return nil
-    }
-
-    private func refreshScriptVersion() {
-        for m in ScriptManager.allCases where enabledManagers.contains(m) {
-            let text = (try? String(contentsOfFile: m.resolvedPath(), encoding: .utf8)) ?? ""
-            if let v = parseVersion(text) {
-                scriptVersion = v
-                return
-            }
-        }
-        scriptVersion = enabledManagers.isEmpty ? "расширение не найдено" : "не установлен"
     }
 }
 
