@@ -305,7 +305,7 @@
 
     const dates = [...modal.querySelectorAll('input[type="date"]')].filter(visible);
     if (dates.length < 2) return 'не нашёл поля дат';
-    const fio = inputByLabel(modal, /^ФИО\b/) ||
+    const fio = inputByLabel(modal, /^ФИО(?![А-Яа-яЁё])/) ||
       [...modal.querySelectorAll('input[type="text"], input:not([type])')]
         .find((i) => visible(i) && !/\+7|X999|000/.test(i.placeholder || ''));
     if (!fio) return 'не нашёл поле ФИО';
