@@ -433,3 +433,27 @@ test('exportSettings/parseSettingsImport: круговой обмен и отк�
     assert.strictEqual(dirty.colors.border, '#000000');
 });
 
+
+/* =========================================================
+ * encodeRequest() / decodeRequest() — запросы main → iframe строкой (4.5.2)
+ * ========================================================= */
+
+test('encodeRequest: строка, которую обработчик BX24 не примет за команду', () => {
+    const text = m.encodeRequest({ type: 'STUDIO1826_V3_REQUEST', full: true });
+    assert.equal(typeof text, 'string');
+    assert.equal(text.charAt(0), '{');
+    /* BX24: util.split(e.data, ':') → имя команды до первого двоеточия */
+    assert.equal(text.split(':')[0], '{"type"');
+});
+
+test('decodeRequest: строка и объект (совместимость), чужие сообщения — null', () => {
+    const req = { type: 'STUDIO1826_V3_REQUEST', settings: { arrows: false }, mark: ['a|1'], moves: [], full: true };
+    assert.deepEqual(m.decodeRequest(m.encodeRequest(req)), req);
+    assert.deepEqual(m.decodeRequest(req), req);
+    assert.equal(m.decodeRequest('setTitle:["x"]'), null);
+    assert.equal(m.decodeRequest('{broken'), null);
+    assert.equal(m.decodeRequest('{"type":"OTHER"}'), null);
+    assert.equal(m.decodeRequest(null), null);
+    assert.equal(m.decodeRequest(42), null);
+    assert.equal(m.decodeRequest('{"type":"STUDIO1826_V3_REQUEST","x":"' + 'a'.repeat(600 * 1024) + '"}'), null);
+});
