@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Studio 1826 — Пропуска списком (Авангард)
 // @namespace    studio1826
-// @version      1.0.0
-// @description  Кнопка «Пропуск» в Bitrix24: список ФИО + дата → пропуска в Авангарде оформляются по очереди
+// @version      1.1.0
+// @description  Значок 🎫 в окне ввода открытых линий Bitrix24: список ФИО + дата → пропуска в Авангарде оформляются по очереди
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
 // @match        https://1826studio.bitrix24.ru/*
@@ -25,7 +25,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.0.0';
+  const VERSION = '1.1.0';
   const DEFAULT_GUESTS_URL = 'https://my.avanguard.pro/account/354/guests';
 
   // ── Чистые функции (тесты: tests/passes.test.js) ───────────────────────────
@@ -159,11 +159,14 @@
 
   /** Панель: список ФИО + даты + кнопка. `single` — одна дата вместо «с/по». */
   function buildPanel({ id, toggleText, position, single, defaultDate, onStart }) {
-    const toggle = document.createElement('button');
-    toggle.className = 's1826p-toggle';
-    toggle.id = `${id}-toggle`;
-    toggle.textContent = toggleText;
-    Object.assign(toggle.style, position.toggle);
+    // Без toggleText плавающей кнопки нет — панель открывают снаружи (ui.openAt)
+    const toggle = toggleText ? document.createElement('button') : null;
+    if (toggle) {
+      toggle.className = 's1826p-toggle';
+      toggle.id = `${id}-toggle`;
+      toggle.textContent = toggleText;
+      Object.assign(toggle.style, position.toggle);
+    }
 
     const panel = document.createElement('div');
     panel.className = 's1826p';
@@ -182,7 +185,7 @@
       <ol class="status"></ol>
       <div class="hint footer">Studio 1826 · пропуска · ${VERSION}</div>
     `;
-    document.body.append(toggle, panel);
+    document.body.append(...[toggle, panel].filter(Boolean));
 
     const ui = {
       panel,
@@ -196,7 +199,17 @@
       running: false,
     };
 
-    toggle.addEventListener('click', () => panel.classList.toggle('open'));
+    if (toggle) toggle.addEventListener('click', () => panel.classList.toggle('open'));
+    /** Открыть/закрыть над элементом (значок в окне ввода сообщения) */
+    ui.openAt = (anchor) => {
+      if (panel.classList.contains('open')) { panel.classList.remove('open'); return; }
+      panel.classList.add('open');
+      const r = anchor.getBoundingClientRect();
+      const left = Math.max(8, Math.min(r.left, window.innerWidth - panel.offsetWidth - 8));
+      Object.assign(panel.style, { left: `${left}px`, right: 'auto', top: 'auto',
+        bottom: `${Math.max(8, window.innerHeight - r.top + 8)}px` });
+      ui.area.focus();
+    };
     panel.querySelector('.close').addEventListener('click', () => panel.classList.remove('open'));
 
     ui.refresh = () => {
@@ -421,15 +434,51 @@
 
   // ── Bitrix24: кнопка «Пропуск» ──────────────────────────────────────────────
 
+  // Значок «🎫» встраивается в окно ввода сообщения — только в открытых линиях:
+  // ряд значков .bx-imol-textarea-buttons (CRM-формы, Быстрые ответы, …) есть только у линий.
+  // Окно ввода перерисовывается при смене диалога, поэтому следим за страницей и вставляем заново.
+  const LINES_BUTTONS = '.bx-imol-textarea-buttons';
+
   function bitrixMain() {
-    if (window.top !== window) return; // только основное окно, не фреймы
-    addStyle(PANEL_CSS);
-    buildPanel({
+    addStyle(PANEL_CSS + `
+      .s1826p-icon { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px;
+        font-size: 17px; line-height: 1; cursor: pointer; opacity: .75; filter: grayscale(.3); }
+      .s1826p-icon:hover { opacity: 1; filter: none; }
+    `);
+    let ui = null;
+    const panel = () => ui || (ui = createBitrixPanel());
+
+    const inject = () => {
+      for (const row of document.querySelectorAll(LINES_BUTTONS)) {
+        if (row.querySelector('.s1826p-icon')) continue;
+        const wrap = document.createElement('span');
+        const icon = document.createElement('div');
+        icon.className = 's1826p-icon';
+        icon.title = 'Оформить пропуска в Авангарде';
+        icon.textContent = '🎫';
+        icon.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); panel().openAt(icon); });
+        wrap.appendChild(icon);
+        row.appendChild(wrap);
+      }
+      // Ушли из линий — панель закрываем (если она не работает)
+      if (ui && !ui.running && !document.querySelector(LINES_BUTTONS)) ui.panel.classList.remove('open');
+    };
+    inject();
+    let scheduled = false;
+    new MutationObserver(() => {
+      if (scheduled) return;
+      scheduled = true;
+      requestAnimationFrame(() => { scheduled = false; inject(); });
+    }).observe(document.body, { childList: true, subtree: true });
+  }
+
+  function createBitrixPanel() {
+    return buildPanel({
       id: 's1826p-bx',
-      toggleText: '🎫 Пропуск',
+      toggleText: null,
       single: true,
       defaultDate: isoDate(addDays(new Date(), 1)),
-      position: { toggle: { left: '20px', bottom: '20px' }, panel: { left: '20px', bottom: '70px' } },
+      position: { panel: {} },
       async onStart(ui) {
         if (ui.running) return;
         const { names } = parseNames(ui.area.value);

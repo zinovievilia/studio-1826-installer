@@ -136,7 +136,7 @@ struct StudioUserscript: Identifiable, Hashable {
     static let avanguardPasses = StudioUserscript(
         id: "avanguard",
         name: "Пропуска списком",
-        summary: "Кнопка «Пропуск» в Bitrix24: список ФИО и дата — пропуска в Авангарде оформляются сами",
+        summary: "Значок 🎫 в открытых линиях Bitrix24: список ФИО и дата — пропуска в Авангарде оформляются сами",
         fileName: "studio1826-passes.user.js"
     )
 
