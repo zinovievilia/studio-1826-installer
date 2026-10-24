@@ -397,3 +397,23 @@ test('validateCollectorPayload: records отсутствует или не ма�
     assert.equal(m.validateCollectorPayload({ ...base }, m.VERSION), null);
     assert.equal(m.validateCollectorPayload({ ...base, records: 'не массив' }, m.VERSION), null);
 });
+
+test('validateCollectorPayload: лимиты на число записей, позиций и длину текста', () => {
+    const { validateCollectorPayload, VERSION } = require('../studio1826.user.js');
+    const make = records => ({ type: 'STUDIO1826_V3_DATA', source: 'studio1826-collector', version: VERSION, records });
+
+    const many = Array.from({ length: 500 }, () => ({ hall: 'Зал 1', items: ['a'], start: 0, end: 60 }));
+    assert.strictEqual(validateCollectorPayload(make(many), VERSION).records.length, 300);
+
+    const longText = 'x'.repeat(501);
+    const result = validateCollectorPayload(make([
+        { hall: longText, items: ['ok'] },
+        { hall: 'Зал 1', items: ['ok', longText] }
+    ]), VERSION);
+
+    assert.strictEqual(result.records.length, 1);
+    assert.deepStrictEqual(result.records[0].items, ['ok']);
+
+    const items = Array.from({ length: 300 }, () => 'a');
+    assert.strictEqual(validateCollectorPayload(make([{ hall: 'Зал 1', items }]), VERSION).records[0].items.length, 200);
+});

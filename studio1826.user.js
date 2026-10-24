@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v4.2.0 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v4.3.0 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      4.2.0
+// @version      4.3.0
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '4.2.0';
+    const VERSION = '4.3.0';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -612,6 +612,14 @@
                 font-weight: 700;
             }
             #${WIDGET_ID} .s-panel[hidden] { display: none !important; }
+            #${WIDGET_ID} .s-head-copy { display: none; }
+            #${WIDGET_ID}.collapsed .s-head-copy { display: inline-block; }
+            #${WIDGET_ID} .s-overview-warn { margin-top: 6px; color: #ffb4b4; font-weight: 650; }
+            #${WIDGET_ID} button:focus-visible,
+            #${WIDGET_ID} input:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+            @media (prefers-reduced-motion: reduce) {
+                #${WIDGET_ID} * { transition: none !important; }
+            }
             #${WIDGET_ID} .s-panel { max-height: calc(100vh - 260px); overflow-y: auto; }
             #${WIDGET_ID} .s-overview-status {
                 margin-bottom: 14px;
@@ -1337,6 +1345,11 @@
      * Иначе — { records: [...] } с уже отфильтрованными/нормализованными
      * записями (защита от повреждённых/чужих данных в payload).
      */
+    /* Лимиты на входные данные postMessage: защита от раздутых/повреждённых payload. */
+    const MAX_RECORDS = 300;
+    const MAX_ITEMS = 200;
+    const MAX_TEXT = 500;
+
     function validateCollectorPayload(data, currentVersion, messageType = MESSAGE_TYPE) {
         if (!data || data.type !== messageType || data.source !== 'studio1826-collector') {
             return null;
@@ -1349,14 +1362,17 @@
         if (!Array.isArray(data.records)) return null;
 
         const records = data.records
+            .slice(0, MAX_RECORDS)
             .filter(record =>
                 record &&
-                (record.hall === null || typeof record.hall === 'string') &&
+                (record.hall === null || (typeof record.hall === 'string' && record.hall.length <= MAX_TEXT)) &&
                 Array.isArray(record.items)
             )
             .map(record => ({
                 hall: record.hall,
-                items: record.items.filter(item => typeof item === 'string'),
+                items: record.items
+                    .slice(0, MAX_ITEMS)
+                    .filter(item => typeof item === 'string' && item.length <= MAX_TEXT),
                 start: Number.isFinite(record.start) ? record.start : null,
                 end: Number.isFinite(record.end) ? record.end : null
             }));
@@ -2050,10 +2066,16 @@
             </svg>
         `;
 
+        let copyIconTemplate = null;
+
         const createCopyIcon = () => {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(COPY_ICON_SVG, 'image/svg+xml');
-            return doc.documentElement;
+            if (!copyIconTemplate) {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(COPY_ICON_SVG, 'image/svg+xml');
+                copyIconTemplate = doc.documentElement;
+            }
+
+            return copyIconTemplate.cloneNode(true);
         };
 
         /* Исходный текст метки (метка визуально скрыта, но остаётся в DOM). */
@@ -3484,15 +3506,19 @@
 
                     if (JSON.stringify(next) !== JSON.stringify(features)) {
                         features = next;
+                        settingsChanged = true;
                         saveFeatures(features);
                         applyFeatures();
                     }
                 }
 
                 let marksChanged = false;
+                let settingsChanged = false;
 
                 if (Array.isArray(event.data.mark)) {
-                    const next = new Set(event.data.mark.filter(key => typeof key === 'string'));
+                    const next = new Set(event.data.mark
+                        .slice(0, 500)
+                        .filter(key => typeof key === 'string' && key.length <= 200));
                     const same = next.size === markKeys.size &&
                         [...next].every(key => markKeys.has(key));
 
@@ -3504,7 +3530,9 @@
 
                 if (Array.isArray(event.data.moves)) {
                     const next = event.data.moves
-                        .filter(link => link && typeof link.from === 'string' && typeof link.to === 'string')
+                        .slice(0, 200)
+                        .filter(link => link && typeof link.from === 'string' && typeof link.to === 'string' &&
+                            link.from.length <= 200 && link.to.length <= 200)
                         .map(link => ({ from: link.from, to: link.to }));
 
                     if (JSON.stringify(next) !== JSON.stringify(moveLinks)) {
@@ -3515,7 +3543,10 @@
 
                 if (marksChanged) processCards();
 
-                send(true);
+                /* Принудительная отправка — только если страница просит «полные» данные
+                 * (первый запрос после загрузки/возврата на вкладку) или что-то изменилось;
+                 * иначе обычная отправка с дедупликацией. */
+                send(event.data.full === true || settingsChanged || marksChanged);
             }
         });
     }
@@ -3535,6 +3566,7 @@
         let category = 'C';
         let categorySource = 'default'; // branch | halls | default
         let selectedDate = '';
+        let healthNote = ''; // сообщение о проблеме (например, разные версии скрипта)
         let admins = 2;
         let rateEnabled = false;
         let rateValue = DEFAULT_RATE;
@@ -3787,8 +3819,20 @@
             root.style.transform = 'none';
         }
 
+        let lastPayoutText = '';
+
+        /* В свёрнутом виде в заголовке видна сумма выплаты. */
+        function refreshHeadTitle(root, payout) {
+            if (typeof payout === 'number') lastPayoutText = money(payout);
+
+            const title = root.querySelector('#s-head-title');
+
+            if (title) title.textContent = collapsed && lastPayoutText ? `STUDIO 1826 · ${lastPayoutText}` : 'STUDIO 1826';
+        }
+
         function setCollapsed(root, value) {
             collapsed = value;
+            refreshHeadTitle(root);
             root.classList.toggle('collapsed', collapsed);
 
             const button = root.querySelector('.s-collapse');
@@ -4154,6 +4198,10 @@
 
             closeDayDialog = () => { dialog.hidden = true; };
 
+            document.addEventListener('keydown', event => {
+                if (event.key === 'Escape' && !dialog.hidden) dialog.hidden = true;
+            });
+
             /* Перетаскивание окна за заголовок. */
             const dialogHead = dialog.querySelector('.dd-head');
             let dialogDrag = null;
@@ -4510,8 +4558,9 @@
             root.id = WIDGET_ID;
 
             root.appendChild(el('div', { className: 's-head' }, [
-                el('span', {}, ['STUDIO 1826']),
+                el('span', { id: 's-head-title' }, ['STUDIO 1826']),
                 el('span', { className: 's-head-buttons' }, [
+                    el('button', { type: 'button', className: 's-icon s-head-copy', title: 'Копировать расчёт', 'aria-label': 'Копировать расчёт' }, ['⧉']),
                     el('button', { type: 'button', className: 's-icon s-collapse', title: 'Развернуть' }, ['☰'])
                 ])
             ]));
@@ -4522,11 +4571,15 @@
                 ['settings', 'Настройки']
             ];
 
+            const PANEL_IDS = { overview: 's-panel-overview', payout: 's-panel-payout', settings: SETTINGS_ID };
+
             const tabs = el('div', { className: 's-tabs', role: 'tablist', 'aria-label': 'Разделы' },
                 TABS.map(([id, label]) => el('button', {
                     type: 'button',
                     role: 'tab',
                     'data-tab': id,
+                    'aria-controls': PANEL_IDS[id],
+                    tabindex: id === 'overview' ? '0' : '-1',
                     'aria-selected': id === 'overview' ? 'true' : 'false'
                 }, [label])));
 
@@ -4616,6 +4669,7 @@
 
                 tabs.querySelectorAll('[data-tab]').forEach(button => {
                     button.setAttribute('aria-selected', String(button.dataset.tab === target));
+                    button.tabIndex = button.dataset.tab === target ? 0 : -1;
                 });
 
                 [['overview', overview], ['payout', payoutPanel], ['settings', settingsPanel]].forEach(([id, node]) => {
@@ -4625,9 +4679,35 @@
                 if (target === 'settings') fillSettingsControls();
             };
 
+            const UI_KEY = 'studio1826.v4.ui';
+
+            const chooseTab = name => {
+                activateTab(name);
+
+                try { localStorage.setItem(UI_KEY, JSON.stringify({ tab: name })); } catch (_) {}
+            };
+
             tabs.querySelectorAll('[data-tab]').forEach(button => {
-                button.addEventListener('click', () => activateTab(button.dataset.tab));
+                button.addEventListener('click', () => chooseTab(button.dataset.tab));
             });
+
+            tabs.addEventListener('keydown', event => {
+                const order = TABS.map(([id]) => id);
+                const current = order.indexOf(document.activeElement?.dataset?.tab);
+                const move = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+                let next = -1;
+
+                if (current === -1) return;
+                if (move) next = (current + move + order.length) % order.length;
+                if (event.key === 'Home') next = 0;
+                if (event.key === 'End') next = order.length - 1;
+                if (next === -1) return;
+
+                event.preventDefault();
+                chooseTab(order[next]);
+                tabs.querySelector(`[data-tab="${order[next]}"]`).focus();
+            });
+
 
             root.querySelector('#s3-light-on').checked = lightSetupEnabled;
             root.querySelector('#s3-coffee-on').checked = coffeeEnabled;
@@ -4661,6 +4741,12 @@
             setupSettings(root);
             setupDayTools(root);
 
+            try {
+                const saved = JSON.parse(localStorage.getItem(UI_KEY) || 'null');
+
+                if (saved && TABS.some(([id]) => id === saved.tab)) activateTab(saved.tab);
+            } catch (_) {}
+
             root.querySelector('#s3-rate').addEventListener('input', event => {
                 rateValue = parseNumber(event.target.value);
                 saveSettings();
@@ -4689,10 +4775,12 @@
                 setCollapsed(root, !collapsed);
             });
 
-            root.querySelector('.s-copy-button').addEventListener('click', async () => {
-                const text = copySummary();
-                const ok = await copyText(text);
-                showCopyToast(text, ok);
+            root.querySelectorAll('.s-copy-button, .s-head-copy').forEach(button => {
+                button.addEventListener('click', async () => {
+                    const text = copySummary();
+                    const ok = await copyText(text);
+                    showCopyToast(text, ok);
+                });
             });
 
             /* Перетаскивание */
@@ -4811,10 +4899,20 @@
             const branchName = category === 'P' ? 'Павелецкая' : 'Серпуховская';
             const status = root.querySelector('#s-branch-status');
 
-            status.replaceChildren(
+            const lines = [
                 el('div', {}, ['Филиал: ', el('strong', {}, [branchName]), categorySource === 'default' ? ' (по умолчанию)' : '']),
-                el('div', {}, [`Броней на экране: ${records.length}`, selectedDate ? ` · ${selectedDate}` : ''])
-            );
+                el('div', {}, [`Броней на экране: ${records.length}`, selectedDate ? ` · ${selectedDate}` : '']),
+                el('div', {}, [`Часов учтено: ${s.hours} · выплата ${money(s.payout)}`])
+            ];
+
+            if (healthNote) {
+                lines.push(el('div', { className: 's-overview-warn' }, [healthNote]));
+            } else if (records.length === 0) {
+                lines.push(el('div', { className: 's-muted' }, ['Откройте день с бронями — данные появятся автоматически.']));
+            }
+
+            status.replaceChildren(...lines);
+            refreshHeadTitle(root, s.payout);
         }
 
         /* Приём данных от iframe */
@@ -4827,10 +4925,14 @@
 
             if (validated.versionMismatch) {
                 console.warn(`[studio1826] postMessage version mismatch: iframe=${validated.version}, main=${VERSION}`);
+                healthNote = `Версия скрипта в календаре (${String(validated.version).slice(0, 20)}) не совпадает с версией страницы (${VERSION}). Обновите страницу.`;
+                update();
                 return;
             }
 
             const nextRecords = validated.records;
+
+            healthNote = '';
 
             if (nextRecords.length === 0 && records.length > 0) {
                 if (!cardsMissing) {
@@ -4857,7 +4959,7 @@
                 requestData();
             }
 
-            if (typeof event.data.selectedDate === 'string' && event.data.selectedDate) {
+            if (typeof event.data.selectedDate === 'string' && event.data.selectedDate && event.data.selectedDate.length <= 40) {
                 selectedDate = event.data.selectedDate;
             }
 
@@ -4875,13 +4977,13 @@
 
         create();
 
-        function requestData() {
+        function requestData(full = false) {
             if (document.hidden) return;
 
             document.querySelectorAll('iframe').forEach(frame => {
                 try {
                     frame.contentWindow?.postMessage(
-                        { type: REQUEST_TYPE, settings: features, mark: markKeys, moves: moveLinks },
+                        { type: REQUEST_TYPE, settings: features, mark: markKeys, moves: moveLinks, full: full === true },
                         APP_ORIGIN
                     );
                 } catch (_) {}
@@ -4896,17 +4998,34 @@
             }
         }
 
-        requestData();
-        setInterval(requestData, 3000);
+        requestData(true);
+        setInterval(() => requestData(records.length === 0), 3000);
 
         /* Р-6: при возврате на вкладку iframe мог работать со старыми
          * settings до следующего тика setInterval(3000). Немедленно
          * запрашиваем свежие данные. */
         document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) requestData();
+            if (!document.hidden) requestData(true);
         });
 
-        setInterval(updateOverlayVisibility, 250);
+        /* Видимость окон: наблюдатель вместо опроса каждые 250 мс; редкий опрос — страховка. */
+        let overlayTimer = null;
+
+        new MutationObserver(mutations => {
+            const widget = document.getElementById(WIDGET_ID);
+
+            if (widget && mutations.every(m => widget.contains(m.target))) return;
+
+            clearTimeout(overlayTimer);
+            overlayTimer = setTimeout(updateOverlayVisibility, 120);
+        }).observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['class', 'style']
+        });
+
+        setInterval(updateOverlayVisibility, 1500);
     }
 
     /* =========================================================
