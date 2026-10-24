@@ -5,7 +5,7 @@
 
 ## Текущее состояние
 
-- **Версия:** 5.5.0 (`@version` в `studio1826.user.js` / `studio1826.meta.js`
+- **Версия:** 5.5.1 (`@version` в `studio1826.user.js` / `studio1826.meta.js`
   и `VERSION` внутри кода синхронизированы).
 - **Файл:** `studio1826.user.js`, ~5340 строк, единый IIFE, `@grant none`,
   без сборщика.
@@ -343,3 +343,14 @@ claude.ai-проекте "1826Studio", документ `Studio1826Updater.md`):
   при смене дня в календаре сразу грузится следующий день. Кнопки дня в окне: «Сегодня/Завтра» или даты.
 - Шапка: селектор `:last-child` для `.air-header__buttons` ломался из-за слота кнопки «Выплата» в `#header` → теперь
   `#header .air-header__personal-info .air-header__buttons` и `#air-header-marta-slot` (скрываются при «Скрывать лишнее»).
+
+## 5.5.1
+
+Копирование из брони (`copyBookingEquipment`): строки `bookingCopyLine(name, qty)` = «N шт. | имя», `shortEquipmentName` убирает «Umbrella» после «Зонт -».
+Списки дня («Скопировать» в разделе «Оборудование», диалог) не менялись — формат «имя — N шт.».
+
+## Updater: контекст в его папке
+
+С 24.10.2026 исходники Updater лежат в `Studio1826UpdaterDMG/`, рабочая память — `Studio1826UpdaterDMG/CONTEXT.md`
+(составлена по README). Пока с Updater не работаем. Для userscript важно: Updater (Safari) берёт `studio1826.user.js`
+по тому же raw-URL, что Tampermonkey (Chrome), — имя и путь файла не менять.
