@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v4.5.2 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v4.6.0 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      4.5.2
+// @version      4.6.0
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '4.5.2';
+    const VERSION = '4.6.0';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -725,6 +725,23 @@
                 line-height: 1;
                 text-align: center;
             }
+            /* 4.6.0: на низком окне шапка (перетаскивание и «свернуть») уезжала за экран,
+             * и панель нельзя было ни свернуть, ни сдвинуть. Теперь высота ограничена окном,
+             * шапка и подвал остаются на месте, прокручивается только тело. */
+            #${WIDGET_ID}:not(.collapsed) {
+                display: flex;
+                flex-direction: column;
+                max-height: calc(100vh - 24px);
+            }
+            #${WIDGET_ID} .s-head,
+            #${WIDGET_ID} .s-footer { flex: none; }
+            #${WIDGET_ID} .s-body {
+                flex: 1 1 auto;
+                min-height: 0;
+                overflow-y: auto;
+                overscroll-behavior: contain;
+            }
+            #${WIDGET_ID} .s-panel { max-height: none; overflow-y: visible; }
         `,
         settings: `
             /* 4.2.0: настройки больше не отдельное плавающее окно (было
@@ -1040,6 +1057,115 @@
             }
             #${DAY_DIALOG_ID} .dd-group .dd-line { display: flex; gap: 10px; justify-content: space-between; }
             #${DAY_DIALOG_ID} .dd-group .dd-qty { flex: none; color: #bbb; white-space: nowrap; }
+        `,
+        /* 4.6.0: светлое оформление в стиле Bitrix24 (белая карточка, акцент #2067b0).
+         * Только перекраска: включается атрибутом data-skin="light" на корне панели,
+         * без него действуют прежние тёмные стили. Диалог «Не разбирать на завтра»
+         * и всплывающие подсказки остаются тёмными. */
+        skin: `
+            #${WIDGET_ID}[data-skin="light"] {
+                --s-accent: #2067b0;
+                background: #fff;
+                color: #333;
+                border-color: #dfe3e8;
+                box-shadow: 0 6px 24px #1f2d3d26;
+            }
+            #${WIDGET_ID}[data-skin="light"] .s-head { background: #f5f7f8; border-bottom-color: #e6e9ed; color: #333; }
+            #${WIDGET_ID}[data-skin="light"].collapsed .s-head { border-radius: 9px; }
+            #${WIDGET_ID}[data-skin="light"] .s-row span:first-child,
+            #${WIDGET_ID}[data-skin="light"] .s-check,
+            #${WIDGET_ID}[data-skin="light"] .s-rate-label,
+            #${WIDGET_ID}[data-skin="light"] .st-check,
+            #${WIDGET_ID}[data-skin="light"] .st-color { color: #4b5560; }
+            #${WIDGET_ID}[data-skin="light"] .s-title,
+            #${WIDGET_ID}[data-skin="light"] .st-title { color: #828b95; }
+            #${WIDGET_ID}[data-skin="light"] .s-muted,
+            #${WIDGET_ID}[data-skin="light"] .st-note,
+            #${WIDGET_ID}[data-skin="light"] .s-version,
+            #${WIDGET_ID}[data-skin="light"] .s-credit { color: #828b95; }
+            #${WIDGET_ID}[data-skin="light"] .s-input,
+            #${WIDGET_ID}[data-skin="light"] .st-hex,
+            #${WIDGET_ID}[data-skin="light"] .st-import,
+            #${WIDGET_ID}[data-skin="light"] .st-color input[type=color] {
+                background: #f4f6f8;
+                border-color: #d5dae0;
+                color: #333;
+            }
+            #${WIDGET_ID}[data-skin="light"] .s-check:not(.s-rate-toggle),
+            #${WIDGET_ID}[data-skin="light"] .s-rate-controls .s-rate-toggle,
+            #${WIDGET_ID}[data-skin="light"] .st-check,
+            #${WIDGET_ID}[data-skin="light"] .s-switch,
+            #${WIDGET_ID}[data-skin="light"] .s-tabs,
+            #${WIDGET_ID}[data-skin="light"] .s-overview-status,
+            #${WIDGET_ID}[data-skin="light"] .da-btn {
+                background: #f4f6f8;
+                border-color: #e0e4e9;
+                color: #4b5560;
+            }
+            /* Включённые переключатели списка — мягкая заливка, чтобы 10+ штук подряд не давили на глаз. */
+            #${WIDGET_ID}[data-skin="light"] .s-check:not(.s-rate-toggle):has(input:checked),
+            #${WIDGET_ID}[data-skin="light"] .s-rate-controls .s-rate-toggle:has(input:checked),
+            #${WIDGET_ID}[data-skin="light"] .st-check:has(input:checked) {
+                background: #e8f1fa;
+                border-color: var(--s-accent);
+                color: #17487d;
+                font-weight: 700;
+            }
+            #${WIDGET_ID}[data-skin="light"] .s-switch button[aria-pressed=true],
+            #${WIDGET_ID}[data-skin="light"] .s-tabs button[aria-selected="true"] {
+                background: var(--s-accent);
+                border-color: var(--s-accent);
+                color: #fff;
+                font-weight: 700;
+            }
+            #${WIDGET_ID}[data-skin="light"] .s-switch button,
+            #${WIDGET_ID}[data-skin="light"] .s-tabs button { color: #4b5560; }
+            #${WIDGET_ID}[data-skin="light"] .s-switch button[aria-pressed=true],
+            #${WIDGET_ID}[data-skin="light"] .s-tabs button[aria-selected="true"] { color: #fff; }
+            #${WIDGET_ID}[data-skin="light"] .s-divider,
+            #${WIDGET_ID}[data-skin="light"] .s-summary,
+            #${WIDGET_ID}[data-skin="light"] .s-bottom-controls { border-color: #e6e9ed; background-color: transparent; }
+            #${WIDGET_ID}[data-skin="light"] .s-divider { background: #e6e9ed; }
+            #${WIDGET_ID}[data-skin="light"] .s-footer { background: #f5f7f8; border-top-color: #e6e9ed; }
+            #${WIDGET_ID}[data-skin="light"] .s-overview-status strong,
+            #${WIDGET_ID}[data-skin="light"] .s-payout { color: #1f2933; }
+            #${WIDGET_ID}[data-skin="light"] .da-btn:hover { background: #e9eef3; }
+            #${WIDGET_ID}[data-skin="light"] .s-overview-warn { color: #c0392b; }
+            #${WIDGET_ID}[data-skin="light"] .s-icon {
+                background: #fff;
+                border-color: #d5dae0;
+                color: #4b5560;
+            }
+            #${WIDGET_ID}[data-skin="light"] .s-debug-button { border-color: #d5dae0; color: #6a737f; }
+            #${WIDGET_ID}[data-skin="light"] .s-debug-button:hover { color: #1f2933; border-color: #9aa3ad; }
+            #${WIDGET_ID}[data-skin="light"] button.s-copy-button,
+            #${WIDGET_ID}[data-skin="light"] button.s-copy-button:focus,
+            #${WIDGET_ID}[data-skin="light"] button.s-copy-button:active {
+                border: 1px solid var(--s-accent) !important;
+                background: var(--s-accent) !important;
+                color: #fff !important;
+            }
+            #${WIDGET_ID}[data-skin="light"] button.s-copy-button:hover {
+                background: #1a548f !important;
+                color: #fff !important;
+            }
+            #${WIDGET_ID}[data-skin="light"] button:focus-visible,
+            #${WIDGET_ID}[data-skin="light"] input:focus-visible { outline-color: var(--s-accent); }
+            #${WIDGET_ID}[data-skin="light"] .st-group { border-color: #e0e4e9; }
+            #${WIDGET_ID}[data-skin="light"] .st-group > summary { color: #4b5560; }
+            #${WIDGET_ID}[data-skin="light"] .st-group > summary::before { color: #9aa3ad; }
+            #${WIDGET_ID}[data-skin="light"] .st-group > summary .st-group-count { color: #9aa3ad; }
+            #${WIDGET_ID}[data-skin="light"] .st-theme-reset,
+            #${WIDGET_ID}[data-skin="light"] .st-actions .st-reset {
+                background: transparent;
+                border-color: #cfd5db;
+                color: #4b5560;
+            }
+            #${WIDGET_ID}[data-skin="light"] .st-actions button:not(.st-reset) {
+                background: var(--s-accent);
+                border-color: var(--s-accent);
+                color: #fff;
+            }
         `,
         toast: `
             #${TOAST_ID} {
@@ -3940,6 +4066,7 @@
                 STYLES.settings,
                 STYLES.actions,
                 STYLES.dayDialog,
+                STYLES.skin,
                 STYLES.toast
             ].join('\n');
 
@@ -4093,6 +4220,20 @@
 
             /* Перенос оборудования между бронями: связанная группа функций. */
             const REUSE_KEYS = ['reuse', 'aliases', 'arrows', 'moveArrows'];
+
+            group('Оформление панели', 1, [
+                el('div', { className: 's-switch', role: 'group', 'aria-label': 'Оформление панели' }, [
+                    el('button', { type: 'button', 'data-skin-choice': 'light' }, ['Светлое']),
+                    el('button', { type: 'button', 'data-skin-choice': 'dark' }, ['Тёмное'])
+                ])
+            ]);
+
+            panel.querySelectorAll('[data-skin-choice]').forEach(button => {
+                button.addEventListener('click', () => {
+                    writeUi({ skin: applySkin(root, button.dataset.skinChoice) });
+                });
+            });
+            applySkin(root, root.dataset.skin);
 
             group('Карточки брони', CARD_DISPLAY_KEYS.length,
                 CARD_DISPLAY_KEYS.map(featureCheck));
@@ -4771,6 +4912,36 @@
             });
         }
 
+        /* Состояние интерфейса (вкладка, оформление) — один ключ, поля не затирают друг друга. */
+        const UI_KEY = 'studio1826.v4.ui';
+        const SKINS = ['light', 'dark'];
+        const DEFAULT_SKIN = 'light';
+
+        function readUi() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(UI_KEY) || 'null');
+
+                return saved && typeof saved === 'object' ? saved : {};
+            } catch (_) {
+                return {};
+            }
+        }
+
+        function writeUi(patch) {
+            try { localStorage.setItem(UI_KEY, JSON.stringify({ ...readUi(), ...patch })); } catch (_) {}
+        }
+
+        function applySkin(root, skin) {
+            const value = SKINS.includes(skin) ? skin : DEFAULT_SKIN;
+
+            root.dataset.skin = value;
+            root.querySelectorAll('[data-skin-choice]').forEach(button => {
+                button.setAttribute('aria-pressed', String(button.dataset.skinChoice === value));
+            });
+
+            return value;
+        }
+
         function create() {
             injectStyle();
 
@@ -4779,6 +4950,7 @@
 
             const root = document.createElement('div');
             root.id = WIDGET_ID;
+            root.dataset.skin = SKINS.includes(readUi().skin) ? readUi().skin : DEFAULT_SKIN;
 
             root.appendChild(el('div', { className: 's-head' }, [
                 el('span', { id: 's-head-title' }, ['STUDIO 1826']),
@@ -4910,12 +5082,9 @@
                 if (target === 'settings') fillSettingsControls();
             };
 
-            const UI_KEY = 'studio1826.v4.ui';
-
             const chooseTab = name => {
                 activateTab(name);
-
-                try { localStorage.setItem(UI_KEY, JSON.stringify({ tab: name })); } catch (_) {}
+                writeUi({ tab: name });
             };
 
             tabs.querySelectorAll('[data-tab]').forEach(button => {
@@ -4972,11 +5141,9 @@
             setupSettings(root);
             setupDayTools(root);
 
-            try {
-                const saved = JSON.parse(localStorage.getItem(UI_KEY) || 'null');
+            const savedTab = readUi().tab;
 
-                if (saved && TABS.some(([id]) => id === saved.tab)) activateTab(saved.tab);
-            } catch (_) {}
+            if (TABS.some(([id]) => id === savedTab)) activateTab(savedTab);
 
             root.querySelector('#s3-rate').addEventListener('input', event => {
                 rateValue = parseNumber(event.target.value);
