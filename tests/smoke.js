@@ -43,6 +43,27 @@ const { chromium } = require('playwright');
         return out;
     });
 
+    /* Диагностика: основная страница + iframe-сборщик с одной выдуманной карточкой. */
+    const page2 = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+    const errors2 = [];
+    page2.on('pageerror', e => errors2.push(String(e)));
+    await page2.route('https://1826studio.bitrix24.ru/**', route => route.fulfill({
+        contentType: 'text/html',
+        body: '<html><body><iframe src="https://app.bitrix24.ru/app.6805e7948ac458.97401951/x" width="900" height="700"></iframe></body></html>'
+    }));
+    await page2.route('https://app.bitrix24.ru/**', route => route.fulfill({
+        contentType: 'text/html',
+        body: '<html><body><div class="time-line-container"><div class="time-line-coordinate-item"><span>10:00</span></div></div>' +
+            '<div class="deal-item-contaner"><div class="reserve-title-label">Зал 100 (С)</div><div class="reserve-phone-label">Бум, Фон</div></div></body></html>'
+    }));
+    await page2.goto('https://1826studio.bitrix24.ru/marketplace/app/129/');
+    await page2.addScriptTag({ content: fs.readFileSync(path.join(__dirname, '..', 'studio1826.user.js'), 'utf8') });
+    const frame = page2.frames().find(f => f.url().startsWith('https://app.bitrix24.ru'));
+    await frame.addScriptTag({ content: fs.readFileSync(path.join(__dirname, '..', 'studio1826.user.js'), 'utf8') });
+    await page2.waitForTimeout(800);
+    await page2.evaluate(() => document.querySelector('.s-debug-button').click());
+    await page2.waitForTimeout(3300);
+    const debugStatus = await page2.evaluate(() => document.querySelector('#s-debug-status').textContent);
     await browser.close();
 
     const ok = result &&
@@ -52,9 +73,11 @@ const { chromium } = require('playwright');
         result.payout.join() === 's-panel-payout' &&
         result.features === 11 &&
         /₽/.test(result.collapsedTitle) &&
-        errors.length === 0;
+        errors.length === 0 &&
+        errors2.length === 0 &&
+        /Готово/.test(debugStatus) && !/не ответил/.test(debugStatus);
 
-    console.log(JSON.stringify({ result, errors }, null, 1));
+    console.log(JSON.stringify({ result, errors, errors2, debugStatus }, null, 1));
     if (!ok) { console.error('SMOKE FAILED'); process.exit(1); }
     console.log('SMOKE OK');
 })().catch(e => { console.error(e); process.exit(1); });

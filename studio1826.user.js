@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v4.4.0 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v4.5.0 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      4.4.0
+// @version      4.5.0
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '4.4.0';
+    const VERSION = '4.5.0';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -23,6 +23,37 @@
     const PANEL_ID = 'studio1826-panel-v3';
     const MESSAGE_TYPE = 'STUDIO1826_V3_DATA';
     const REQUEST_TYPE = 'STUDIO1826_V3_REQUEST';
+    const DIAG_TYPE = 'STUDIO1826_V3_DIAG';
+    const MAX_DIAG_SIZE = 200000;
+
+    /* Журнал последних ошибок JS для отчёта диагностики (без персональных данных). */
+    const ERROR_LOG = [];
+    let errorTrackingStarted = false;
+
+    function trackErrors() {
+        if (errorTrackingStarted) return;
+
+        errorTrackingStarted = true;
+
+        window.addEventListener('error', event => {
+            ERROR_LOG.push(String(event.message || 'error').slice(0, 200));
+            if (ERROR_LOG.length > 10) ERROR_LOG.shift();
+        });
+    }
+
+    /* Форма DOM без текста: тег, классы, число детей. Для отладки вёрстки Bitrix. */
+    function describeStructure(node, depth = 0, maxDepth = 3) {
+        if (!node || depth > maxDepth) return null;
+
+        return {
+            tag: node.tagName ? node.tagName.toLowerCase() : '',
+            class: String(node.getAttribute ? node.getAttribute('class') || '' : '').slice(0, 160),
+            children: node.children ? node.children.length : 0,
+            inner: node.children
+                ? [...node.children].slice(0, 6).map(child => describeStructure(child, depth + 1, maxDepth))
+                : []
+        };
+    }
     const STORE_KEY = 'studio1826.v3.settings';
     const SETTINGS_ID = 'studio1826-settings-v32';
     const ACTIONS_ID = 'studio1826-actions-v34';
@@ -612,6 +643,17 @@
                 font-weight: 700;
             }
             #${WIDGET_ID} .s-panel[hidden] { display: none !important; }
+            #${WIDGET_ID} .s-debug { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 11px; }
+            #${WIDGET_ID} .s-debug-button {
+                padding: 4px 9px;
+                border: 1px solid #555;
+                border-radius: 5px;
+                background: transparent;
+                color: #aaa;
+                font-size: 11px;
+            }
+            #${WIDGET_ID} .s-debug-button:hover { color: #fff; border-color: #888; }
+            #${WIDGET_ID} .s-debug-button:disabled { opacity: .5; cursor: default; }
             #${WIDGET_ID} .s-head-copy { display: none; }
             #${WIDGET_ID}.collapsed .s-head-copy { display: inline-block; }
             #${WIDGET_ID} .s-overview-warn { margin-top: 6px; color: #ffb4b4; font-weight: 650; }
@@ -2079,6 +2121,7 @@
      * ========================================================= */
     function startCollector() {
         if (window.__studio1826CollectorV3) return;
+        trackErrors();
         window.__studio1826CollectorV3 = true;
 
         let features = loadFeatures();
@@ -3494,6 +3537,77 @@
             } catch (_) {}
         }
 
+        /* Диагностика для отладки (кнопка «Диагностика» в «Обзоре»). Без текстов броней. */
+        function sendDiagnostics() {
+            const started = performance.now();
+            const cards = [...document.querySelectorAll('.deal-item-contaner')];
+            const count = selector => document.querySelectorAll(selector).length;
+            let axisInfo = null;
+            let axisMs = null;
+
+            try {
+                const t0 = performance.now();
+                const axis = getTimeAxis();
+
+                axisMs = Math.round(performance.now() - t0);
+                axisInfo = axis
+                    ? {
+                        labels: axis.labels.length,
+                        firstMinutes: axis.labels[0].minutes,
+                        lastMinutes: axis.labels[axis.labels.length - 1].minutes,
+                        pxPerMinute: Math.round(axis.pxPerMinute * 1000) / 1000
+                    }
+                    : null;
+            } catch (error) {
+                axisInfo = { error: String(error && error.message).slice(0, 200) };
+            }
+
+            let parsed = 0;
+            let withEquipment = 0;
+            const halls = new Set();
+
+            cards.forEach(card => {
+                try {
+                    const info = parseCard(card);
+
+                    if (info.items.length) parsed += 1;
+                    if (info.equipment.length) withEquipment += 1;
+                    if (info.hallFull) halls.add(info.hallFull);
+                } catch (_) {}
+            });
+
+            const diag = {
+                runtime: 'collector',
+                url: location.origin + location.pathname,
+                selectors: {
+                    cards: cards.length,
+                    timeLineContainer: count('.time-line-container'),
+                    timeLabelsFast: count('.time-line-container .time-line-coordinate-item'),
+                    hallLabels: count('.reserve-title-label')
+                },
+                timeAxis: axisInfo,
+                timeAxisMs: axisMs,
+                cardsParsedWithItems: parsed,
+                cardsWithEquipment: withEquipment,
+                halls: [...halls].slice(0, 40),
+                category: getCategoryFromBranch(document),
+                selectedDate: readSelectedDate(document),
+                features,
+                sampleCardStructure: describeStructure(cards[0], 0, 4),
+                errors: ERROR_LOG.slice(),
+                collectMs: Math.round(performance.now() - started)
+            };
+
+            try {
+                window.top.postMessage({
+                    type: DIAG_TYPE,
+                    source: 'studio1826-collector',
+                    version: VERSION,
+                    diag
+                }, MAIN_ORIGIN);
+            } catch (_) {}
+        }
+
         /* Один общий наблюдатель вместо двух. */
         let workTimer = null;
 
@@ -3536,6 +3650,8 @@
             if (event.origin !== MAIN_ORIGIN) return;
 
             if (event.data?.type === REQUEST_TYPE) {
+                if (event.data.diag === true) sendDiagnostics();
+
                 if (event.data.settings) {
                     const next = sanitizeFeatures(event.data.settings);
 
@@ -3596,6 +3712,7 @@
         if (window.__studio1826MainUIV3) return;
 
         window.__studio1826MainUIV3 = true;
+        trackErrors();
 
         let records = [];
         let category = 'C';
@@ -4658,7 +4775,15 @@
             /* Обзор — стартовая страница: где я и что можно сделать за один клик. */
             const overview = el('div', { id: 's-panel-overview', className: 's-panel', role: 'tabpanel' }, [
                 el('div', { id: 's-branch-status', className: 's-overview-status' }, ['Загрузка данных…']),
-                el('div', { id: 's-actions', className: 's-overview-actions' })
+                el('div', { id: 's-actions', className: 's-overview-actions' }),
+                el('div', { className: 's-debug' }, [
+                    el('button', {
+                        type: 'button',
+                        className: 's-debug-button',
+                        title: 'Собрать технический отчёт (без имён клиентов и текстов броней): скопируется и скачается файлом'
+                    }, ['Диагностика']),
+                    el('span', { id: 's-debug-status', className: 's-muted', 'aria-live': 'polite' })
+                ])
             ]);
 
             /* Выплаты — подробный расчёт и параметры (раньше — главный экран). */
@@ -4847,6 +4972,22 @@
                 setCollapsed(root, !collapsed);
             });
 
+            const debugButton = root.querySelector('.s-debug-button');
+            const debugStatus = root.querySelector('#s-debug-status');
+
+            debugButton.addEventListener('click', async () => {
+                debugButton.disabled = true;
+                debugStatus.textContent = 'Собираю…';
+
+                const result = await runDiagnostics();
+
+                debugButton.disabled = false;
+                debugStatus.textContent = (result.copied || result.saved
+                    ? `Готово: ${result.copied ? 'скопировано' : ''}${result.copied && result.saved ? ', ' : ''}${result.saved ? 'файл studio1826-debug.json' : ''}.`
+                    : 'Не удалось сохранить отчёт.') +
+                    (result.answered ? '' : ' Календарь не ответил.');
+            });
+
             root.querySelectorAll('.s-copy-button, .s-head-copy').forEach(button => {
                 button.addEventListener('click', async () => {
                     const text = copySummary();
@@ -4988,8 +5129,22 @@
         }
 
         /* Приём данных от iframe */
+        let pendingDiag = null;
+
         window.addEventListener('message', event => {
             if (event.origin !== APP_ORIGIN) return;
+
+            if (event.data && event.data.type === DIAG_TYPE && event.data.source === 'studio1826-collector') {
+                if (pendingDiag) {
+                    let size = 0;
+
+                    try { size = JSON.stringify(event.data.diag).length; } catch (_) {}
+
+                    if (size > 0 && size <= MAX_DIAG_SIZE) pendingDiag.push(event.data.diag);
+                }
+
+                return;
+            }
 
             const validated = validateCollectorPayload(event.data, VERSION);
 
@@ -5048,6 +5203,80 @@
         });
 
         create();
+
+        function downloadText(name, text) {
+            try {
+                const blob = new Blob([text], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+
+                link.href = url;
+                link.download = name;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+                return true;
+            } catch (_) {
+                return false;
+            }
+        }
+
+        /*
+         * Отчёт для отладки: состояние страницы + ответ сборщика из iframe.
+         * Не содержит имён клиентов, комментариев и текстов броней, ставку тоже не включает.
+         */
+        async function runDiagnostics() {
+            pendingDiag = [];
+
+            document.querySelectorAll('iframe').forEach(frame => {
+                try {
+                    frame.contentWindow?.postMessage({ type: REQUEST_TYPE, diag: true }, APP_ORIGIN);
+                } catch (_) {}
+            });
+
+            await new Promise(resolve => setTimeout(resolve, 2500));
+
+            const collectorReports = pendingDiag;
+            pendingDiag = null;
+
+            const report = {
+                generatedAt: new Date().toISOString(),
+                version: VERSION,
+                userAgent: navigator.userAgent,
+                viewport: { width: window.innerWidth, height: window.innerHeight },
+                main: {
+                    runtime: 'main',
+                    url: location.origin + location.pathname,
+                    category,
+                    categorySource,
+                    admins,
+                    recordsCount: records.length,
+                    selectedDate,
+                    healthNote,
+                    collapsed,
+                    iframes: [...document.querySelectorAll('iframe')].slice(0, 10).map(frame => {
+                        try {
+                            const url = new URL(frame.src, location.href);
+
+                            return url.origin + url.pathname;
+                        } catch (_) {
+                            return '';
+                        }
+                    }),
+                    branchDetected: getCategoryFromBranch(document),
+                    errors: ERROR_LOG.slice()
+                },
+                collector: collectorReports.length ? collectorReports : 'нет ответа от календаря (iframe не отвечает или версии скриптов разные)'
+            };
+
+            const text = JSON.stringify(report, null, 2);
+            const copied = await copyText(text);
+            const saved = downloadText('studio1826-debug.json', text);
+
+            return { copied, saved, answered: collectorReports.length > 0 };
+        }
 
         function requestData(full = false) {
             if (document.hidden) return;
