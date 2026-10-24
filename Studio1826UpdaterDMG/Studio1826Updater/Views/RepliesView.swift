@@ -48,6 +48,10 @@ struct RepliesView: View {
                                 })
             }
         }
+        // Начали печатать, пока открыт скрипт целиком, — возвращаемся к поиску
+        .onChange(of: search.focusToken) { _ in
+            if case .detail = screen { screen = .list }
+        }
         .alert(alertMessage ?? "", isPresented: Binding(get: { alertMessage != nil }, set: { if !$0 { alertMessage = nil } })) {
             Button("OK", role: .cancel) { alertMessage = nil }
         }
