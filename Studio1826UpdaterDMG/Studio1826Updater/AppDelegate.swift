@@ -1,12 +1,12 @@
 import Cocoa
 import SwiftUI
 
-/// Значок в строке меню (быстрое меню) + главное окно приложения.
-/// Пока окно открыто, приложение видно в Dock и в ⌘Tab; когда закрыто — живёт только в строке меню.
+/// Значок в строке меню. Левый клик — окно приложения под значком (поповер с вкладками),
+/// правый клик — короткое меню. ⌃⌥Пробел из любого приложения — быстрые ответы.
 @MainActor
-class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var statusItem: NSStatusItem?
-    var window: NSWindow?
+    var popover: NSPopover?
 
     var browsers: BrowserService!
     var updater: UpdaterService!
@@ -15,11 +15,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
     var navigation: Navigation!
     var toaster: Toaster!
 
+    private var quickReplies: QuickReplyPanelController?
+    private var hotKey: HotKey?
+    private var statusMenu: NSMenu?
     private var statusLine: NSMenuItem?
     private var updateItem: NSMenuItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory) // только menu bar, пока окно закрыто
+        NSApp.setActivationPolicy(.accessory) // только menu bar, без Dock
 
         browsers = BrowserService()
         updater = UpdaterService(browsers: browsers)
@@ -28,86 +31,104 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
         navigation = Navigation(defaultSection: browsers.selected == nil ? .setup : .replies)
         toaster = Toaster()
 
-        // Логотип шире, чем высота строки меню, поэтому длина — переменная
-        let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        if let button = statusItem.button {
-            button.image = menuBarImage()
-            button.imagePosition = .imageOnly
-            button.toolTip = "Studio 1826"
-        }
-        statusItem.menu = buildStatusMenu()
-        self.statusItem = statusItem
-
-        ensureEditMenu()
-        updater.start()
-
-        // Первый запуск: браузер ещё не выбран — сразу показываем окно с настройкой
-        if browsers.selected == nil {
-            showMainWindow(section: .setup)
-        }
-    }
-
-    /// Клик по значку в Dock (пока окно открыто) или повторный запуск из Finder.
-    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        showMainWindow()
-        return true
-    }
-
-    // MARK: - Главное окно
-
-    @objc func openMainWindow() { showMainWindow() }
-
-    func showMainWindow(section: AppSection? = nil) {
-        if let section { navigation.section = section }
-
-        if window == nil {
-            let root = MainView()
+        let popover = NSPopover()
+        popover.contentSize = NSSize(width: PopoverLayout.width, height: PopoverLayout.height)
+        popover.behavior = .transient
+        popover.animates = true
+        popover.contentViewController = NSHostingController(
+            rootView: PopoverView()
                 .environmentObject(browsers)
                 .environmentObject(updater)
                 .environmentObject(replies)
                 .environmentObject(cashReport)
                 .environmentObject(navigation)
                 .environmentObject(toaster)
-            let hosting = NSHostingController(rootView: root)
-            hosting.sizingOptions = []
+        )
+        self.popover = popover
 
-            let w = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 980, height: 660),
-                styleMask: [.titled, .closable, .miniaturizable, .resizable],
-                backing: .buffered,
-                defer: false
-            )
-            w.title = "Studio 1826"
-            w.contentViewController = hosting
-            w.setContentSize(NSSize(width: 980, height: 660))
-            w.contentMinSize = NSSize(width: 820, height: 560)
-            w.isReleasedWhenClosed = false
-            w.delegate = self
-            w.center()
-            w.setFrameAutosaveName("Studio1826MainWindow")
-            window = w
+        // Пока открыто окно сохранения/открытия файла, поповер не должен закрываться
+        PopoverPin.shared.setPinned = { [weak popover] pinned in
+            popover?.behavior = pinned ? .applicationDefined : .transient
+        }
+        PopoverPin.shared.close = { [weak popover] in
+            popover?.performClose(nil)
         }
 
-        NSApp.setActivationPolicy(.regular)
-        window?.makeKeyAndOrderFront(nil)
+        // Логотип шире, чем высота строки меню, поэтому длина — переменная
+        let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        if let button = statusItem.button {
+            button.image = menuBarImage()
+            button.imagePosition = .imageOnly
+            button.toolTip = "Studio 1826 — правый клик: меню"
+            button.action = #selector(statusItemClicked(_:))
+            button.target = self
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        }
+        self.statusItem = statusItem
+        statusMenu = buildStatusMenu()
+
+        ensureEditMenu()
+        updater.start()
+
+        quickReplies = QuickReplyPanelController(store: replies)
+        hotKey = HotKey(keyCode: HotKey.spaceKeyCode, modifiers: HotKey.controlOption) { [weak self] in
+            self?.quickReplies?.toggle()
+        }
+
+        // Первый запуск: браузер ещё не выбран — сразу показываем окно с настройкой
+        if browsers.selected == nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                self?.showPopover(section: .setup)
+            }
+        }
+    }
+
+    /// Повторный запуск из Finder / Launchpad — показываем окно под значком.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showPopover()
+        return true
+    }
+
+    // MARK: - Поповер
+
+    @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
+        if NSApp.currentEvent?.type == .rightMouseUp {
+            popover?.performClose(nil)
+            if let menu = statusMenu, let item = statusItem {
+                // Временное меню: показали и сразу убрали, чтобы левый клик снова открывал поповер
+                item.menu = menu
+                item.button?.performClick(nil)
+                item.menu = nil
+            }
+            return
+        }
+        if popover?.isShown == true {
+            popover?.performClose(nil)
+        } else {
+            showPopover()
+        }
+    }
+
+    func showPopover(section: AppSection? = nil) {
+        if let section { navigation.section = section }
+        guard let popover, let button = statusItem?.button else { return }
+        if !popover.isShown {
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        }
         NSApp.activate(ignoringOtherApps: true)
+        popover.contentViewController?.view.window?.makeKey()
     }
 
-    func windowWillClose(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
-    }
-
-    // MARK: - Меню в строке меню
+    // MARK: - Меню по правому клику
 
     private func buildStatusMenu() -> NSMenu {
         let menu = NSMenu()
         menu.delegate = self
         menu.autoenablesItems = false
 
-        menu.addItem(item("Открыть Studio 1826", #selector(openMainWindow), key: "o"))
-        menu.addItem(.separator())
-        menu.addItem(item("Скрипты ответов…", #selector(openReplies), symbol: AppSection.replies.systemImage))
-        menu.addItem(item("Отчёт по кассе…", #selector(openCashReport), symbol: AppSection.cashReport.systemImage))
+        menu.addItem(item("Скрипты ответов", #selector(openReplies), symbol: AppSection.replies.systemImage))
+        menu.addItem(item("Быстрые ответы  ⌃⌥Пробел", #selector(openQuickReplies), symbol: "bolt"))
+        menu.addItem(item("Отчёт по кассе", #selector(openCashReport), symbol: AppSection.cashReport.systemImage))
         menu.addItem(.separator())
 
         for branch in StudioBranch.allCases {
@@ -150,7 +171,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
 
     /// Обновляем строку состояния каждый раз, когда меню открывается.
     func menuNeedsUpdate(_ menu: NSMenu) {
-        guard menu === statusItem?.menu else { return }
+        guard menu === statusMenu else { return }
         let main = updater.state(of: .main)
         var line = "Основной: " + (main.remoteVersion ?? main.localVersion ?? "версия неизвестна")
         if let latest = updater.appLatestVersion {
@@ -162,8 +183,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
         statusLine?.title = line
     }
 
-    @objc private func openReplies() { showMainWindow(section: .replies) }
-    @objc private func openCashReport() { showMainWindow(section: .cashReport) }
+    @objc private func openReplies() { showPopover(section: .replies) }
+    @objc private func openCashReport() { showPopover(section: .cashReport) }
+    @objc private func openQuickReplies() { quickReplies?.show() }
 
     @objc private func openLink(_ sender: NSMenuItem) {
         guard let url = sender.representedObject as? URL else { return }
@@ -176,7 +198,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
         } else {
             updater.checkForUpdates()
         }
-        showMainWindow()
+        showPopover()
     }
 
     @objc private func quit() { NSApp.terminate(nil) }
@@ -213,7 +235,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
         if main.items.isEmpty {
             let appItem = NSMenuItem()
             let appMenu = NSMenu()
-            appMenu.addItem(NSMenuItem(title: "Закрыть окно", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w"))
             appMenu.addItem(NSMenuItem(title: "Выйти из Studio 1826", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
             appItem.submenu = appMenu
             main.addItem(appItem)
@@ -233,5 +254,26 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuDele
         editItem.submenu = edit
         main.addItem(editItem)
         NSApp.mainMenu = main
+    }
+}
+
+/// Размер окна под значком.
+enum PopoverLayout {
+    static let width: CGFloat = 460
+    static let height: CGFloat = 660
+}
+
+/// Даёт экранам приложения закрепить поповер (на время диалога сохранения файла) или закрыть его.
+@MainActor
+final class PopoverPin {
+    static let shared = PopoverPin()
+    var setPinned: (Bool) -> Void = { _ in }
+    var close: () -> Void = {}
+
+    /// Выполнить действие с модальным окном (NSSavePanel и т.п.), не теряя поповер.
+    func whilePinned<T>(_ body: () -> T) -> T {
+        setPinned(true)
+        defer { setPinned(false) }
+        return body()
     }
 }

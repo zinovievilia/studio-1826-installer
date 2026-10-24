@@ -3,30 +3,6 @@ import AppKit
 
 // Общие элементы интерфейса.
 
-/// Заголовок раздела.
-struct PageHeader: View {
-    let title: String
-    let subtitle: String
-    let systemImage: String
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: systemImage)
-                .font(.system(size: 22, weight: .medium))
-                .foregroundColor(.accentColor)
-                .frame(width: 30)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.title2.weight(.semibold))
-                Text(subtitle)
-                    .font(.callout)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 0)
-        }
-    }
-}
-
 /// Карточка-подложка.
 struct Card<Content: View>: View {
     private let content: Content

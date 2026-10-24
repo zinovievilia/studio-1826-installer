@@ -16,6 +16,16 @@ enum AppSection: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Подпись на вкладке
+    var tabTitle: String {
+        switch self {
+        case .replies: return "Скрипты"
+        case .cashReport: return "Касса"
+        case .links: return "Ссылки"
+        case .setup: return "Настройка"
+        }
+    }
+
     var systemImage: String {
         switch self {
         case .replies: return "text.bubble"

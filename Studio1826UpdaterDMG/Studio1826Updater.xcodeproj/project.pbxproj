@@ -19,7 +19,7 @@
 		A021 /* ReplyStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F021 /* ReplyStore.swift */; };
 		A022 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F022 /* AppState.swift */; };
 		A030 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = F030 /* Components.swift */; };
-		A031 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F031 /* MainView.swift */; };
+		A031 /* PopoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F031 /* PopoverView.swift */; };
 		A032 /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F032 /* SetupView.swift */; };
 		A033 /* LinksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F033 /* LinksView.swift */; };
 		A034 /* CashReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F034 /* CashReportView.swift */; };
@@ -27,6 +27,8 @@
 		A036 /* ReplyEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F036 /* ReplyEditorView.swift */; };
 		A005 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F005 /* Assets.xcassets */; };
 		A040 /* ReplyLibrary.json in Resources */ = {isa = PBXBuildFile; fileRef = F040 /* ReplyLibrary.json */; };
+		A023 /* HotKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = F023 /* HotKey.swift */; };
+		A024 /* QuickReplies.swift in Sources */ = {isa = PBXBuildFile; fileRef = F024 /* QuickReplies.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -42,7 +44,7 @@
 		F021 /* ReplyStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplyStore.swift; sourceTree = "<group>"; };
 		F022 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		F030 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
-		F031 /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
+		F031 /* PopoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopoverView.swift; sourceTree = "<group>"; };
 		F032 /* SetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupView.swift; sourceTree = "<group>"; };
 		F033 /* LinksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinksView.swift; sourceTree = "<group>"; };
 		F034 /* CashReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CashReportView.swift; sourceTree = "<group>"; };
@@ -52,6 +54,8 @@
 		F006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		F040 /* ReplyLibrary.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ReplyLibrary.json; sourceTree = "<group>"; };
 		FAPP /* Studio1826Updater.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Studio1826Updater.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F023 /* HotKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotKey.swift; sourceTree = "<group>"; };
+		F024 /* QuickReplies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickReplies.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -105,6 +109,8 @@
 				F020 /* BrowserService.swift */,
 				F021 /* ReplyStore.swift */,
 				F022 /* AppState.swift */,
+				F024 /* QuickReplies.swift */,
+				F023 /* HotKey.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -113,7 +119,7 @@
 			isa = PBXGroup;
 			children = (
 				F030 /* Components.swift */,
-				F031 /* MainView.swift */,
+				F031 /* PopoverView.swift */,
 				F032 /* SetupView.swift */,
 				F033 /* LinksView.swift */,
 				F034 /* CashReportView.swift */,
@@ -213,8 +219,10 @@
 				A020 /* BrowserService.swift in Sources */,
 				A021 /* ReplyStore.swift in Sources */,
 				A022 /* AppState.swift in Sources */,
+				A024 /* QuickReplies.swift in Sources */,
+				A023 /* HotKey.swift in Sources */,
 				A030 /* Components.swift in Sources */,
-				A031 /* MainView.swift in Sources */,
+				A031 /* PopoverView.swift in Sources */,
 				A032 /* SetupView.swift in Sources */,
 				A033 /* LinksView.swift in Sources */,
 				A034 /* CashReportView.swift in Sources */,
@@ -365,7 +373,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 4.0.0;
+				MARKETING_VERSION = 4.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = studio1826.updater;
 				PRODUCT_NAME = Studio1826Updater;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -389,7 +397,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 4.0.0;
+				MARKETING_VERSION = 4.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = studio1826.updater;
 				PRODUCT_NAME = Studio1826Updater;
 				SWIFT_EMIT_LOC_STRINGS = YES;

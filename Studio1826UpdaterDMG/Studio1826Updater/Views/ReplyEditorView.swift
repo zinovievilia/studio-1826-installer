@@ -1,11 +1,10 @@
 import SwiftUI
 
-/// Окно создания / редактирования скрипта ответа.
+/// Создание / редактирование скрипта ответа (внутри окна, без отдельного листа).
 struct ReplyEditorView: View {
-    @Environment(\.dismiss) private var dismiss
-
     private let isNew: Bool
     private let categories: [String]
+    private let onCancel: () -> Void
     private let onSave: (ReplyScript) -> Void
     private let original: ReplyScript
 
@@ -14,10 +13,12 @@ struct ReplyEditorView: View {
     @State private var text: String
     @State private var keywords: String
 
-    init(script: ReplyScript, isNew: Bool, categories: [String], onSave: @escaping (ReplyScript) -> Void) {
+    init(script: ReplyScript, isNew: Bool, categories: [String],
+         onCancel: @escaping () -> Void, onSave: @escaping (ReplyScript) -> Void) {
         self.original = script
         self.isNew = isNew
         self.categories = categories
+        self.onCancel = onCancel
         self.onSave = onSave
         _title = State(initialValue: script.title)
         _category = State(initialValue: script.category)
@@ -31,52 +32,66 @@ struct ReplyEditorView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text(isNew ? "Новый скрипт" : "Изменить скрипт").font(.title3.weight(.semibold))
-
-            if !isNew && original.id.hasPrefix("studio.") {
-                Hint(text: "Это скрипт студии. Ваши правки сохранятся только на этом Mac; если студия обновит скрипт, вы увидите отметку и сможете выбрать версию.")
+        VStack(spacing: 0) {
+            HStack {
+                Text(isNew ? "Новый скрипт" : "Изменить скрипт").font(.headline)
+                Spacer()
             }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
 
-            labeled("Название") {
-                TextField("Например: Как пройти — Павелецкая", text: $title)
-                    .textFieldStyle(.roundedBorder)
-            }
+            Divider()
 
-            labeled("Категория") {
-                HStack(spacing: 6) {
-                    TextField("Выберите или впишите новую", text: $category)
-                        .textFieldStyle(.roundedBorder)
-                    Menu {
-                        ForEach(categories, id: \.self) { c in
-                            Button(c) { category = c }
-                        }
-                    } label: {
-                        Image(systemName: "chevron.down")
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    if !isNew && original.id.hasPrefix("studio.") {
+                        Hint(text: "Это скрипт студии. Правки сохранятся только на этом Mac; если студия обновит скрипт, появится отметка и можно будет выбрать версию.")
                     }
-                    .menuStyle(.borderlessButton)
-                    .frame(width: 28)
+
+                    labeled("Название") {
+                        TextField("Например: Парковка и курьеры", text: $title)
+                            .textFieldStyle(.roundedBorder)
+                    }
+
+                    labeled("Категория — выберите или впишите новую") {
+                        HStack(spacing: 6) {
+                            TextField("Категория", text: $category)
+                                .textFieldStyle(.roundedBorder)
+                            Menu {
+                                ForEach(categories, id: \.self) { c in
+                                    Button(c) { category = c }
+                                }
+                            } label: {
+                                Image(systemName: "chevron.down")
+                            }
+                            .menuStyle(.borderlessButton)
+                            .fixedSize()
+                        }
+                    }
+
+                    labeled("Текст для клиента") {
+                        TextEditor(text: $text)
+                            .font(.body)
+                            .frame(minHeight: 220)
+                            .padding(4)
+                            .background(RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: .textBackgroundColor)))
+                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color(nsColor: .separatorColor)))
+                    }
+
+                    labeled("Ключевые слова для поиска, через запятую") {
+                        TextField("парковка, курьер, доставка", text: $keywords)
+                            .textFieldStyle(.roundedBorder)
+                    }
                 }
+                .padding(14)
             }
 
-            labeled("Текст для клиента") {
-                TextEditor(text: $text)
-                    .font(.body)
-                    .frame(minHeight: 180)
-                    .padding(4)
-                    .background(RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: .textBackgroundColor)))
-                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color(nsColor: .separatorColor)))
-            }
-
-            labeled("Ключевые слова для поиска (через запятую)") {
-                TextField("бронь, адрес, свет", text: $keywords)
-                    .textFieldStyle(.roundedBorder)
-            }
+            Divider()
 
             HStack {
-                Spacer()
-                Button("Отмена", role: .cancel) { dismiss() }
+                Button("Отмена", action: onCancel)
                     .keyboardShortcut(.cancelAction)
+                Spacer()
                 Button("Сохранить") {
                     var result = original
                     result.title = title
@@ -84,15 +99,13 @@ struct ReplyEditorView: View {
                     result.text = text
                     result.keywords = keywords.split(separator: ",").map { String($0) }
                     onSave(result)
-                    dismiss()
                 }
                 .keyboardShortcut("s", modifiers: .command)
                 .buttonStyle(.borderedProminent)
                 .disabled(!canSave)
             }
+            .padding(12)
         }
-        .padding(20)
-        .frame(width: 560)
     }
 
     private func labeled<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {

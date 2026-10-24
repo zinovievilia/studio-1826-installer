@@ -8,91 +8,80 @@ struct CashReportView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                PageHeader(title: "Отчёт по кассе",
-                           subtitle: "В полях можно считать: «100+500» превратится в 600. Enter — к следующему полю.",
-                           systemImage: "banknote")
+            VStack(alignment: .leading, spacing: 12) {
+                Hint(text: "В полях можно считать: «100+500» станет 600. Enter — следующее поле.")
 
                 Card {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack(spacing: 12) {
-                            Text("Дата").frame(width: 120, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(spacing: 10) {
+                            Text("Дата").frame(width: 110, alignment: .leading)
                             DatePicker("", selection: $model.date, displayedComponents: .date)
                                 .labelsHidden()
                                 .datePickerStyle(.field)
-                                .frame(width: 130)
+                                .frame(width: 120)
                             if !Calendar.current.isDateInToday(model.date) {
                                 Button("Сегодня") { model.date = Date() }
                                     .controlSize(.small)
                             }
                             Spacer()
                         }
-                        HStack(spacing: 12) {
-                            Text("Филиал").frame(width: 120, alignment: .leading)
+                        HStack(spacing: 10) {
+                            Text("Филиал").frame(width: 110, alignment: .leading)
                             Picker("", selection: $model.branch) {
                                 ForEach(StudioBranch.allCases) { b in Text(b.title).tag(b) }
                             }
                             .labelsHidden()
                             .pickerStyle(.segmented)
-                            .frame(width: 300)
-                            Spacer()
                         }
                     }
                 }
 
                 Card {
-                    VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 8) {
                         ForEach(CashField.allCases) { field in
                             fieldRow(field)
                         }
                     }
                 }
 
-                HStack(alignment: .top, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Так будет скопировано").font(.caption).foregroundColor(.secondary)
-                        Text(previewText)
-                            .font(.system(.body, design: .monospaced))
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(12)
-                            .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .textBackgroundColor)))
-                            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color(nsColor: .separatorColor).opacity(0.6)))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Так будет скопировано").font(.caption).foregroundColor(.secondary)
+                    Text(previewText)
+                        .font(.system(.callout, design: .monospaced))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(10)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .textBackgroundColor)))
+                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color(nsColor: .separatorColor).opacity(0.6)))
+                }
+
+                HStack(spacing: 10) {
+                    Button {
+                        copy()
+                    } label: {
+                        Label("Скопировать отчёт", systemImage: "doc.on.doc")
+                            .frame(maxWidth: .infinity)
                     }
-                    .frame(maxWidth: 320)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .keyboardShortcut(.return, modifiers: .command)
+                    .disabled(!model.problems.isEmpty)
 
-                    VStack(alignment: .leading, spacing: 10) {
-                        Button {
-                            copy()
-                        } label: {
-                            Label("Скопировать отчёт", systemImage: "doc.on.doc")
-                                .frame(minWidth: 180)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
-                        .keyboardShortcut(.return, modifiers: .command)
-                        .disabled(!model.problems.isEmpty)
-
-                        if !model.problems.isEmpty {
-                            Text("Заполните: " + model.problems.map(\.title).joined(separator: ", "))
-                                .font(.caption)
-                                .foregroundColor(.orange)
-                                .fixedSize(horizontal: false, vertical: true)
-                        } else {
-                            Text("⌘↩ — скопировать").font(.caption).foregroundColor(.secondary)
-                        }
-
-                        Button("Новый отчёт") {
-                            model.clear()
-                            focused = CashField.allCases.first
-                        }
+                    Button("Новый отчёт") {
+                        model.clear()
+                        focused = CashField.allCases.first
                     }
-                    .padding(.top, 20)
+                    .controlSize(.large)
+                }
+
+                if !model.problems.isEmpty {
+                    Text("Заполните: " + model.problems.map(\.title).joined(separator: ", "))
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .padding(24)
-            .frame(maxWidth: 760, alignment: .leading)
-            .frame(maxWidth: .infinity)
+            .padding(14)
         }
         .onAppear {
             if (model.inputs[.withdrawal] ?? "").isEmpty { focused = .withdrawal }
@@ -101,11 +90,11 @@ struct CashReportView: View {
 
     private func fieldRow(_ field: CashField) -> some View {
         HStack(spacing: 12) {
-            Text(field.title).frame(width: 120, alignment: .leading)
+            Text(field.title).frame(width: 110, alignment: .leading)
             TextField("0", text: binding(field))
                 .textFieldStyle(.roundedBorder)
                 .font(.body.monospacedDigit())
-                .frame(width: 220)
+                .frame(width: 150)
                 .focused($focused, equals: field)
                 .onSubmit { focusNext(after: field) }
             resultLabel(field)
@@ -124,7 +113,8 @@ struct CashReportView: View {
                 .foregroundColor(.green)
         case .some(.failure(let error)):
             Label(error.message, systemImage: "exclamationmark.triangle.fill")
-                .font(.callout)
+                .font(.caption)
+                .lineLimit(2)
                 .foregroundColor(.red)
         }
     }

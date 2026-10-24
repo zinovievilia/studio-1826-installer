@@ -10,13 +10,14 @@ struct SetupView: View {
     @State private var expanded: Set<String> = []
     @State private var showAutoUpdate = false
     @State private var showHelp = false
+    @State private var showQuickReplies = false
+    @State private var canPaste = QuickReplySettings.canPaste
+    @State private var autoPaste = QuickReplySettings.autoPaste
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                PageHeader(title: "Браузер и расширения",
-                           subtitle: "Выберите браузер, в котором работаете с Bitrix24, и пройдите шаги по порядку. Что можно проверить — приложение проверит само.",
-                           systemImage: "puzzlepiece.extension")
+                Hint(text: "Выберите браузер, в котором работаете с Bitrix24, и пройдите шаги по порядку. Что можно проверить — приложение проверит само.")
 
                 BrowserCards()
 
@@ -31,6 +32,7 @@ struct SetupView: View {
                     if browser == .safari {
                         autoUpdateCard
                     }
+                    quickRepliesCard
                     helpCard(browser)
                 } else {
                     Card {
@@ -39,9 +41,7 @@ struct SetupView: View {
                     }
                 }
             }
-            .padding(24)
-            .frame(maxWidth: 800, alignment: .leading)
-            .frame(maxWidth: .infinity)
+            .padding(14)
         }
         .onAppear {
             refreshAll()
@@ -57,6 +57,52 @@ struct SetupView: View {
     private func refreshAll() {
         browsers.refresh()
         updater.refreshLocalVersions()
+        canPaste = QuickReplySettings.canPaste
+    }
+
+    // MARK: Быстрые ответы
+
+    private var quickRepliesCard: some View {
+        Collapsible(isExpanded: $showQuickReplies) {
+            HStack(spacing: 12) {
+                Image(systemName: "bolt")
+                    .font(.system(size: 16))
+                    .frame(width: 28)
+                    .foregroundColor(.accentColor)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Быстрые ответы — \(QuickReplySettings.hotKeyTitle)").font(.headline)
+                    Text("Поиск по скриптам поверх любого окна").font(.callout).foregroundColor(.secondary)
+                }
+            }
+        } content: {
+            VStack(alignment: .leading, spacing: 10) {
+                Instructions(steps: [
+                    "Поставьте курсор в поле ответа в открытой линии Bitrix24.",
+                    "Нажмите **\(QuickReplySettings.hotKeyTitle)** — появится поиск по скриптам.",
+                    "Напишите слово (парковка, пропуск, счёт), стрелками выберите ответ и нажмите **Enter**.",
+                ])
+                Toggle("Сразу вставлять ответ в чат", isOn: $autoPaste)
+                    .onChange(of: autoPaste) { QuickReplySettings.autoPaste = $0 }
+                if autoPaste {
+                    if canPaste {
+                        Label("Разрешение на вставку есть.", systemImage: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                    } else {
+                        Hint(text: "Чтобы ответ вставлялся сам, macOS нужно разрешение. Нажмите кнопку, затем в **Универсальном доступе** включите Studio1826Updater. Без разрешения ответ просто копируется — вставьте его ⌘V.")
+                        HStack {
+                            Button("Разрешить вставку") {
+                                QuickReplySettings.requestPastePermission()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            Button("Проверить снова") { canPaste = QuickReplySettings.canPaste }
+                        }
+                        Hint(text: "После каждого обновления приложения macOS может попросить разрешение заново: выключите и снова включите Studio1826Updater в списке.",
+                             systemImage: "exclamationmark.triangle")
+                    }
+                }
+            }
+            .padding(.leading, 4)
+        }
     }
 
     // MARK: Шаги
@@ -161,7 +207,7 @@ struct SetupView: View {
             }
         } content: {
             stepContent(step, browser: browser)
-                .padding(.leading, 40)
+                .padding(.leading, 4)
         }
     }
 
@@ -389,7 +435,7 @@ struct SetupView: View {
                 }
                 Hint(text: "«График 2/2» — два дня проверяет, два пропускает (как смены). Кнопка «Проверить обновления» внизу слева работает всегда.")
             }
-            .padding(.leading, 40)
+            .padding(.leading, 4)
         }
     }
 
@@ -425,7 +471,7 @@ struct SetupView: View {
                     }
                 }
             }
-            .padding(.leading, 40)
+            .padding(.leading, 4)
         }
     }
 
@@ -466,7 +512,7 @@ private struct BrowserCards: View {
     @EnvironmentObject var browsers: BrowserService
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             ForEach(BrowserKind.allCases) { b in
                 Button {
                     browsers.selected = b
@@ -479,14 +525,14 @@ private struct BrowserCards: View {
                                 Image(systemName: "globe").resizable().foregroundColor(.secondary)
                             }
                         }
-                        .frame(width: 36, height: 36)
-                        Text(b.title).font(.callout.weight(.medium)).lineLimit(1)
+                        .frame(width: 30, height: 30)
+                        Text(b.shortTitle).font(.callout.weight(.medium)).lineLimit(1)
                         Text(browsers.isInstalled(b) ? "Установлен" : "Не установлен")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                    .padding(.vertical, 10)
                     .background(
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
                             .fill(browsers.selected == b ? Color.accentColor.opacity(0.12) : Color(nsColor: .controlBackgroundColor))
@@ -605,7 +651,7 @@ private struct ChromiumScriptRow: View {
                 Toggle("Установлен", isOn: $installed)
             }
             Spacer(minLength: 8)
-            Button("Установить в Tampermonkey") { updater.install(script) }
+            Button("Установить") { updater.install(script) }
                 .buttonStyle(.borderedProminent)
                 .disabled(!browsers.isInstalled(browser))
         }

@@ -7,15 +7,11 @@ struct LinksView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                PageHeader(title: "Сайт и ссылки",
-                           subtitle: "Открыть страницу или скопировать ссылку, чтобы отправить клиенту.",
-                           systemImage: "link")
+            VStack(alignment: .leading, spacing: 12) {
+                Hint(text: "Открыть страницу или скопировать ссылку, чтобы отправить клиенту.")
 
-                HStack(alignment: .top, spacing: 14) {
-                    ForEach(StudioBranch.allCases) { branch in
-                        BranchCard(branch: branch)
-                    }
+                ForEach(StudioBranch.allCases) { branch in
+                    BranchCard(branch: branch)
                 }
 
                 Card {
@@ -29,9 +25,7 @@ struct LinksView: View {
                     }
                 }
             }
-            .padding(24)
-            .frame(maxWidth: 900, alignment: .leading)
-            .frame(maxWidth: .infinity)
+            .padding(14)
         }
     }
 }
@@ -100,7 +94,7 @@ private struct LinkRow: View {
             Button {
                 NSWorkspace.shared.open(url)
             } label: {
-                Label("Открыть", systemImage: "arrow.up.right.square")
+                Image(systemName: "arrow.up.right.square")
             }
             .help(url.absoluteString)
         }
