@@ -47,6 +47,8 @@ final class QuickReplyModel: ObservableObject {
     @Published var selected = 0
     /// Сообщение клиента из буфера обмена (если его только что скопировали)
     @Published var clientText: String?
+    /// Выделенный мышкой кусок текста справа — тогда берём только его
+    @Published var fragment = ""
 
     /// Подсказки по сообщению клиента — пока ничего не набрано в поиске.
     func suggestions(in store: ReplyStore) -> [ReplyItem] {
@@ -81,6 +83,7 @@ final class QuickReplyPanelController: NSObject, NSWindowDelegate {
     func show() {
         model.query = ""
         model.selected = 0
+        model.fragment = ""
         model.clientText = Self.clientTextFromClipboard(store: store)
 
         let panel = self.panel ?? makePanel()
@@ -157,7 +160,11 @@ final class QuickReplyPanelController: NSObject, NSWindowDelegate {
     }
 
     private func choose(_ item: ReplyItem) {
-        Clipboard.copy(item.script.text)
+        choose(text: model.fragment.isEmpty ? item.script.text : model.fragment)
+    }
+
+    private func choose(text: String) {
+        Clipboard.copy(text)
         hide()
         if QuickReplySettings.autoPaste && QuickReplySettings.canPaste {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
@@ -172,6 +179,20 @@ final class QuickReplyPanelController: NSObject, NSWindowDelegate {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self, let panel = self.panel, event.window === panel else { return event }
             let results = self.model.results(in: self.store)
+            let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            // ⌘C при выделенном куске справа — копируем только его
+            if event.keyCode == 8, flags == .command, !self.model.fragment.isEmpty,
+               panel.firstResponder is PreviewTextView {
+                self.choose(text: self.model.fragment)
+                return nil
+            }
+            // Начали печатать, стоя в тексте справа, — возвращаемся в поиск
+            if panel.firstResponder is PreviewTextView, flags.isDisjoint(with: [.command, .control]),
+               let chars = event.characters, chars.unicodeScalars.contains(where: { CharacterSet.alphanumerics.contains($0) }),
+               let field = Self.findSearchField(in: panel.contentView) {
+                panel.makeFirstResponder(field)
+                return event
+            }
             switch event.keyCode {
             case 125: // ↓
                 if !results.isEmpty { self.model.selected = min(self.model.selected + 1, results.count - 1) }
@@ -281,20 +302,16 @@ struct QuickReplyView: View {
 
                     Divider()
 
-                    // Полный текст выбранного скрипта
-                    ScrollView {
+                    // Полный текст выбранного скрипта; кусок можно выделить мышкой
+                    VStack(alignment: .leading, spacing: 6) {
                         if let current {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text(current.script.title).font(.headline)
-                                Text(current.script.text)
-                                    .font(.callout)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                            .padding(14)
+                            Text(current.script.title).font(.headline)
+                                .padding(.horizontal, 14)
+                                .padding(.top, 14)
+                            PreviewText(text: current.script.text, selection: $model.fragment)
                         }
                     }
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
             }
 
@@ -302,10 +319,11 @@ struct QuickReplyView: View {
 
             HStack(spacing: 14) {
                 Text("↑↓ выбрать")
-                Text(QuickReplySettings.autoPaste && QuickReplySettings.canPaste ? "↩ вставить в чат" : "↩ скопировать")
+                Text((QuickReplySettings.autoPaste && QuickReplySettings.canPaste ? "↩ вставить" : "↩ скопировать")
+                     + (model.fragment.isEmpty ? "" : " выделенное"))
                 Text("esc закрыть")
                 Spacer()
-                Text("Скопируйте сообщение клиента — подскажу ответ")
+                Text(model.fragment.isEmpty ? "Кусок текста справа можно выделить мышкой" : "⌘C — только выделенное")
             }
             .font(.caption)
             .foregroundColor(.secondary)
@@ -318,6 +336,65 @@ struct QuickReplyView: View {
             .strokeBorder(Color(nsColor: .separatorColor).opacity(0.6)))
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .onChange(of: model.query) { _ in model.selected = 0 }
+    }
+}
+
+/// Текст справа в панели: только чтение, выделяется мышкой. Выделенное уходит в `selection`.
+final class PreviewTextView: NSTextView {}
+
+struct PreviewText: NSViewRepresentable {
+    let text: String
+    @Binding var selection: String
+
+    func makeCoordinator() -> Coordinator { Coordinator(selection: $selection) }
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scroll = NSScrollView()
+        scroll.hasVerticalScroller = true
+        scroll.drawsBackground = false
+        scroll.borderType = .noBorder
+
+        let textView = PreviewTextView()
+        textView.isEditable = false
+        textView.isSelectable = true
+        textView.drawsBackground = false
+        textView.isRichText = false
+        textView.font = .preferredFont(forTextStyle: .callout)
+        textView.textColor = .labelColor
+        textView.textContainerInset = NSSize(width: 9, height: 4)
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = false
+        textView.autoresizingMask = [.width]
+        textView.textContainer?.widthTracksTextView = true
+        textView.delegate = context.coordinator
+        scroll.documentView = textView
+        return scroll
+    }
+
+    func updateNSView(_ scroll: NSScrollView, context: Context) {
+        context.coordinator.selection = $selection
+        guard let textView = scroll.documentView as? NSTextView, textView.string != text else { return }
+        // Смена текста сама сбрасывает выделение — не трогаем состояние посреди обновления вида
+        context.coordinator.isUpdating = true
+        textView.string = text
+        textView.setSelectedRange(NSRange(location: 0, length: 0))
+        textView.scrollToBeginningOfDocument(nil)
+        context.coordinator.isUpdating = false
+        DispatchQueue.main.async { selection = "" }
+    }
+
+    final class Coordinator: NSObject, NSTextViewDelegate {
+        var selection: Binding<String>
+        var isUpdating = false
+        init(selection: Binding<String>) { self.selection = selection }
+
+        func textViewDidChangeSelection(_ notification: Notification) {
+            guard !isUpdating, let textView = notification.object as? NSTextView else { return }
+            let range = textView.selectedRange()
+            let picked = range.length > 0 ? (textView.string as NSString).substring(with: range) : ""
+            let trimmed = picked.trimmingCharacters(in: .whitespacesAndNewlines)
+            if selection.wrappedValue != trimmed { selection.wrappedValue = trimmed }
+        }
     }
 }
 
