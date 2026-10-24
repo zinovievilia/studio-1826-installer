@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v5.5.0 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v5.5.1 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      5.5.0
+// @version      5.5.1
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '5.5.0';
+    const VERSION = '5.5.1';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -2171,6 +2171,13 @@
     }
 
     const qtyText = qty => `${formatQuantity(qty)} шт.`;
+
+    /*
+     * 5.5.1: строка для кнопки копирования в брони — «1 шт. | Зонт - 165см Deep white».
+     * Количество впереди; у зонтов убирается повтор «Umbrella» после «Зонт -».
+     */
+    const shortEquipmentName = name => String(name || '').replace(/^(Зонт\s*-\s*)Umbrella\s+/i, '$1');
+    const bookingCopyLine = (name, qty) => `${qtyText(qty)} | ${shortEquipmentName(name)}`;
     const equipmentLine = (name, qty) => `${name} — ${qtyText(qty)}`;
 
     function splitItems(text) {
@@ -3661,7 +3668,7 @@
             const lines = [];
 
             if (hall) lines.push(hall);
-            lines.push(...info.equipmentList.map(entry => equipmentLine(entry.name, entry.qty)));
+            lines.push(...info.equipmentList.map(entry => bookingCopyLine(entry.name, entry.qty)));
 
             const ok = await writeClipboard(lines.join('\n'));
 
@@ -7797,7 +7804,7 @@
             hallLabel, hallNumber, hallDistance, hallPosition, categoryFromHall,
             findHallName, formatClock,
             buildDayList, parseDayList, analyzeTomorrow, computePayout,
-            validateCollectorPayload, encodeRequest, decodeRequest,
+            validateCollectorPayload, encodeRequest, decodeRequest, shortEquipmentName, bookingCopyLine,
             moscowDay, dayBounds, moscowParts, shiftDay, calendarDayIso, dealToRecord, recordsOfCategory, recordEquipment, summarizeEquipment, findDuplicateRows, planTomorrowTiles,
             sanitizeFeatures, exportSettings, parseSettingsImport, FEATURE_KEYS, COLOR_ITEMS,
             money, formatAmount,
