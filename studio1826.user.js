@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v4.5.1 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v4.5.2 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      4.5.1
+// @version      4.5.2
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '4.5.1';
+    const VERSION = '4.5.2';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -1432,6 +1432,38 @@
             }));
 
         return { records };
+    }
+
+    /*
+     * Запросы main → iframe передаются JSON-строкой, а не объектом: в iframe
+     * приложения работает BX24 (api.bitrix24.com/api/v1), его обработчик
+     * `message` принимает сообщения с того же origin и вызывает `e.data.split(':')`.
+     * На объекте это давало «Uncaught TypeError: s.split is not a function»
+     * при каждом опросе (раз в 3 с). Строка вида '{"type":...' BX24 молча
+     * игнорирует (нет такой команды).
+     */
+    const MAX_REQUEST_SIZE = 512 * 1024;
+
+    function encodeRequest(message) {
+        return JSON.stringify(message);
+    }
+
+    /* Объект запроса или null, если это не наш протокол. Объект тоже принимается —
+     * совместимость с main предыдущей версии, пока вкладка не перезагружена. */
+    function decodeRequest(data, requestType = REQUEST_TYPE) {
+        let value = data;
+
+        if (typeof value === 'string') {
+            if (value.length > MAX_REQUEST_SIZE || value.charAt(0) !== '{') return null;
+
+            try {
+                value = JSON.parse(value);
+            } catch (_) {
+                return null;
+            }
+        }
+
+        return value && typeof value === 'object' && value.type === requestType ? value : null;
     }
 
     /* =========================================================
@@ -3649,14 +3681,16 @@
         window.addEventListener('message', event => {
             if (event.origin !== MAIN_ORIGIN) return;
 
-            if (event.data?.type === REQUEST_TYPE) {
+            const request = decodeRequest(event.data);
+
+            if (request) {
                 let marksChanged = false;
                 let settingsChanged = false;
 
-                if (event.data.diag === true) sendDiagnostics();
+                if (request.diag === true) sendDiagnostics();
 
-                if (event.data.settings) {
-                    const next = sanitizeFeatures(event.data.settings);
+                if (request.settings) {
+                    const next = sanitizeFeatures(request.settings);
 
                     if (JSON.stringify(next) !== JSON.stringify(features)) {
                         features = next;
@@ -3666,8 +3700,8 @@
                     }
                 }
 
-                if (Array.isArray(event.data.mark)) {
-                    const next = new Set(event.data.mark
+                if (Array.isArray(request.mark)) {
+                    const next = new Set(request.mark
                         .slice(0, 500)
                         .filter(key => typeof key === 'string' && key.length <= 200));
                     const same = next.size === markKeys.size &&
@@ -3679,8 +3713,8 @@
                     }
                 }
 
-                if (Array.isArray(event.data.moves)) {
-                    const next = event.data.moves
+                if (Array.isArray(request.moves)) {
+                    const next = request.moves
                         .slice(0, 200)
                         .filter(link => link && typeof link.from === 'string' && typeof link.to === 'string' &&
                             link.from.length <= 200 && link.to.length <= 200)
@@ -3697,7 +3731,7 @@
                 /* Принудительная отправка — только если страница просит «полные» данные
                  * (первый запрос после загрузки/возврата на вкладку) или что-то изменилось;
                  * иначе обычная отправка с дедупликацией. */
-                send(event.data.full === true || settingsChanged || marksChanged);
+                send(request.full === true || settingsChanged || marksChanged);
             }
         });
     }
@@ -5232,7 +5266,7 @@
 
             document.querySelectorAll('iframe').forEach(frame => {
                 try {
-                    frame.contentWindow?.postMessage({ type: REQUEST_TYPE, diag: true }, APP_ORIGIN);
+                    frame.contentWindow?.postMessage(encodeRequest({ type: REQUEST_TYPE, diag: true }), APP_ORIGIN);
                 } catch (_) {}
             });
 
@@ -5284,7 +5318,7 @@
             document.querySelectorAll('iframe').forEach(frame => {
                 try {
                     frame.contentWindow?.postMessage(
-                        { type: REQUEST_TYPE, settings: features, mark: markKeys, moves: moveLinks, full: full === true },
+                        encodeRequest({ type: REQUEST_TYPE, settings: features, mark: markKeys, moves: moveLinks, full: full === true }),
                         APP_ORIGIN
                     );
                 } catch (_) {}
@@ -5829,7 +5863,7 @@
             hallLabel, hallNumber, hallDistance, hallPosition, categoryFromHall,
             findHallName, formatClock,
             buildDayList, parseDayList, analyzeTomorrow, computePayout,
-            validateCollectorPayload,
+            validateCollectorPayload, encodeRequest, decodeRequest,
             sanitizeFeatures, exportSettings, parseSettingsImport, FEATURE_KEYS, COLOR_ITEMS,
             money, formatAmount,
             EQUIPMENT, SERVICES, HOURS_BONUSES,
