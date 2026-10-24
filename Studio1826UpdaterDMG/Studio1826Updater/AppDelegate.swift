@@ -14,6 +14,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var cashReport: CashReportModel!
     var navigation: Navigation!
     var toaster: Toaster!
+    var replySearch: ReplySearchState!
+    private var popoverKeyMonitor: Any?
 
     private var quickReplies: QuickReplyPanelController?
     private var hotKey: HotKey?
@@ -30,6 +32,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         cashReport = CashReportModel()
         navigation = Navigation(defaultSection: browsers.selected == nil ? .setup : .replies)
         toaster = Toaster()
+        replySearch = ReplySearchState()
 
         let popover = NSPopover()
         popover.contentSize = NSSize(width: PopoverLayout.width, height: PopoverLayout.height)
@@ -43,8 +46,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 .environmentObject(cashReport)
                 .environmentObject(navigation)
                 .environmentObject(toaster)
+                .environmentObject(replySearch)
         )
         self.popover = popover
+        installPopoverTypingMonitor()
 
         // Пока открыто окно сохранения/открытия файла, поповер не должен закрываться
         PopoverPin.shared.setPinned = { [weak popover] pinned in
@@ -117,6 +122,26 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         NSApp.activate(ignoringOtherApps: true)
         popover.contentViewController?.view.window?.makeKey()
+        if navigation.section == .replies { replySearch.focus() }
+    }
+
+    /// Окно открыто и курсор не в поле ввода — начали печатать: переходим в «Скрипты» и ищем набранное.
+    private func installPopoverTypingMonitor() {
+        popoverKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self,
+                  let window = self.popover?.contentViewController?.view.window,
+                  event.window === window,
+                  !(window.firstResponder is NSTextView),          // уже печатают в каком-то поле
+                  event.modifierFlags.intersection([.command, .control, .option]).isEmpty,
+                  let chars = event.characters, !chars.isEmpty,
+                  chars.unicodeScalars.allSatisfy({ CharacterSet.alphanumerics.contains($0) }) else {
+                return event
+            }
+            self.navigation.section = .replies
+            self.replySearch.query = chars
+            self.replySearch.focus()
+            return nil
+        }
     }
 
     // MARK: - Меню по правому клику

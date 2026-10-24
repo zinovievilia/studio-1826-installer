@@ -47,6 +47,16 @@ final class Navigation: ObservableObject {
     }
 }
 
+/// Поиск скриптов в окне под значком. Общий, чтобы набранное при открытии окна сразу попадало в поиск.
+@MainActor
+final class ReplySearchState: ObservableObject {
+    @Published var query = ""
+    /// Увеличить — поле поиска заберёт фокус
+    @Published var focusToken = 0
+
+    func focus() { focusToken += 1 }
+}
+
 /// Короткое всплывающее подтверждение внизу окна («Скопировано»).
 @MainActor
 final class Toaster: ObservableObject {

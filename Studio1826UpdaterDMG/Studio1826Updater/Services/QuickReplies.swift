@@ -354,13 +354,16 @@ struct QuickSearchField: NSViewRepresentable {
 
     @Binding var text: String
     let placeholder: String
+    var fontSize: CGFloat = 20
+    /// Меняется — поле забирает фокус, курсор в конец текста
+    var focusToken: Int = 0
 
     func makeNSView(context: Context) -> FieldView {
         let field = FieldView()
         field.isBordered = false
         field.drawsBackground = false
         field.focusRingType = .none
-        field.font = .systemFont(ofSize: 20)
+        field.font = .systemFont(ofSize: fontSize)
         field.placeholderString = placeholder
         field.delegate = context.coordinator
         field.cell?.isScrollable = true
@@ -369,13 +372,24 @@ struct QuickSearchField: NSViewRepresentable {
     }
 
     func updateNSView(_ field: FieldView, context: Context) {
+        context.coordinator.text = $text
         if field.stringValue != text { field.stringValue = text }
+        if context.coordinator.lastFocusToken != focusToken {
+            context.coordinator.lastFocusToken = focusToken
+            DispatchQueue.main.async {
+                guard let window = field.window else { return }
+                window.makeFirstResponder(field)
+                let end = (field.stringValue as NSString).length
+                field.currentEditor()?.selectedRange = NSRange(location: end, length: 0)
+            }
+        }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
 
     final class Coordinator: NSObject, NSTextFieldDelegate {
         var text: Binding<String>
+        var lastFocusToken = Int.min
         init(text: Binding<String>) { self.text = text }
 
         func controlTextDidChange(_ note: Notification) {

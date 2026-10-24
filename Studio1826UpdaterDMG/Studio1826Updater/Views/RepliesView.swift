@@ -15,10 +15,9 @@ struct RepliesView: View {
     }
 
     @State private var screen: Screen = .list
-    @State private var query = ""
+    @EnvironmentObject var search: ReplySearchState
     @State private var category: String?            // nil — все категории
     @State private var alertMessage: String?
-    @FocusState private var searchFocused: Bool
 
     var body: some View {
         Group {
@@ -57,7 +56,7 @@ struct RepliesView: View {
     // MARK: Список
 
     private var results: [ReplyItem] {
-        store.library.search(query: query, category: category)
+        store.library.search(query: search.query, category: category)
     }
 
     private var listScreen: some View {
@@ -65,13 +64,12 @@ struct RepliesView: View {
             VStack(spacing: 8) {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass").foregroundColor(.secondary)
-                    TextField("Поиск: парковка, пропуск, счёт…", text: $query)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 15))
-                        .focused($searchFocused)
-                    if !query.isEmpty {
+                    QuickSearchField(text: $search.query, placeholder: "Поиск: парковка, пропуск, счёт…",
+                                     fontSize: 15, focusToken: search.focusToken)
+                        .frame(height: 20)
+                    if !search.query.isEmpty {
                         Button {
-                            query = ""
+                            search.query = ""
                         } label: {
                             Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
                         }
@@ -114,7 +112,7 @@ struct RepliesView: View {
                 VStack(spacing: 8) {
                     Spacer()
                     Image(systemName: "text.magnifyingglass").font(.system(size: 26)).foregroundColor(.secondary)
-                    Text(query.isEmpty ? "В этой категории пока пусто" : "Ничего не нашлось")
+                    Text(search.query.isEmpty ? "В этой категории пока пусто" : "Ничего не нашлось")
                         .foregroundColor(.secondary)
                     Button("Создать скрипт") {
                         screen = .edit(ReplyScript.newMine(category: category ?? ""))
@@ -125,7 +123,7 @@ struct RepliesView: View {
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
-                        if query.isEmpty && category == nil {
+                        if search.query.isEmpty && category == nil {
                             ForEach(groupedResults) { group in
                                 Section {
                                     ForEach(group.items) { item in row(item) }
@@ -152,7 +150,7 @@ struct RepliesView: View {
                 Text(warning).font(.caption).foregroundColor(.orange).padding(8)
             }
         }
-        .onAppear { searchFocused = true }
+        .onAppear { search.focus() }
     }
 
     private struct ReplyGroup: Identifiable {
