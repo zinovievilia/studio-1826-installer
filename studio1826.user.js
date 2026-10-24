@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v5.5.1 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v5.5.2 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      5.5.1
+// @version      5.5.2
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '5.5.1';
+    const VERSION = '5.5.2';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -2052,12 +2052,18 @@
     ];
 
     /* Цвета стадий по умолчанию (как в Bitrix). */
+    /*
+     * color — исходный цвет стадии в Bitrix (по нему стадия узнаётся на карточке, менять нельзя);
+     * def — цвет по умолчанию в скрипте (5.5.2, выбор Ильи 24.10.2026).
+     */
     const STAGES = [
-        { id: 'multi', name: 'Несколько броней', color: '#fff893' },
-        { id: 'done', name: 'Аренда завершена', color: '#7bd500' },
-        { id: 'prepaid', name: 'Предоплачено', color: '#47d1e2' },
-        { id: 'checked', name: 'Проверено', color: '#a3d49b' }
+        { id: 'multi', name: 'Несколько броней', color: '#fff893', def: '#fff893' },
+        { id: 'done', name: 'Аренда завершена', color: '#7bd500', def: '#cce8b5' },
+        { id: 'prepaid', name: 'Предоплачено', color: '#47d1e2', def: '#94e3fe' },
+        { id: 'checked', name: 'Проверено', color: '#a3d49b', def: '#a3d49b' }
     ];
+
+    const defaultColor = item => item.def || item.color;
 
     /* Цвета меток: обводка, «Пересменки», последние брони дня. */
     const MARK_COLORS = [
@@ -2089,9 +2095,10 @@
         COLOR_ITEMS.forEach(stage => {
             const value = source.colors && source.colors[stage.id];
 
-            result.colors[stage.id] = /^#[0-9a-f]{6}$/i.test(value || '')
+            /* Нет значения или стоит прежний цвет по умолчанию (исходный Bitrix) — берём новый по умолчанию. */
+            result.colors[stage.id] = /^#[0-9a-f]{6}$/i.test(value || '') && value.toLowerCase() !== stage.color.toLowerCase()
                 ? value.toLowerCase()
-                : stage.color;
+                : defaultColor(stage);
         });
 
         return result;
@@ -5648,7 +5655,7 @@
 
             panel.appendChild(el('div', { className: 'st-note' }, [
                 'Переключатели действуют сразу. Цвета применяются после «Сохранить».',
-                ' «Сбросить цвета» возвращает исходные цвета Bitrix сразу.'
+                ' «Сбросить цвета» сразу возвращает цвета по умолчанию.'
             ]));
 
             let draft = { ...features.colors };
@@ -5762,7 +5769,7 @@
             });
 
             panel.querySelector('.st-reset').addEventListener('click', () => {
-                draft = Object.fromEntries(COLOR_ITEMS.map(item => [item.id, item.color]));
+                draft = Object.fromEntries(COLOR_ITEMS.map(item => [item.id, defaultColor(item)]));
 
                 features = sanitizeFeatures({ ...features, colors: draft });
 
