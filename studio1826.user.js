@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v5.1.0 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v5.3.0 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      5.1.0
+// @version      5.3.0
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '5.1.0';
+    const VERSION = '5.3.0';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -245,6 +245,49 @@
                 text-anchor: middle;
                 font: 700 11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             }
+            /* 5.3.0: плашки «ЗАВТРА» в свободном времени зала и стрелки к ним. */
+            .s26-tiles {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 0;
+                height: 0;
+                overflow: visible;
+                pointer-events: none;
+                z-index: 32;
+            }
+            .s26-tile {
+                position: absolute;
+                box-sizing: border-box;
+                overflow: hidden;
+                border: 2px dashed #7c3aed;
+                border-radius: 8px;
+                background: repeating-linear-gradient(135deg, #f5f0ff 0 8px, #ede4ff 8px 16px);
+                box-shadow: 0 4px 14px rgba(124, 58, 237, .25);
+                color: #2e1065;
+                font: 11px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            }
+            .s26-tile-head {
+                padding: 3px 6px;
+                background: #7c3aed;
+                color: #fff;
+                font-weight: 800;
+                letter-spacing: .04em;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .s26-tile-line { padding: 2px 6px; overflow-wrap: anywhere; }
+            .s26-tile-line b { font-weight: 800; }
+            .s26-tile-line.missing { color: #b91c1c; font-weight: 700; }
+            .s26-moves .s26-tile-path {
+                fill: none;
+                stroke: #7c3aed;
+                stroke-width: 2.6;
+                stroke-dasharray: 6 4;
+                stroke-linecap: round;
+            }
+            .s26-moves .s26-tile-arrow { fill: #7c3aed; }
             .deal-item-contaner .booking-copy-button {
                 position: absolute !important;
                 top: 4px !important;
@@ -1133,6 +1176,11 @@
             }
             #${DAY_DIALOG_ID} .dd-group .dd-line { display: flex; gap: 10px; justify-content: space-between; }
             #${DAY_DIALOG_ID} .dd-group .dd-qty { flex: none; color: #bbb; white-space: nowrap; }
+            #${DAY_DIALOG_ID} .dd-section.plan .dd-section-title { color: #c4b5fd; }
+            #${DAY_DIALOG_ID} .dd-section.plan .dd-group { border-left-color: #7c3aed; }
+            #${DAY_DIALOG_ID} .dd-line.keep { color: #7ee2a0; }
+            #${DAY_DIALOG_ID} .dd-line.move { color: #7fb4ff; }
+            #${DAY_DIALOG_ID} .dd-line.missing { color: #ff8a8a; font-weight: 700; }
         `,
         /* 4.6.0: светлое оформление в стиле Bitrix24 (белая карточка, акцент #2067b0).
          * Только перекраска: включается атрибутом data-skin="light" на корне панели,
@@ -1397,6 +1445,73 @@
             #${SETTINGS_ID} .st-content > details.st-group > .st-group-body { padding: 0; }
             #${SETTINGS_ID} .st-content [hidden] { display: none !important; }
 
+            /* 5.2.0: диалог «Не разбирать на завтра» и подсказки в светлом оформлении. */
+            #${DAY_DIALOG_ID}[data-skin="light"] {
+                --s-accent: var(--ui-color-primary, #2067b0);
+                color: #2b2f36;
+                background: #fff;
+                border-color: transparent;
+                box-shadow: 0 10px 32px #1f2d3d2e, 0 0 0 1px #0000000d;
+                font-family: var(--ui-font-family-primary, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+            }
+            #${DAY_DIALOG_ID}[data-skin="light"] .dd-close { background: #fff; border-color: #d5dae0; color: #4b5560; }
+            #${DAY_DIALOG_ID}[data-skin="light"] .dd-label,
+            #${DAY_DIALOG_ID}[data-skin="light"] .dd-group-sub,
+            #${DAY_DIALOG_ID}[data-skin="light"] .dd-empty,
+            #${DAY_DIALOG_ID}[data-skin="light"] .dd-source { color: #6a737f; }
+            #${DAY_DIALOG_ID}[data-skin="light"] .dd-warn { color: #b5651d; }
+            #${DAY_DIALOG_ID}[data-skin="light"] .dd-input,
+            #${DAY_DIALOG_ID}[data-skin="light"] .dd-result { background: #f7f8fa; border-color: #e0e4e9; color: #2b2f36; }
+            #${DAY_DIALOG_ID}[data-skin="light"] .dd-actions button,
+            #${DAY_DIALOG_ID}[data-skin="light"] .dd-copy:not(:disabled) { background: var(--s-accent); border-color: var(--s-accent); color: #fff; }
+            #${DAY_DIALOG_ID}[data-skin="light"] .dd-actions .dd-clear,
+            #${DAY_DIALOG_ID}[data-skin="light"] .dd-actions .dd-load { background: transparent; border-color: #cfd5db; color: #4b5560; }
+            #${DAY_DIALOG_ID}[data-skin="light"] .dd-copy:disabled { border-color: #e0e4e9; color: #9aa3ad; }
+            #${DAY_DIALOG_ID}[data-skin="light"] .dd-group { background: #fff; box-shadow: 0 0 0 1px #eef1f4 inset; }
+            #${DAY_DIALOG_ID}[data-skin="light"] .dd-group-head { color: #1f2933; }
+            #${DAY_DIALOG_ID}[data-skin="light"] .dd-line { border-bottom-color: #eef1f4; }
+            #${DAY_DIALOG_ID}[data-skin="light"] .dd-group .dd-qty { color: #4b5560; }
+            #${DAY_DIALOG_ID}[data-skin="light"] .dd-section.keep .dd-section-title { color: #1e8e4e; }
+            #${DAY_DIALOG_ID}[data-skin="light"] .dd-section.move .dd-section-title { color: #2563eb; }
+            #${DAY_DIALOG_ID}[data-skin="light"] .dd-section.missing .dd-section-title { color: #c0392b; }
+            #${DAY_DIALOG_ID}[data-skin="light"] .dd-section.keep .dd-group { border-left-color: #1e8e4e; }
+            #${DAY_DIALOG_ID}[data-skin="light"] .dd-section.move .dd-group { border-left-color: #2563eb; }
+            #${DAY_DIALOG_ID}[data-skin="light"] .dd-section.missing .dd-group { border-left-color: #c0392b; }
+            #${DAY_DIALOG_ID}[data-skin="light"] .dd-section.plan .dd-section-title { color: #6d28d9; }
+            #${DAY_DIALOG_ID}[data-skin="light"] .dd-line.keep { color: #166c3b; }
+            #${DAY_DIALOG_ID}[data-skin="light"] .dd-line.move { color: #1d4ed8; }
+            #${DAY_DIALOG_ID}[data-skin="light"] .dd-line.missing { color: #b91c1c; }
+            #${TOAST_ID}[data-skin="light"] {
+                background: #fff;
+                color: #2b2f36;
+                border-color: transparent;
+                box-shadow: 0 10px 32px #1f2d3d2e, 0 0 0 1px #0000000d;
+            }
+
+            /* 5.3.0: блок «К утру» в разделе «Оборудование». */
+            #${WIDGET_ID} .eq-morning { margin-bottom: 10px; padding: 8px 10px 4px; border-radius: 8px; background: #7c3aed22; border-left: 3px solid #7c3aed; }
+            #${WIDGET_ID} .eq-morning-title { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #a78bfa; }
+            #${WIDGET_ID} .eq-all-title { margin: 6px 0 2px; opacity: .7; color: inherit; }
+            #${WIDGET_ID} .eq-m { font-size: 12.5px; padding: 1px 0; overflow-wrap: anywhere; }
+            #${WIDGET_ID} .eq-m.keep { color: #7ee2a0; }
+            #${WIDGET_ID} .eq-m.move { color: #93c5fd; }
+            #${WIDGET_ID} .eq-m.missing { color: #ff8a8a; font-weight: 700; }
+            #${WIDGET_ID}[data-skin="light"] .eq-morning { background: #f5f0ff; }
+            #${WIDGET_ID}[data-skin="light"] .eq-morning-title { color: #6d28d9; }
+            #${WIDGET_ID}[data-skin="light"] .eq-all-title { color: #4b5560; }
+            #${WIDGET_ID}[data-skin="light"] .eq-m.keep { color: #166c3b; }
+            #${WIDGET_ID}[data-skin="light"] .eq-m.move { color: #1d4ed8; }
+            #${WIDGET_ID}[data-skin="light"] .eq-m.missing { color: #b91c1c; }
+            #${WIDGET_ID} .eq-morning .eq-group { border-bottom-color: #7c3aed26; }
+
+            /* 5.2.0: замечания по данным в разделе «Оборудование». */
+            #${WIDGET_ID} .eq-issues { margin-top: 8px; font-size: 12px; }
+            #${WIDGET_ID} .eq-issues > summary { cursor: pointer; list-style: none; color: #f0b429; }
+            #${WIDGET_ID} .eq-issues > summary::-webkit-details-marker { display: none; }
+            #${WIDGET_ID} .eq-issues > summary::after { content: ' ›'; }
+            #${WIDGET_ID} .eq-issue { padding: 3px 0 0 8px; font-size: 11.5px; opacity: .85; }
+            #${WIDGET_ID} .eq-issue a { color: inherit; text-decoration: underline; }
+            #${WIDGET_ID}[data-skin="light"] .eq-issues > summary { color: #b5651d; }
             /* светлое оформление */
             #${WIDGET_ID}[data-skin="light"] .eq-section { border-top-color: #e6e9ed; }
             #${WIDGET_ID}[data-skin="light"] .eq-days { background: #eef1f4; }
@@ -2524,6 +2639,57 @@
     /* =========================================================
      * ЧАСТЬ 1. КАРТОЧКИ БРОНИРОВАНИЯ (iframe)
      * ========================================================= */
+    /*
+     * 5.3.0: план «на утро» по залам для показа в календаре. Из результата analyzeTomorrow
+     * собирает плашку на каждый зал завтрашнего утра (что оставить, что принести и откуда,
+     * что собрать) и связи «последняя бронь сегодня → зал» для стрелок. Время — начало первой
+     * завтрашней брони зала.
+     */
+    function planTomorrowTiles(analysis, tomorrowRecords) {
+        const first = new Map();
+
+        (tomorrowRecords || []).forEach(record => {
+            const label = hallLabel(record.hall);
+
+            if (!label || !Number.isFinite(record.start)) return;
+            if (!first.has(label) || record.start < first.get(label)) first.set(label, record.start);
+        });
+
+        const tiles = new Map();
+        const links = new Map();
+
+        const add = (hall, name, qty, kind, from, after = null) => {
+            if (!tiles.has(hall)) tiles.set(hall, { hall, start: first.has(hall) ? first.get(hall) : null, items: [] });
+
+            const tile = tiles.get(hall);
+            const existing = tile.items.find(item => item.name === name && item.kind === kind && item.from === from);
+
+            if (existing) existing.qty += qty;
+            else tile.items.push({ name, qty, kind, from, after });
+        };
+
+        const link = (from, hall, kind) => {
+            const key = `${from.record.hall}|${from.record.start}`;
+
+            links.set(`${key}→${hall}`, { from: key, to: hall, kind });
+        };
+
+        ((analysis && analysis.keep) || []).forEach(({ need, from, qty }) => {
+            add(need.hall, need.name, qty, 'keep', from.label, from.record.end);
+            link(from, need.hall, 'keep');
+        });
+        ((analysis && analysis.move) || []).forEach(({ need, from, qty }) => {
+            add(need.hall, need.name, qty, 'move', from.label, from.record.end);
+            link(from, need.hall, 'move');
+        });
+        ((analysis && analysis.missing) || []).forEach(({ need, qty }) => add(need.hall, need.name, qty, 'missing', ''));
+
+        return {
+            tiles: [...tiles.values()].sort((a, b) => hallNumber(a.hall) - hallNumber(b.hall) || a.hall.localeCompare(b.hall, 'ru')),
+            links: [...links.values()]
+        };
+    }
+
     /* =========================================================
      * ДАННЫЕ ДНЯ ИЗ BITRIX24 (5.0.0)
      * Брони и их товарные строки читаются напрямую из CRM (REST по сессии
@@ -2662,6 +2828,32 @@
             starCount: day.starCount,
             text: day.text
         };
+    }
+
+    /*
+     * Замечания по данным дня (5.2.0): одинаковые позиции, внесённые в одну бронь несколько раз
+     * (часто это двойной ввод). Строка «Доплата за час» не считается — её повторяют намеренно.
+     */
+    function findDuplicateRows(records) {
+        const result = [];
+
+        (records || []).forEach(record => {
+            const counts = new Map();
+
+            (record.items || []).forEach(item => {
+                const name = String(item).replace(/\s*-\s*[\d.,]+\s*шт\.?\s*$/i, '').trim();
+
+                if (!name || /^доплата за час/i.test(name)) return;
+
+                counts.set(name, (counts.get(name) || 0) + 1);
+            });
+
+            const names = [...counts.entries()].filter(([, count]) => count > 1).map(([name, count]) => `${name} ×${count}`);
+
+            if (names.length) result.push({ id: record.id || '', hall: record.hall, start: record.start, names });
+        });
+
+        return result;
     }
 
     /* Вызов REST Bitrix24 через штатный BX.rest (сессия пользователя). */
@@ -3840,6 +4032,9 @@
         let moveSignature = '';
         let moveLinks = [];
         let lastCardList = [];
+        let tomorrowTiles = [];
+        let tileLinks = [];
+        let tileLayer = null;
 
         function clearMoves() {
             if (moveLayer && moveLayer.isConnected) moveLayer.replaceChildren();
@@ -3968,7 +4163,144 @@
             return lowest + 30;
         }
 
+        function clearTiles() {
+            if (tileLayer && tileLayer.isConnected) tileLayer.replaceChildren();
+        }
+
+        /*
+         * 5.3.0: «ЗАВТРА» прямо в календаре. В колонке каждого зала, куда к утру нужно оборудование,
+         * в свободном времени после последней брони — плашка (что оставить, что принести и откуда,
+         * что собрать); от последних броней — пунктирные стрелки к плашке. Клики проходят сквозь.
+         */
+        function renderTomorrowTiles(list) {
+            const holder = getMoveLayer();
+
+            if (!holder) return;
+
+            const { root, layer } = holder;
+
+            if (!tileLayer || tileLayer.parentElement !== root) {
+                tileLayer = document.createElement('div');
+                tileLayer.className = 's26-tiles';
+                tileLayer.setAttribute('aria-hidden', 'true');
+                root.appendChild(tileLayer);
+            }
+
+            const rootRect = root.getBoundingClientRect();
+            const sources = new Map();
+            const columns = new Map();
+
+            list.forEach(({ card, hallFull, start }) => {
+                const r = card.getBoundingClientRect();
+
+                if (r.width <= 0 || r.height <= 0) return;
+
+                const rect = {
+                    left: r.left - rootRect.left,
+                    right: r.right - rootRect.left,
+                    top: r.top - rootRect.top,
+                    bottom: r.bottom - rootRect.top
+                };
+
+                if (Number.isFinite(start)) sources.set(`${hallFull}|${start}`, rect);
+
+                const label = hallLabel(hallFull);
+
+                if (!label) return;
+
+                const col = columns.get(label) || { left: rect.left, right: rect.right, bottom: rect.bottom };
+
+                col.left = Math.min(col.left, rect.left);
+                col.right = Math.max(col.right, rect.right);
+                col.bottom = Math.max(col.bottom, rect.bottom);
+                columns.set(label, col);
+            });
+
+            const axis = getTimeAxis();
+            const yMin = axis ? axis.labels[0].top - rootRect.top + 4 : 40;
+
+            const signature = JSON.stringify([tomorrowTiles, tileLinks, [...columns.entries()].map(([k, c]) => [k, Math.round(c.left), Math.round(c.right), Math.round(c.bottom)])]);
+
+            if (signature === moveSignature && tileLayer.childElementCount) return;
+
+            moveSignature = signature;
+            layer.replaceChildren();
+            tileLayer.replaceChildren();
+
+            const placed = new Map();
+
+            tomorrowTiles.forEach(tile => {
+                let col = columns.get(tile.hall);
+
+                if (!col) {
+                    const header = findHallHeader(tile.hall);
+
+                    if (!header) return;
+
+                    col = { left: header.left - rootRect.left, right: header.right - rootRect.left, bottom: yMin };
+                }
+
+                const node = el('div', { className: 's26-tile' }, [
+                    el('div', { className: 's26-tile-head' }, [
+                        `ЗАВТРА${Number.isFinite(tile.start) ? ' · ' + formatClock(tile.start) : ''}`
+                    ])
+                ]);
+
+                tile.items.forEach(item => {
+                    const qty = item.qty > 1 ? ` ×${formatQuantity(item.qty)}` : '';
+                    const what = el('b', {}, [`${item.name}${qty}`]);
+                    const line = el('div', { className: `s26-tile-line ${item.kind}` });
+
+                    if (item.kind === 'keep') line.append('✓ ', what, ' — не разбирать');
+                    else if (item.kind === 'move') line.append('← ', what, ` из ${item.from}`);
+                    else line.append('+ ', what, ' — собрать');
+
+                    node.appendChild(line);
+                });
+
+                const width = Math.max(90, col.right - col.left - 6);
+                const top = col.bottom + 10;
+
+                node.style.left = `${col.left + 3}px`;
+                node.style.top = `${top}px`;
+                node.style.width = `${width}px`;
+                tileLayer.appendChild(node);
+                placed.set(tile.hall, { left: col.left + 3, top, width });
+            });
+
+            tileLinks.forEach(linkItem => {
+                const src = sources.get(linkItem.from);
+                const dst = placed.get(linkItem.to);
+
+                if (!src || !dst) return;
+
+                const sx = (src.left + src.right) / 2;
+                const sy = src.bottom - 4;
+                const tx = dst.left + dst.width / 2;
+                const ty = dst.top - 2;
+                const dy = Math.max(10, Math.abs(ty - sy) / 2);
+
+                layer.append(
+                    svgNode('path', {
+                        class: 's26-tile-path',
+                        d: `M${sx} ${sy} C${sx} ${sy + dy} ${tx} ${ty - dy} ${tx} ${ty - 9}`
+                    }),
+                    svgNode('polygon', {
+                        class: 's26-tile-arrow',
+                        points: `${tx},${ty} ${tx - 6},${ty - 10} ${tx + 6},${ty - 10}`
+                    })
+                );
+            });
+        }
+
         function renderMoves(list) {
+            if (features.moveArrows && tomorrowTiles.length) {
+                renderTomorrowTiles(list);
+                return;
+            }
+
+            clearTiles();
+
             if (!features.moveArrows || !moveLinks.length) {
                 clearMoves();
                 return;
@@ -4304,7 +4636,7 @@
         function isOwnNode(node) {
             const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
 
-            return !!element?.closest?.(`#${PANEL_ID}, .booking-copy-button, .s26-badges, .s26-handoff, .s26-arrows, .s26-moves, .s26-hall-eq`);
+            return !!element?.closest?.(`#${PANEL_ID}, .booking-copy-button, .s26-badges, .s26-handoff, .s26-arrows, .s26-moves, .s26-hall-eq, .s26-tiles`);
         }
 
         const observer = new MutationObserver(mutations => {
@@ -4380,6 +4712,34 @@
 
                     if (JSON.stringify(next) !== JSON.stringify(moveLinks)) {
                         moveLinks = next;
+                        marksChanged = true;
+                    }
+                }
+
+                /* 5.3.0: плашки «на утро» (санитизация: длины и количество ограничены). */
+                if (Array.isArray(request.tiles)) {
+                    const KINDS = ['keep', 'move', 'missing'];
+                    const str = (value, max) => typeof value === 'string' && value.length <= max;
+                    const nextTiles = request.tiles
+                        .slice(0, 40)
+                        .filter(tile => tile && str(tile.hall, 60) && Array.isArray(tile.items))
+                        .map(tile => ({
+                            hall: tile.hall,
+                            start: Number.isFinite(tile.start) ? tile.start : null,
+                            items: tile.items
+                                .slice(0, 30)
+                                .filter(item => item && str(item.name, 160) && KINDS.includes(item.kind) && Number.isFinite(item.qty) && (item.from === '' || str(item.from, 60)))
+                                .map(item => ({ name: item.name, qty: item.qty, kind: item.kind, from: item.from }))
+                        }))
+                        .filter(tile => tile.items.length);
+                    const nextLinks = (Array.isArray(request.tileLinks) ? request.tileLinks : [])
+                        .slice(0, 120)
+                        .filter(item => item && str(item.from, 200) && str(item.to, 60) && KINDS.includes(item.kind))
+                        .map(item => ({ from: item.from, to: item.to, kind: item.kind }));
+
+                    if (JSON.stringify([nextTiles, nextLinks]) !== JSON.stringify([tomorrowTiles, tileLinks])) {
+                        tomorrowTiles = nextTiles;
+                        tileLinks = nextLinks;
                         marksChanged = true;
                     }
                 }
@@ -4900,7 +5260,7 @@
                 handoff: 'Полоска «Пересменки»',
                 aliases: 'Подписи оборудования (бум, роллер…)',
                 arrows: 'Стрелки переноса оборудования',
-                moveArrows: 'Синие стрелки «не разбирать на завтра»',
+                moveArrows: '«Завтра» в календаре: плашки и стрелки',
                 stripes: 'Завершённые брони — диагональные полоски'
             };
 
@@ -5420,9 +5780,9 @@
                         box.appendChild(sub);
                     }
 
-                    group.lines.forEach(({ name, qty }) => {
+                    group.lines.forEach(({ name, qty, kind: lineKind }) => {
                         const line = document.createElement('div');
-                        line.className = 'dd-line';
+                        line.className = lineKind ? `dd-line ${lineKind}` : 'dd-line';
 
                         const nameNode = document.createElement('span');
                         nameNode.textContent = name;
@@ -5452,73 +5812,30 @@
             const byHallOrder = (a, b) =>
                 hallNumber(a) - hallNumber(b) || a.localeCompare(b, 'ru');
 
+            /*
+             * 5.3.0: результат по залам завтрашнего утра — что сделать в каждом зале
+             * (не разбирать, принести и откуда, собрать), а не три списка по типам действий.
+             */
             function renderPlan(analysis, tomorrow) {
                 result.replaceChildren();
                 lastSections = [];
 
-                /* Оставить: по залам. */
-                const keepGroups = new Map();
+                const entry = dayStore.get(dayIso('tomorrow'));
+                const plan = planTomorrowTiles(analysis, entry && entry.records ? recordsOfCategory(entry.records, category) : []);
+                const groups = plan.tiles.map(tile => ({
+                    head: Number.isFinite(tile.start) ? `${tile.hall} · завтра с ${formatClock(tile.start)}` : tile.hall,
+                    sub: '',
+                    lines: tile.items.map(item => {
+                        const after = Number.isFinite(item.after) ? ` (после ${formatClock(item.after)})` : '';
 
-                analysis.keep.forEach(({ need, from, qty }) => {
-                    if (!keepGroups.has(need.hall)) {
-                        keepGroups.set(need.hall, {
-                            head: need.hall,
-                            sub: `Не разбирать после последней брони (до ${formatClock(from.record.end)})`,
-                            lines: []
-                        });
-                    }
+                        if (item.kind === 'keep') return { kind: 'keep', qty: item.qty, name: `✓ ${item.name} — не разбирать${after}` };
+                        if (item.kind === 'move') return { kind: 'move', qty: item.qty, name: `← ${item.name} — из ${item.from}${after}` };
 
-                    addLine(keepGroups.get(need.hall), need.name, qty);
-                });
+                        return { kind: 'missing', qty: item.qty, name: `+ ${item.name} — собрать` };
+                    })
+                }));
 
-                addGroups(
-                    'keep',
-                    'Не разбирать — оставить в этом же зале',
-                    [...keepGroups.keys()].sort(byHallOrder).map(key => keepGroups.get(key))
-                );
-
-                /* Перенести: один блок на пару «откуда → куда», позиции списком. */
-                const moveGroups = new Map();
-
-                analysis.move.forEach(({ need, from, qty }) => {
-                    const id = `${from.label}→${need.hall}`;
-
-                    if (!moveGroups.has(id)) {
-                        moveGroups.set(id, {
-                            from: from.label,
-                            to: need.hall,
-                            head: `${from.label} → ${need.hall}`,
-                            sub: `Забрать после брони, которая заканчивается в ${formatClock(from.record.end)}`,
-                            lines: []
-                        });
-                    }
-
-                    addLine(moveGroups.get(id), need.name, qty);
-                });
-
-                addGroups(
-                    'move',
-                    'Не разбирать — перенести в другой зал',
-                    [...moveGroups.values()].sort((a, b) =>
-                        byHallOrder(a.from, b.from) || byHallOrder(a.to, b.to))
-                );
-
-                /* Не хватает: по залам, куда нужно собрать. */
-                const missingGroups = new Map();
-
-                analysis.missing.forEach(({ need, qty }) => {
-                    if (!missingGroups.has(need.hall)) {
-                        missingGroups.set(need.hall, { head: need.hall, sub: '', lines: [] });
-                    }
-
-                    addLine(missingGroups.get(need.hall), need.name, qty);
-                });
-
-                addGroups(
-                    'missing',
-                    'Не хватает — собрать на завтра',
-                    [...missingGroups.keys()].sort(byHallOrder).map(key => missingGroups.get(key))
-                );
+                addGroups('plan', 'На утро по залам', groups);
 
                 if (!analysis.needCount) {
                     addNote('В списке нет позиций со звёздочкой, поэтому сравнивать нечего.', 'dd-warn');
@@ -5727,11 +6044,41 @@
 
                 if (!summary.halls.length) {
                     body.appendChild(el('div', { className: 's-muted eq-empty' }, [`На ${dayLabel(iso)} оборудование не заказано.`]));
+                    renderIssues(filtered, entry, openKeys);
                     return;
                 }
 
                 lastText = summary.text;
                 copyButton.disabled = false;
+
+                /* 5.3.0: на завтра сначала — что сделать к утру в каждом зале (то же, что плашки в календаре). */
+                const morning = eqDay === 'tomorrow' ? computeTomorrowPlan() : { tiles: [] };
+
+                if (morning.tiles.length) {
+                    const box = el('div', { className: 'eq-morning' }, [el('div', { className: 'eq-morning-title' }, ['К утру'])]);
+
+                    morning.tiles.forEach(tile => {
+                        const group = el('div', { className: 'eq-group' }, [
+                            el('div', { className: 'eq-hall' }, [Number.isFinite(tile.start) ? `${tile.hall} · ${formatClock(tile.start)}` : tile.hall])
+                        ]);
+
+                        tile.items.forEach(item => {
+                            const qty = item.qty > 1 ? ` ×${formatQuantity(item.qty)}` : '';
+                            const text = item.kind === 'keep'
+                                ? `✓ ${item.name}${qty} — не разбирать`
+                                : item.kind === 'move'
+                                    ? `← ${item.name}${qty} из ${item.from}${Number.isFinite(item.after) ? ' после ' + formatClock(item.after) : ''}`
+                                    : `+ ${item.name}${qty} — собрать`;
+
+                            group.appendChild(el('div', { className: `eq-m ${item.kind}` }, [text]));
+                        });
+
+                        box.appendChild(group);
+                    });
+
+                    body.appendChild(box);
+                    body.appendChild(el('div', { className: 'eq-morning-title eq-all-title' }, ['Всё оборудование на день']));
+                }
 
                 summary.halls.forEach(hall => {
                     const group = el('div', { className: 'eq-group' }, [el('div', { className: 'eq-hall' }, [hall.label])]);
@@ -5792,7 +6139,47 @@
                 if (summary.starCount) {
                     body.appendChild(el('div', { className: 's-muted eq-note' }, ['* к началу первой брони зала']));
                 }
+
+                renderIssues(filtered, entry, openKeys);
             };
+
+            /* Замечания по данным: повторы позиций в брони и брони без зала (ссылки на сделки для проверки). */
+            function renderIssues(records, entry, openKeys) {
+                const duplicates = findDuplicateRows(records);
+                const count = duplicates.length + (entry.withoutHall ? 1 : 0);
+
+                if (!count) return;
+
+                const box = el('details', { className: 'eq-issues', 'data-key': '__issues' }, [
+                    el('summary', {}, [`Замечания: ${count}`])
+                ]);
+
+                if (openKeys.has('__issues')) box.open = true;
+
+                duplicates.forEach(issue => {
+                    const row = el('div', { className: 'eq-issue' }, [
+                        `${hallLabel(issue.hall) || 'зал?'}${Number.isFinite(issue.start) ? ' ' + formatClock(issue.start) : ''}: повтор — ${issue.names.join(', ')} · `
+                    ]);
+
+                    if (issue.id) {
+                        row.appendChild(el('a', {
+                            href: `/crm/deal/details/${encodeURIComponent(issue.id)}/`,
+                            target: '_blank',
+                            rel: 'noopener'
+                        }, [`бронь ${issue.id}`]));
+                    }
+
+                    box.appendChild(row);
+                });
+
+                if (entry.withoutHall) {
+                    box.appendChild(el('div', { className: 'eq-issue' }, [
+                        `Броней без зала в товарах: ${entry.withoutHall} (все филиалы) — в расчёт не попали.`
+                    ]));
+                }
+
+                body.appendChild(box);
+            }
 
             switcher.querySelectorAll('[data-eq-day]').forEach(button => {
                 button.addEventListener('click', () => {
@@ -5889,6 +6276,11 @@
             const value = SKINS.includes(skin) ? skin : DEFAULT_SKIN;
 
             root.dataset.skin = value;
+            [DAY_DIALOG_ID, TOAST_ID].forEach(id => {
+                const node = document.getElementById(id);
+
+                if (node) node.dataset.skin = value;
+            });
             root.querySelectorAll('[data-skin-choice]').forEach(button => {
                 button.setAttribute('aria-pressed', String(button.dataset.skinChoice === value));
             });
@@ -6112,6 +6504,7 @@
             setupSettings(root);
             layoutSettings(settingsPanel);
             setupDayTools(root);
+            applySkin(root, root.dataset.skin);
 
             activateTab(readUi().tab);
 
@@ -6464,13 +6857,41 @@
             return { copied, saved, answered: collectorReports.length > 0 };
         }
 
+        /*
+         * 5.3.0: план «на утро» для календаря. Считается сам, когда календарь показывает сегодняшний день
+         * и завтрашние брони уже загружены из Bitrix24; в другие дни плашек нет.
+         */
+        function computeTomorrowPlan() {
+            const entry = dayStore.get(dayIso('tomorrow'));
+            const showsToday = selectedDate === dayLabel(dayIso('today'));
+
+            if (!features.moveArrows || !showsToday || !entry || !entry.records || !records.length) {
+                return { tiles: [], links: [] };
+            }
+
+            const tomorrowRecords = recordsOfCategory(entry.records, category);
+            const analysis = analyzeTomorrow(records, parseDayList(buildDayList(tomorrowRecords).text));
+
+            return planTomorrowTiles(analysis, tomorrowRecords);
+        }
+
         function requestData(full = false) {
             if (document.hidden) return;
+
+            const plan = computeTomorrowPlan();
 
             document.querySelectorAll('iframe').forEach(frame => {
                 try {
                     frame.contentWindow?.postMessage(
-                        encodeRequest({ type: REQUEST_TYPE, settings: features, mark: markKeys, moves: moveLinks, full: full === true }),
+                        encodeRequest({
+                            type: REQUEST_TYPE,
+                            settings: features,
+                            mark: markKeys,
+                            moves: moveLinks,
+                            tiles: plan.tiles,
+                            tileLinks: plan.links,
+                            full: full === true
+                        }),
                         APP_ORIGIN
                     );
                 } catch (_) {}
@@ -6486,6 +6907,12 @@
         }
 
         requestData(true);
+
+        /* Завтрашние брони нужны календарю и при закрытом окне: подгружаем раз в 5 минут. */
+        loadDay(dayIso('tomorrow'));
+        setInterval(() => {
+            if (!document.hidden) loadDay(dayIso('tomorrow'));
+        }, 300000);
         setInterval(() => requestData(records.length === 0 || cardsMissing), 3000);
 
         /* Р-6: при возврате на вкладку iframe мог работать со старыми
@@ -7022,7 +7449,7 @@
             findHallName, formatClock,
             buildDayList, parseDayList, analyzeTomorrow, computePayout,
             validateCollectorPayload, encodeRequest, decodeRequest,
-            moscowDay, dayBounds, moscowParts, dealToRecord, recordsOfCategory, recordEquipment, summarizeEquipment,
+            moscowDay, dayBounds, moscowParts, dealToRecord, recordsOfCategory, recordEquipment, summarizeEquipment, findDuplicateRows, planTomorrowTiles,
             sanitizeFeatures, exportSettings, parseSettingsImport, FEATURE_KEYS, COLOR_ITEMS,
             money, formatAmount,
             EQUIPMENT, SERVICES, HOURS_BONUSES,
