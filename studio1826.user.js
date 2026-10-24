@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v5.0.0 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v5.0.1 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      5.0.0
+// @version      5.0.1
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '5.0.0';
+    const VERSION = '5.0.1';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -4622,6 +4622,9 @@
 
             if (slot.parentElement !== header) header.appendChild(slot);
 
+            /* Пока окна скрыты (бронь, чат, перезагрузка календаря), кнопку не измерить — режим не трогаем. */
+            if (document.documentElement.classList.contains('s26-overlay-open')) return;
+
             /* Свободное место — между последним пунктом меню и ближайшим занятым блоком справа
              * (поиск, «Пригласить», «Мой тариф» и т.п. показываются не всегда; справа остаётся поле под аватар).
              * Слот абсолютный, раскладку шапки и расчёт пункта «Еще» не меняет. Не помещается — плавающая плашка. */
@@ -5866,11 +5869,7 @@
                 loadDay(dayIso(activeTab === 'equipment' ? eqDay : 'tomorrow'));
             }, 120000);
 
-            /* Календарь — iframe: клики внутри него до этого документа не доходят, зато окно теряет фокус. */
-            window.addEventListener('blur', () => {
-                if (root.dataset.mode !== 'header' || collapsed) return;
-                if (document.activeElement && document.activeElement.tagName === 'IFRAME') setCollapsed(root, true);
-            });
+            /* 5.0.1: клик в календаре (iframe) окно не закрывает — с ним работают, переключая дни. */
 
             const toast = document.createElement('div');
             toast.id = TOAST_ID;
@@ -6105,6 +6104,15 @@
                 return;
             }
 
+            /*
+             * 5.0.1: данные принимаем только от iframe самой страницы (календарь). Приложение встроено и
+             * в карточку сделки (слайдер Bitrix) — тот экземпляр сборщика шлёт пустой список, из-за чего
+             * панель пряталась и после закрытия брони не возвращалась.
+             */
+            const fromPageFrame = [...document.querySelectorAll('iframe')].some(frame => frame.contentWindow === event.source);
+
+            if (!fromPageFrame) return;
+
             const validated = validateCollectorPayload(event.data, VERSION);
 
             if (!validated) return;
@@ -6259,7 +6267,7 @@
         }
 
         requestData(true);
-        setInterval(() => requestData(records.length === 0), 3000);
+        setInterval(() => requestData(records.length === 0 || cardsMissing), 3000);
 
         /* Р-6: при возврате на вкладку iframe мог работать со старыми
          * settings до следующего тика setInterval(3000). Немедленно
