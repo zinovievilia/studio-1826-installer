@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v4.3.0 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v4.4.0 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      4.3.0
+// @version      4.4.0
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '4.3.0';
+    const VERSION = '4.4.0';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -805,6 +805,18 @@
                 border-color: #666;
                 font-weight: 400;
             }
+            #${SETTINGS_ID} .st-import {
+                width: 100%;
+                min-height: 60px;
+                margin-top: 8px;
+                padding: 8px;
+                border: 1px solid #555;
+                border-radius: 6px;
+                background: #161616;
+                color: #fff;
+                font: 12px/1.4 ui-monospace, Menlo, monospace;
+                resize: vertical;
+            }
             #${SETTINGS_ID} .st-note {
                 margin-top: 10px;
                 color: #999;
@@ -1434,6 +1446,29 @@
         });
 
         return result;
+    }
+
+    /* Резервная копия настроек: JSON с номером схемы (для будущих миграций). */
+    const SETTINGS_SCHEMA = 1;
+
+    function exportSettings(features) {
+        return JSON.stringify({ app: 'studio1826', schema: SETTINGS_SCHEMA, features: sanitizeFeatures(features) }, null, 2);
+    }
+
+    /* Возвращает очищенные настройки или null, если текст не похож на нашу копию. */
+    function parseSettingsImport(text) {
+        if (typeof text !== 'string' || text.length > 20000) return null;
+
+        try {
+            const data = JSON.parse(text);
+
+            if (!data || data.app !== 'studio1826' || !data.features || typeof data.features !== 'object') return null;
+            if (typeof data.schema === 'number' && data.schema > SETTINGS_SCHEMA) return null;
+
+            return sanitizeFeatures(data.features);
+        } catch (_) {
+            return null;
+        }
     }
 
     function loadFeatures() {
@@ -3954,6 +3989,18 @@
                 ])),
                 { open: false });
 
+            group('Резервная копия', 2, [
+                el('div', { className: 'st-note' }, ['Перенос настроек на другой компьютер: скопируйте текст и вставьте его там.']),
+                el('div', { className: 'st-actions' }, [
+                    el('button', { type: 'button', className: 'st-export' }, ['Скопировать настройки'])
+                ]),
+                el('textarea', { className: 'st-import', spellcheck: 'false', placeholder: 'Вставьте скопированные настройки' }),
+                el('div', { className: 'st-actions' }, [
+                    el('button', { type: 'button', className: 'st-apply' }, ['Применить'])
+                ]),
+                el('div', { className: 'st-note st-import-status', 'aria-live': 'polite' })
+            ], { open: false });
+
             panel.appendChild(el('div', { className: 'st-actions' }, [
                 el('button', { type: 'button', className: 'st-save' }, ['Сохранить']),
                 el('button', { type: 'button', className: 'st-reset' }, ['Сбросить цвета'])
@@ -4047,6 +4094,31 @@
 
                 saveButton.textContent = 'Сохранено ✓';
                 setTimeout(() => { saveButton.textContent = 'Сохранить'; }, 1200);
+            });
+
+            const importStatus = panel.querySelector('.st-import-status');
+
+            panel.querySelector('.st-export').addEventListener('click', async () => {
+                const ok = await copyText(exportSettings(features));
+
+                importStatus.textContent = ok ? 'Настройки скопированы.' : 'Не удалось скопировать.';
+            });
+
+            panel.querySelector('.st-apply').addEventListener('click', () => {
+                const imported = parseSettingsImport(panel.querySelector('.st-import').value);
+
+                if (!imported) {
+                    importStatus.textContent = 'Не похоже на настройки Studio 1826.';
+                    return;
+                }
+
+                features = imported;
+                saveFeatures(features);
+                fillSettingsControls();
+                requestData();
+
+                panel.querySelector('.st-import').value = '';
+                importStatus.textContent = 'Настройки применены.';
             });
 
             panel.querySelector('.st-reset').addEventListener('click', () => {
@@ -5529,7 +5601,7 @@
             findHallName, formatClock,
             buildDayList, parseDayList, analyzeTomorrow, computePayout,
             validateCollectorPayload,
-            sanitizeFeatures, FEATURE_KEYS, COLOR_ITEMS,
+            sanitizeFeatures, exportSettings, parseSettingsImport, FEATURE_KEYS, COLOR_ITEMS,
             money, formatAmount,
             EQUIPMENT, SERVICES, HOURS_BONUSES,
             EQUIPMENT_PERCENT, COFFEE_PERCENT, DEFAULT_RATE

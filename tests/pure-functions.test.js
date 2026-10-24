@@ -417,3 +417,19 @@ test('validateCollectorPayload: лимиты на число записей, п�
     const items = Array.from({ length: 300 }, () => 'a');
     assert.strictEqual(validateCollectorPayload(make([{ hall: 'Зал 1', items }]), VERSION).records[0].items.length, 200);
 });
+
+test('exportSettings/parseSettingsImport: круговой обмен и отказ на чужом тексте', () => {
+    const { exportSettings, parseSettingsImport, sanitizeFeatures } = require('../studio1826.user.js');
+    const features = sanitizeFeatures({ arrows: false, colors: { border: '#112233' } });
+
+    assert.deepStrictEqual(parseSettingsImport(exportSettings(features)), features);
+    assert.strictEqual(parseSettingsImport('не json'), null);
+    assert.strictEqual(parseSettingsImport('{"app":"other","features":{}}'), null);
+    assert.strictEqual(parseSettingsImport('{"app":"studio1826","schema":99,"features":{}}'), null);
+    assert.strictEqual(parseSettingsImport('x'.repeat(20001)), null);
+
+    const dirty = parseSettingsImport('{"app":"studio1826","schema":1,"features":{"arrows":"yes","colors":{"border":"red"}}}');
+    assert.strictEqual(dirty.arrows, true);
+    assert.strictEqual(dirty.colors.border, '#000000');
+});
+
