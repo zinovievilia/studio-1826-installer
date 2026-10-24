@@ -5,7 +5,7 @@
 
 ## Текущее состояние
 
-- **Версия:** 5.5.1 (`@version` в `studio1826.user.js` / `studio1826.meta.js`
+- **Версия:** 5.5.2 (`@version` в `studio1826.user.js` / `studio1826.meta.js`
   и `VERSION` внутри кода синхронизированы).
 - **Файл:** `studio1826.user.js`, ~5340 строк, единый IIFE, `@grant none`,
   без сборщика.
@@ -354,3 +354,9 @@ claude.ai-проекте "1826Studio", документ `Studio1826Updater.md`):
 С 24.10.2026 исходники Updater лежат в `Studio1826UpdaterDMG/`, рабочая память — `Studio1826UpdaterDMG/CONTEXT.md`
 (составлена по README). Пока с Updater не работаем. Для userscript важно: Updater (Safari) берёт `studio1826.user.js`
 по тому же raw-URL, что Tampermonkey (Chrome), — имя и путь файла не менять.
+
+## 5.5.2
+
+`STAGES[].color` — исходный цвет Bitrix (по нему `STAGE_BY_RGB` узнаёт стадию, не менять), `STAGES[].def` — цвет по умолчанию скрипта
+(done #cce8b5, prepaid #94e3fe; multi и checked как в Bitrix). `sanitizeFeatures`: нет значения или сохранён исходный цвет Bitrix → `def`
+(побочный эффект: точно исходный цвет Bitrix выбрать нельзя — он заменится на `def`). Reset в Настройках → `def`.
