@@ -14,7 +14,7 @@ const HEADER = `<header id="app-header"><div id="header" class="air-header" styl
   <div id="air-header-menu" class="air-header__menu" style="flex:1"><div class="main-buttons"><div class="main-buttons-box" style="display:flex">
     ${['Рабочее место +1', 'WhatsApp от Whatcrm', 'Wappi', 'Мессенджеры +1', 'Сбросить кэш'].map((t, i) =>
         `<div class="main-buttons-item${i === 0 ? ' main-buttons-item-active' : ''}" style="padding:0 16px;flex:none"><span class="main-buttons-item-text" style="color:${i === 0 ? 'rgb(255,0,61)' : 'rgba(255,255,255,.7)'}">${t}</span></div>`).join('')}
-  </div></div></div></div></header><main style="height:600px">stub</main>`;
+  </div></div></div></div></header><main style="height:600px">stub<iframe id="fake-app" srcdoc="<body style='margin:0;height:300px'>app</body>" style="width:600px;height:300px;border:0"></iframe></main>`;
 
 (async () => {
     const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' });
@@ -48,6 +48,9 @@ const HEADER = `<header id="app-header"><div id="header" class="air-header" styl
     r.open = await st();
     await page.mouse.click(300, 400);
     r.afterOutsideClick = await st();
+    await page.click('#studio1826-chip');
+    await page.frameLocator('#fake-app').locator('body').click();
+    r.afterIframeClick = await st();
     await page.click('#studio1826-chip');
     await page.keyboard.press('Escape');
     r.afterEsc = await st();
@@ -92,7 +95,7 @@ const HEADER = `<header id="app-header"><div id="header" class="air-header" styl
 
     const ok = r.nativeClasses && r.start.mode === 'header' && r.start.chips === 1 && r.start.collapsed && !r.start.chipHidden &&
         r.open.shown && !r.open.collapsed && r.open.expanded === 'true' && r.open.rightAligned && Math.abs(r.open.gapBelowChip - 8) <= 1 && r.start.chipAfterMenu && r.open.inViewport &&
-        r.afterOutsideClick.collapsed && r.afterEsc.collapsed && r.stillOpenAfterInsideClicks && r.closedByButton &&
+        r.afterOutsideClick.collapsed && r.afterIframeClick.collapsed && r.afterEsc.collapsed && r.stillOpenAfterInsideClicks && r.closedByButton &&
         r.narrow.mode === 'float' && r.narrow.chipHidden === true && r.wideAgain.mode === 'header' &&
         r.withBlocker.mode === 'float' && r.blockerGone.mode === 'header' &&
         r.headerRemoved.mode === 'float' && r.headerRemoved.chips === 0 && r.headerBack.mode === 'header' && r.headerBack.chips === 1 &&
