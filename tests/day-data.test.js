@@ -209,3 +209,10 @@ test('calendarDayIso: «ДД.ММ» из календаря → дата с бл
     assert.equal(m.shiftDay('2026-10-27', 1), '2026-10-28');
     assert.equal(m.shiftDay('2026-12-31', 1), '2027-01-01');
 });
+
+test('bookingCopyLine: «1 шт. | Зонт - 165см Deep white» — количество впереди, без «Umbrella»', () => {
+    assert.equal(m.bookingCopyLine('Зонт - Umbrella 165см Deep white', 1), '1 шт. | Зонт - 165см Deep white');
+    assert.equal(m.bookingCopyLine('Profoto D1 500 Air', 1), '1 шт. | Profoto D1 500 Air');
+    assert.equal(m.bookingCopyLine('Avenger C-Stand A2033L', 2), '2 шт. | Avenger C-Stand A2033L');
+    assert.equal(m.bookingCopyLine('Текстиль Silk 12x12', 1.5), '1,5 шт. | Текстиль Silk 12x12');
+});
