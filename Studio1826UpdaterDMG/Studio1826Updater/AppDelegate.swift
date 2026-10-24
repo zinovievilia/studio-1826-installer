@@ -11,6 +11,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var browsers: BrowserService!
     var updater: UpdaterService!
     var replies: ReplyStore!
+    var links: LinksStore!
     var cashReport: CashReportModel!
     var navigation: Navigation!
     var toaster: Toaster!
@@ -21,6 +22,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var hotKey: HotKey?
     private var statusMenu: NSMenu?
     private var statusLine: NSMenuItem?
+    private var linksEndItem: NSMenuItem?
+    private var linkMenuItems: [NSMenuItem] = []
     private var updateItem: NSMenuItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -29,6 +32,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         browsers = BrowserService()
         updater = UpdaterService(browsers: browsers)
         replies = ReplyStore()
+        links = LinksStore()
         cashReport = CashReportModel()
         navigation = Navigation(defaultSection: browsers.selected == nil ? .setup : .replies)
         toaster = Toaster()
@@ -43,6 +47,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 .environmentObject(browsers)
                 .environmentObject(updater)
                 .environmentObject(replies)
+                .environmentObject(links)
                 .environmentObject(cashReport)
                 .environmentObject(navigation)
                 .environmentObject(toaster)
@@ -178,34 +183,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(item("Отчёт по кассе", #selector(openCashReport), symbol: AppSection.cashReport.systemImage))
         menu.addItem(.separator())
 
-        for branch in StudioBranch.allCases {
-            let parent = NSMenuItem(title: branch.title, action: nil, keyEquivalent: "")
-            parent.image = NSImage(systemSymbolName: "building.2", accessibilityDescription: nil)
-            let sub = NSMenu()
-            for link in branch.links {
-                let li = item(link.title, #selector(openLink(_:)), symbol: link.systemImage)
-                li.representedObject = link.url
-                sub.addItem(li)
-            }
-            parent.submenu = sub
-            menu.addItem(parent)
-        }
-        let phones = NSMenuItem(title: "Скопировать телефон", action: nil, keyEquivalent: "")
-        phones.image = NSImage(systemSymbolName: "phone", accessibilityDescription: nil)
-        let phoneMenu = NSMenu()
-        for phone in StudioPhone.all {
-            let pi = item("\(phone.title)  \(phone.formatted)", #selector(copyPhone(_:)))
-            pi.representedObject = phone.number
-            phoneMenu.addItem(pi)
-        }
-        phones.submenu = phoneMenu
-        menu.addItem(phones)
+        // Разделы вкладки «Ссылки» — пересобираются при каждом открытии меню (menuNeedsUpdate)
+        let linksEnd = NSMenuItem.separator()
+        menu.addItem(linksEnd)
+        linksEndItem = linksEnd
 
-        let salary = item("Таблица зарплаты", #selector(openLink(_:)), symbol: "tablecells")
-        salary.representedObject = StudioLinks.salarySheet
-        menu.addItem(salary)
-
-        menu.addItem(.separator())
         let status = NSMenuItem(title: "", action: nil, keyEquivalent: "")
         status.isEnabled = false
         menu.addItem(status)
@@ -230,6 +212,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Обновляем строку состояния каждый раз, когда меню открывается.
     func menuNeedsUpdate(_ menu: NSMenu) {
         guard menu === statusMenu else { return }
+        rebuildLinkItems(in: menu)
         let main = updater.state(of: .main)
         var line = "Основной: " + (main.remoteVersion ?? main.localVersion ?? "версия неизвестна")
         if let latest = updater.appLatestVersion {
@@ -250,9 +233,39 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSWorkspace.shared.open(url)
     }
 
-    @objc private func copyPhone(_ sender: NSMenuItem) {
-        guard let number = sender.representedObject as? String else { return }
-        Clipboard.copy(number)
+    @objc private func copyValue(_ sender: NSMenuItem) {
+        guard let value = sender.representedObject as? String else { return }
+        Clipboard.copy(value)
+    }
+
+    /// Разделы «Ссылок» в том порядке и составе, как их настроил сотрудник.
+    private func rebuildLinkItems(in menu: NSMenu) {
+        linkMenuItems.forEach { menu.removeItem($0) }
+        linkMenuItems = []
+        guard let end = linksEndItem else { return }
+        var index = menu.index(of: end)
+        for group in links.layout.groups where !group.items.isEmpty {
+            let parent = NSMenuItem(title: group.title, action: nil, keyEquivalent: "")
+            parent.image = NSImage(systemSymbolName: group.systemImage, accessibilityDescription: nil)
+            let sub = NSMenu()
+            for entry in group.items {
+                if entry.kind == .link, let url = entry.url {
+                    let li = item(entry.title, #selector(openLink(_:)), symbol: entry.systemImage)
+                    li.representedObject = url
+                    sub.addItem(li)
+                } else {
+                    let shown = entry.kind == .phone ? PhoneFormat.pretty(entry.value) : entry.subtitle
+                    let ci = item("\(entry.title)  \(shown)", #selector(copyValue(_:)), symbol: entry.systemImage)
+                    ci.representedObject = entry.value
+                    ci.toolTip = "Скопировать"
+                    sub.addItem(ci)
+                }
+            }
+            parent.submenu = sub
+            menu.insertItem(parent, at: index)
+            linkMenuItems.append(parent)
+            index += 1
+        }
     }
 
     @objc private func checkUpdates() {

@@ -13,6 +13,8 @@
 		A010 /* AppVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = F010 /* AppVersion.swift */; };
 		A011 /* Calculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F011 /* Calculator.swift */; };
 		A012 /* Studio.swift in Sources */ = {isa = PBXBuildFile; fileRef = F012 /* Studio.swift */; };
+		A041 /* LinksLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = F041 /* LinksLayout.swift */; };
+		A042 /* LinksStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F042 /* LinksStore.swift */; };
 		A013 /* Browsers.swift in Sources */ = {isa = PBXBuildFile; fileRef = F013 /* Browsers.swift */; };
 		A014 /* ReplyLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = F014 /* ReplyLibrary.swift */; };
 		A020 /* BrowserService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F020 /* BrowserService.swift */; };
@@ -38,6 +40,8 @@
 		F010 /* AppVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppVersion.swift; sourceTree = "<group>"; };
 		F011 /* Calculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Calculator.swift; sourceTree = "<group>"; };
 		F012 /* Studio.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Studio.swift; sourceTree = "<group>"; };
+		F041 /* LinksLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinksLayout.swift; sourceTree = "<group>"; };
+		F042 /* LinksStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LinksStore.swift; sourceTree = "<group>"; };
 		F013 /* Browsers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Browsers.swift; sourceTree = "<group>"; };
 		F014 /* ReplyLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplyLibrary.swift; sourceTree = "<group>"; };
 		F020 /* BrowserService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserService.swift; sourceTree = "<group>"; };
@@ -97,6 +101,7 @@
 				F010 /* AppVersion.swift */,
 				F011 /* Calculator.swift */,
 				F012 /* Studio.swift */,
+				F041 /* LinksLayout.swift */,
 				F013 /* Browsers.swift */,
 				F014 /* ReplyLibrary.swift */,
 			);
@@ -108,6 +113,7 @@
 			children = (
 				F020 /* BrowserService.swift */,
 				F021 /* ReplyStore.swift */,
+				F042 /* LinksStore.swift */,
 				F022 /* AppState.swift */,
 				F024 /* QuickReplies.swift */,
 				F023 /* HotKey.swift */,
@@ -214,10 +220,12 @@
 				A010 /* AppVersion.swift in Sources */,
 				A011 /* Calculator.swift in Sources */,
 				A012 /* Studio.swift in Sources */,
+				A041 /* LinksLayout.swift in Sources */,
 				A013 /* Browsers.swift in Sources */,
 				A014 /* ReplyLibrary.swift in Sources */,
 				A020 /* BrowserService.swift in Sources */,
 				A021 /* ReplyStore.swift in Sources */,
+				A042 /* LinksStore.swift in Sources */,
 				A022 /* AppState.swift in Sources */,
 				A024 /* QuickReplies.swift in Sources */,
 				A023 /* HotKey.swift in Sources */,

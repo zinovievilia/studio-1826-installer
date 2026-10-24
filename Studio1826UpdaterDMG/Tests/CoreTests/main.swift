@@ -174,5 +174,47 @@ expect(ReplySuggest.rank(clientText: "Хотим отменить бронь, в
 expect(ReplySuggest.rank(clientText: "Спасибо!", items: [parking, cancel]).isEmpty, "подбор: нет совпадений")
 expect(StudioPhone.all.first { $0.id == "serp" }?.formatted == "+7 916 520-18-26", "формат телефона")
 
+// MARK: Настраиваемые ссылки
+
+expect(LinkKind.detect("https://1826.studio") == .link, "ссылка")
+expect(LinkKind.detect("+7 916 520-18-26") == .phone, "телефон")
+expect(LinkKind.detect("Код домофона 1826") == .text, "текст")
+
+let studioLinks = LinksLayout.studio
+expect(studioLinks.groups.first?.id == "studio.phones", "сначала телефоны")
+expect(studioLinks.groups.first?.items.first?.subtitle == "+7 916 248-18-26", "телефон в подписи")
+expect(Set(studioLinks.allIDs).count == studioLinks.groups.count + studioLinks.groups.map(\.items.count).reduce(0, +),
+       "id ссылок уникальны")
+
+var my = studioLinks
+my.moveGroup(id: "studio.staff", onto: "studio.phones")
+expect(my.groups.first?.id == "studio.staff", "раздел перетащен наверх")
+my.moveItem(id: "studio.bitrix", onto: "studio.salary")
+expect(my.groups[0].items.map(\.id) == ["studio.bitrix", "studio.salary"], "строка перетащена вверх")
+my.moveItem(id: "studio.bitrix", onto: "studio.salary")
+expect(my.groups[0].items.map(\.id) == ["studio.salary", "studio.bitrix"], "строка перетащена вниз")
+my.moveItem(id: "studio.bitrix", toGroup: "studio.phones")
+expect(my.groups.first { $0.id == "studio.phones" }?.items.last?.id == "studio.bitrix", "строка в другой раздел")
+my.moveItem(id: "studio.salary", by: 1)
+expect(my.groups[0].items.isEmpty && my.groups[1].items.first?.id == "studio.salary", "с края — в соседний раздел")
+
+var mineLink = LinkEntry.newMine()
+mineLink.title = "Wi-Fi"; mineLink.value = "пароль 18261826"; mineLink.copyable = true
+my.save(mineLink, in: "studio.pav")
+expect(my.location(of: mineLink.id) != nil, "своя строка добавлена")
+my.deleteItem(id: "studio.pav.halls")
+
+// Студия добавила строку и раздел — у сотрудника появляются, удалённое не возвращается
+var newer = LinksLayout.studio
+newer.groups[1].items.append(LinkEntry(id: "studio.pav.new", title: "Новое", detail: "", value: "https://x", systemImage: "link", copyable: true))
+newer.groups.append(LinkGroup(id: "studio.extra", title: "Ещё", systemImage: "star", items: [], copyAll: false))
+my.merge(studio: newer)
+expect(my.location(of: "studio.pav.new") != nil, "новая строка студии пришла")
+expect(my.groups.last?.id == "studio.extra", "новый раздел студии пришёл")
+expect(my.location(of: "studio.pav.halls") == nil, "удалённая строка не вернулась")
+expect(my.location(of: mineLink.id) != nil, "своя строка цела")
+let roundTrip = try! JSONDecoder().decode(LinksLayout.self, from: JSONEncoder().encode(my))
+expect(roundTrip == my, "сохранение и чтение")
+
 print(failures == 0 ? "✓ Все проверки пройдены: \(checks)" : "✗ Провалено \(failures) из \(checks)")
 exit(failures == 0 ? 0 : 1)

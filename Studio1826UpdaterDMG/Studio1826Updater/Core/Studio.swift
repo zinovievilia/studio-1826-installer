@@ -55,12 +55,7 @@ struct StudioPhone: Identifiable, Hashable {
     let number: String
 
     /// Для показа: +7 916 520-18-26
-    var formatted: String {
-        let d = number.filter(\.isNumber)
-        guard d.count == 11 else { return number }
-        let c = Array(d)
-        return "+\(c[0]) \(String(c[1...3])) \(String(c[4...6]))-\(String(c[7...8]))-\(String(c[9...10]))"
-    }
+    var formatted: String { PhoneFormat.pretty(number) }
 
     static let all: [StudioPhone] = [
         StudioPhone(id: "pav", title: "Павелецкая", number: "+79162481826"),
