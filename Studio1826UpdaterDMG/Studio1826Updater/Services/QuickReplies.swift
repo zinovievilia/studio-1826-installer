@@ -320,7 +320,7 @@ struct QuickReplyView: View {
     }
 }
 
-private struct QuickReplyRow: View {
+struct QuickReplyRow: View {
     let item: ReplyItem
     let isSelected: Bool
 
@@ -357,6 +357,10 @@ struct QuickSearchField: NSViewRepresentable {
     var fontSize: CGFloat = 20
     /// Меняется — поле забирает фокус, курсор в конец текста
     var focusToken: Int = 0
+    /// ↑ ↓ Enter в поле; вернуть true, если обработано
+    var onCommand: ((Command) -> Bool)? = nil
+
+    enum Command { case up, down, enter }
 
     func makeNSView(context: Context) -> FieldView {
         let field = FieldView()
@@ -373,6 +377,7 @@ struct QuickSearchField: NSViewRepresentable {
 
     func updateNSView(_ field: FieldView, context: Context) {
         context.coordinator.text = $text
+        context.coordinator.onCommand = onCommand
         if field.stringValue != text { field.stringValue = text }
         if context.coordinator.lastFocusToken != focusToken {
             context.coordinator.lastFocusToken = focusToken
@@ -390,7 +395,18 @@ struct QuickSearchField: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextFieldDelegate {
         var text: Binding<String>
         var lastFocusToken = Int.min
+        var onCommand: ((Command) -> Bool)?
         init(text: Binding<String>) { self.text = text }
+
+        func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+            guard let onCommand else { return false }
+            switch selector {
+            case #selector(NSResponder.moveUp(_:)): return onCommand(.up)
+            case #selector(NSResponder.moveDown(_:)): return onCommand(.down)
+            case #selector(NSResponder.insertNewline(_:)): return onCommand(.enter)
+            default: return false
+            }
+        }
 
         func controlTextDidChange(_ note: Notification) {
             guard let field = note.object as? NSTextField else { return }

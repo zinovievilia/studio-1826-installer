@@ -18,6 +18,7 @@ struct RepliesView: View {
     @EnvironmentObject var search: ReplySearchState
     @State private var category: String?            // nil — все категории
     @State private var alertMessage: String?
+    @State private var selected = 0
 
     var body: some View {
         Group {
@@ -69,7 +70,8 @@ struct RepliesView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass").foregroundColor(.secondary)
                     QuickSearchField(text: $search.query, placeholder: "Поиск: парковка, пропуск, счёт…",
-                                     fontSize: 15, focusToken: search.focusToken)
+                                     fontSize: 15, focusToken: search.focusToken,
+                                     onCommand: handleCommand)
                         .frame(height: 20)
                     if !search.query.isEmpty {
                         Button {
@@ -125,27 +127,30 @@ struct RepliesView: View {
                 }
                 .frame(maxWidth: .infinity)
             } else {
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
-                        if search.query.isEmpty && category == nil {
-                            ForEach(groupedResults) { group in
-                                Section {
-                                    ForEach(group.items) { item in row(item) }
-                                } header: {
-                                    Text(group.name.uppercased())
-                                        .font(.caption2.weight(.semibold))
-                                        .foregroundColor(.secondary)
-                                        .padding(.horizontal, 14)
-                                        .padding(.vertical, 4)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .background(Color(nsColor: .windowBackgroundColor))
-                                }
+                let items = results
+                let current = items.indices.contains(selected) ? items[selected] : items.first
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(spacing: 2) {
+                            ForEach(Array(items.enumerated()), id: \.element.id) { pair in
+                                QuickReplyRow(item: pair.element, isSelected: pair.element.id == current?.id)
+                                    .id(pair.offset)
+                                    .onTapGesture { copy(pair.element) }
+                                    .onHover { inside in if inside { selected = pair.offset } }
+                                    .contextMenu {
+                                        Button("Скопировать текст") { copy(pair.element) }
+                                        Button("Открыть") { screen = .detail(pair.element.id) }
+                                    }
                             }
-                        } else {
-                            ForEach(results) { item in row(item) }
                         }
+                        .padding(6)
                     }
-                    .padding(.bottom, 8)
+                    .onChange(of: selected) { index in proxy.scrollTo(index) }
+                }
+
+                if let current {
+                    Divider()
+                    previewPane(current)
                 }
             }
 
@@ -155,29 +160,50 @@ struct RepliesView: View {
             }
         }
         .onAppear { search.focus() }
+        .onChange(of: search.query) { _ in selected = 0 }
+        .onChange(of: category) { _ in selected = 0 }
     }
 
-    private struct ReplyGroup: Identifiable {
-        let name: String
-        let items: [ReplyItem]
-        var id: String { name }
-    }
-
-    /// Без поиска — группы по категориям в порядке категорий.
-    private var groupedResults: [ReplyGroup] {
-        let all = results
-        var groups: [ReplyGroup] = []
-        for c in store.library.categories {
-            let inCategory = all.filter { ReplyLibrary.categoryName($0.script.category) == c }
-            if !inCategory.isEmpty { groups.append(ReplyGroup(name: c, items: inCategory)) }
+    /// Полный текст выбранного скрипта — снизу, высота не прыгает.
+    private func previewPane(_ item: ReplyItem) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Text(item.script.title).font(.headline).lineLimit(1)
+                OriginMark(origin: item.origin)
+                Spacer()
+                Button("Открыть") { screen = .detail(item.id) }
+                    .controlSize(.small)
+                    .help("Изменить, дублировать, удалить")
+            }
+            ScrollView {
+                Text(item.script.text)
+                    .font(.callout)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(height: 150)
+            Button {
+                copy(item)
+            } label: {
+                Label("Скопировать  ↩", systemImage: "doc.on.doc").frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
         }
-        return groups
+        .padding(12)
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
     }
 
-    private func row(_ item: ReplyItem) -> some View {
-        ReplyRow(item: item,
-                 open: { screen = .detail(item.id) },
-                 copy: { copy(item) })
+    /// ↑ ↓ выбирают скрипт, Enter копирует — прямо из поля поиска.
+    private func handleCommand(_ command: QuickSearchField.Command) -> Bool {
+        let items = results
+        guard !items.isEmpty else { return false }
+        switch command {
+        case .up: selected = max(min(selected, items.count - 1) - 1, 0)
+        case .down: selected = min(selected + 1, items.count - 1)
+        case .enter: copy(items[min(selected, items.count - 1)])
+        }
+        return true
     }
 
     private var moreMenu: some View {
@@ -249,58 +275,6 @@ struct RepliesView: View {
             toaster.show(added == 0 ? "Новых скриптов нет — все уже есть" : "Добавлено скриптов: \(added)")
         } catch {
             alertMessage = "Это не файл скриптов Studio 1826 (\(error.localizedDescription))"
-        }
-    }
-}
-
-// MARK: - Строка списка
-
-private struct ReplyRow: View {
-    let item: ReplyItem
-    let open: () -> Void
-    let copy: () -> Void
-    @State private var hovering = false
-
-    init(item: ReplyItem, open: @escaping () -> Void, copy: @escaping () -> Void) {
-        self.item = item
-        self.open = open
-        self.copy = copy
-    }
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 5) {
-                    Text(item.script.title.isEmpty ? "Без названия" : item.script.title)
-                        .font(.body.weight(.medium))
-                        .lineLimit(1)
-                    OriginMark(origin: item.origin)
-                }
-                // При наведении — весь текст, чтобы понять, что именно отправится
-                Text(hovering ? item.script.text : item.script.text.replacingOccurrences(of: "\n", with: " "))
-                    .font(.caption)
-                    .foregroundColor(hovering ? .primary : .secondary)
-                    .lineLimit(hovering ? nil : 2)
-                    .fixedSize(horizontal: false, vertical: hovering)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-            .onTapGesture(perform: open)
-
-            Button(action: copy) {
-                Image(systemName: "doc.on.doc")
-            }
-            .help("Скопировать текст")
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-        .background(hovering ? Color.accentColor.opacity(0.07) : Color.clear)
-        .onHover { inside in
-            withAnimation(.easeInOut(duration: 0.15)) { hovering = inside }
-        }
-        .contextMenu {
-            Button("Скопировать текст", action: copy)
-            Button("Открыть", action: open)
         }
     }
 }
