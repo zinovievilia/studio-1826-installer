@@ -51,6 +51,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         self.popover = popover
         installPopoverTypingMonitor()
 
+        // Служба «Сохранить как скрипт 1826» в меню правой кнопки для выделенного текста
+        NSApp.servicesProvider = self
+        NSUpdateDynamicServices()
+
         // Пока открыто окно сохранения/открытия файла, поповер не должен закрываться
         PopoverPin.shared.setPinned = { [weak popover] pinned in
             popover?.behavior = pinned ? .applicationDefined : .transient
@@ -123,6 +127,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.activate(ignoringOtherApps: true)
         popover.contentViewController?.view.window?.makeKey()
         if navigation.section == .replies { replySearch.focus() }
+    }
+
+    /// Служба macOS: выделенный текст из любой программы → редактор нового скрипта.
+    /// Имя метода совпадает с NSMessage в Info.plist.
+    @objc func saveScript(_ pboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString?>) {
+        let text = (pboard.string(forType: .string) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else {
+            error.pointee = "Не выделен текст" as NSString
+            return
+        }
+        replySearch.draftText = text
+        showPopover(section: .replies)
     }
 
     /// Окно открыто и курсор не в поле ввода — начали печатать: переходим в «Скрипты» и ищем набранное.

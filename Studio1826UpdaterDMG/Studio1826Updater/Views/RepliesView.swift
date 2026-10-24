@@ -53,6 +53,9 @@ struct RepliesView: View {
         .onChange(of: search.focusToken) { _ in
             if case .detail = screen { screen = .list }
         }
+        // Выделенный текст из другой программы → новый скрипт
+        .onAppear { openDraftIfNeeded() }
+        .onChange(of: search.draftText) { _ in openDraftIfNeeded() }
         .alert(alertMessage ?? "", isPresented: Binding(get: { alertMessage != nil }, set: { if !$0 { alertMessage = nil } })) {
             Button("OK", role: .cancel) { alertMessage = nil }
         }
@@ -131,10 +134,9 @@ struct RepliesView: View {
                 let current = items.indices.contains(selected) ? items[selected] : items.first
                 ScrollViewReader { proxy in
                     ScrollView {
-                        LazyVStack(spacing: 2) {
+                        VStack(spacing: 2) {
                             ForEach(Array(items.enumerated()), id: \.element.id) { pair in
                                 QuickReplyRow(item: pair.element, isSelected: pair.element.id == current?.id)
-                                    .id(pair.offset)
                                     .onTapGesture { copy(pair.element) }
                                     .onHover { inside in if inside { selected = pair.offset } }
                                     .contextMenu {
@@ -145,7 +147,9 @@ struct RepliesView: View {
                         }
                         .padding(6)
                     }
-                    .onChange(of: selected) { index in proxy.scrollTo(index) }
+                    .onChange(of: selected) { index in
+                        if items.indices.contains(index) { proxy.scrollTo(items[index].id) }
+                    }
                 }
 
                 if let current {
@@ -192,6 +196,17 @@ struct RepliesView: View {
         }
         .padding(12)
         .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
+    }
+
+    private func openDraftIfNeeded() {
+        guard let text = search.draftText else { return }
+        search.draftText = nil
+        var script = ReplyScript.newMine(category: category ?? "")
+        script.text = text
+        // Название — начало первой строки, его можно поменять
+        let firstLine = text.split(whereSeparator: \.isNewline).first.map(String.init) ?? ""
+        script.title = firstLine.count > 40 ? String(firstLine.prefix(40)) + "…" : firstLine
+        screen = .edit(script)
     }
 
     /// ↑ ↓ выбирают скрипт, Enter копирует — прямо из поля поиска.

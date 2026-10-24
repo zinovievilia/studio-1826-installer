@@ -112,7 +112,7 @@ class UpdaterService: ObservableObject {
         self.browsers = browsers
 
         let savedMode = UserDefaults.standard.string(forKey: "scheduleMode") ?? ""
-        scheduleMode = ScheduleMode(rawValue: savedMode) ?? .schedule22
+        scheduleMode = ScheduleMode(rawValue: savedMode) ?? .everyDay
 
         let savedInterval = UserDefaults.standard.integer(forKey: "checkIntervalHours")
         checkIntervalHours = Self.availableIntervals.contains(savedInterval) ? savedInterval : 6

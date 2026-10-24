@@ -24,6 +24,27 @@
     <true/>
     <key>LSUIElement</key>
     <true/>
+    <key>NSServices</key>
+    <array>
+        <dict>
+            <key>NSMenuItem</key>
+            <dict>
+                <key>default</key>
+                <string>Сохранить как скрипт 1826</string>
+            </dict>
+            <key>NSMessage</key>
+            <string>saveScript</string>
+            <key>NSPortName</key>
+            <string>Studio1826Updater</string>
+            <key>NSSendTypes</key>
+            <array>
+                <string>NSStringPboardType</string>
+                <string>public.utf8-plain-text</string>
+            </array>
+            <key>NSRequiredContext</key>
+            <dict/>
+        </dict>
+    </array>
     <key>NSAppTransportSecurity</key>
     <dict>
         <key>NSAllowsArbitraryLoads</key>

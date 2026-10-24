@@ -262,10 +262,11 @@ struct QuickReplyView: View {
                 HStack(spacing: 0) {
                     ScrollViewReader { proxy in
                         ScrollView {
-                            LazyVStack(spacing: 2) {
+                            // Обычный VStack и один id на строку: в LazyVStack с двумя id
+                            // подсветка залипала на старой строке.
+                            VStack(spacing: 2) {
                                 ForEach(Array(results.enumerated()), id: \.element.id) { pair in
                                     QuickReplyRow(item: pair.element, isSelected: pair.offset == model.selected)
-                                        .id(pair.offset)
                                         .onTapGesture { onChoose(pair.element) }
                                         .onHover { inside in if inside { model.selected = pair.offset } }
                                 }
@@ -273,7 +274,7 @@ struct QuickReplyView: View {
                             .padding(6)
                         }
                         .onChange(of: model.selected) { index in
-                            proxy.scrollTo(index)
+                            if results.indices.contains(index) { proxy.scrollTo(results[index].id) }
                         }
                     }
                     .frame(width: 340)

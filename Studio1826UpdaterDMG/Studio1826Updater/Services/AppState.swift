@@ -55,6 +55,9 @@ final class ReplySearchState: ObservableObject {
     @Published var focusToken = 0
 
     func focus() { focusToken += 1 }
+
+    /// Текст из службы «Сохранить как скрипт 1826» — вкладка «Скрипты» откроет с ним редактор.
+    @Published var draftText: String?
 }
 
 /// Короткое всплывающее подтверждение внизу окна («Скопировано»).
