@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v5.0.1 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v5.1.0 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      5.0.1
+// @version      5.1.0
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '5.0.1';
+    const VERSION = '5.1.0';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -111,7 +111,26 @@
                 font-weight: 700 !important;
                 font-style: italic !important;
             }
-            .deal-item-contaner .s26-badge-eq { font-weight: 600; }
+            /* 5.1.0: «Оборудование N» — спокойная метка вместо красной плашки. */
+            .deal-item-contaner .s26-badge-eq {
+                font-weight: 600;
+                background: rgba(255, 255, 255, .6) !important;
+                color: #2b2f36 !important;
+            }
+            .s26-hall-eq {
+                display: inline-block;
+                margin-left: 4px;
+                padding: 0 6px;
+                border-radius: 8px;
+                background: rgba(0, 0, 0, .07);
+                color: #2b2f36;
+                font-size: 11px;
+                font-weight: 600;
+                line-height: 16px;
+                vertical-align: middle;
+                cursor: help;
+                white-space: nowrap;
+            }
             .deal-item-contaner .s26-badge-frame {
                 font-weight: 800;
                 letter-spacing: .04em;
@@ -1263,6 +1282,137 @@
             #${WIDGET_ID}[data-mode="header"] .s-head { cursor: default; border-radius: 11px 11px 0 0; }
             #${WIDGET_ID}[data-mode="header"] .s-footer { border-radius: 0 0 11px 11px; }
             #${WIDGET_ID}[data-mode="header"] .s-head-copy { display: none; }
+        `,
+        /* 5.1.0: новый вид окна — одна страница, без рамок вокруг каждой строки; настройки в две колонки. */
+        v5: `
+            #${WIDGET_ID} .s-view[hidden] { display: none !important; }
+            #${WIDGET_ID} .s-body { padding: 14px 16px 12px; }
+            #${WIDGET_ID} .s-view-home > * + * { margin-top: 14px; }
+            #${WIDGET_ID} .s-summary { margin: 0; padding: 0; border: 0; align-items: center; }
+            #${WIDGET_ID} .s-payout { font-size: 30px; margin: 2px 0 0; }
+            #${WIDGET_ID} .s-fold { margin-top: 8px; }
+            #${WIDGET_ID} .s-fold > summary {
+                display: inline-block;
+                font-size: 12px;
+                opacity: .75;
+                cursor: pointer;
+                list-style: none;
+                user-select: none;
+            }
+            #${WIDGET_ID} .s-fold > summary::-webkit-details-marker { display: none; }
+            #${WIDGET_ID} .s-fold > summary::after { content: ' ›'; }
+            #${WIDGET_ID} .s-fold[open] > summary::after { content: ' ‹'; }
+            #${WIDGET_ID} .s-fold-body { padding: 8px 0 2px; }
+            #${WIDGET_ID} .s-overview-status { margin: 0; padding: 0; border: 0; background: none !important; font-size: 12px; }
+            #${WIDGET_ID} .s-overview-actions { flex-direction: row; gap: 8px; }
+            #${WIDGET_ID} .s-overview-actions .da-btn { flex: 1; padding: 9px 10px; font-size: 12px; text-align: center; }
+            #${WIDGET_ID} .s-debug { margin-top: 10px; justify-content: space-between; }
+            #${WIDGET_ID} .s-debug-button,
+            #${WIDGET_ID} .s-open-settings,
+            #${WIDGET_ID} .s-back,
+            #${WIDGET_ID} .s-textbtn {
+                padding: 0;
+                border: 0 !important;
+                background: none !important;
+                color: inherit;
+                font: inherit;
+                font-size: 12px;
+                opacity: .7;
+                cursor: pointer;
+            }
+            #${WIDGET_ID} .s-debug-button:hover,
+            #${WIDGET_ID} .s-open-settings:hover,
+            #${WIDGET_ID} .s-back:hover,
+            #${WIDGET_ID} .s-textbtn:hover { opacity: 1; }
+            #${WIDGET_ID} .s-textbtn:disabled { opacity: .35; cursor: default; }
+            #${WIDGET_ID} .s-back { margin-bottom: 10px; }
+
+            #${WIDGET_ID} .eq-section { padding-top: 12px; border-top: 1px solid #ffffff1f; }
+            #${WIDGET_ID} .eq-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+            #${WIDGET_ID} .eq-title { font-size: 13px; font-weight: 700; }
+            #${WIDGET_ID} .eq-days { display: inline-flex; gap: 2px; padding: 2px; border-radius: 8px; background: #ffffff14; }
+            #${WIDGET_ID} .eq-days button {
+                padding: 3px 9px;
+                border: 0;
+                border-radius: 6px;
+                background: none;
+                color: inherit;
+                font: inherit;
+                font-size: 12px;
+                opacity: .7;
+                cursor: pointer;
+            }
+            #${WIDGET_ID} .eq-days button[aria-pressed="true"] { background: #fff; color: #1f2933; opacity: 1; font-weight: 600; }
+            #${WIDGET_ID} .eq-body { margin-top: 8px; }
+            #${WIDGET_ID} .eq-group { display: grid; grid-template-columns: 74px 1fr; column-gap: 8px; padding: 6px 0; border-bottom: 1px solid #ffffff14; }
+            #${WIDGET_ID} .eq-group:last-of-type { border-bottom: 0; }
+            #${WIDGET_ID} .eq-hall {
+                grid-row: span 50;
+                margin: 0;
+                padding-top: 1px;
+                font-size: 12px;
+                font-weight: 600;
+                letter-spacing: 0;
+                text-transform: none;
+                opacity: .7;
+            }
+            #${WIDGET_ID} .eq-item { margin: 0; border: 0 !important; background: none !important; border-radius: 0; }
+            #${WIDGET_ID} .eq-item > summary { padding: 1px 0; font-size: 12.5px; }
+            #${WIDGET_ID} .eq-item > summary:hover { text-decoration: underline; text-decoration-color: #8888; }
+            #${WIDGET_ID} .eq-src { padding: 0 0 4px 8px; font-size: 11px; }
+            #${WIDGET_ID} .eq-totals { margin-top: 6px; font-size: 12px; }
+            #${WIDGET_ID} .eq-totals > summary { cursor: pointer; list-style: none; opacity: .75; }
+            #${WIDGET_ID} .eq-totals > summary::-webkit-details-marker { display: none; }
+            #${WIDGET_ID} .eq-totals > summary::after { content: ' ›'; }
+            #${WIDGET_ID} .eq-total { padding: 2px 0; border: 0 !important; }
+            #${WIDGET_ID} .eq-note { margin-top: 6px; font-size: 11px; }
+            #${WIDGET_ID} .eq-empty { font-size: 12px; padding: 4px 0; }
+            #${WIDGET_ID} .eq-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; margin-top: 8px; }
+            #${WIDGET_ID} .eq-actions .s-textbtn { white-space: nowrap; }
+            #${WIDGET_ID} .eq-status { margin: 0; font-size: 11px; }
+            #${WIDGET_ID} .eq-actions { display: inline-flex; gap: 10px; margin: 0; }
+
+            #${WIDGET_ID}[data-view="settings"]:not(.collapsed) { width: 600px !important; max-width: calc(100vw - 24px); }
+            /* Список за день из календаря дублирует раздел «Оборудование» (сегодня/завтра) — на главной не показываем. */
+            #${WIDGET_ID} .s-view-home .da-copy { display: none; }
+            #${SETTINGS_ID} { display: grid; grid-template-columns: 170px 1fr; gap: 14px; align-items: start; }
+            #${SETTINGS_ID} .st-nav { display: flex; flex-direction: column; gap: 2px; }
+            #${SETTINGS_ID} .st-nav-item {
+                padding: 7px 10px;
+                border: 0;
+                border-radius: 7px;
+                background: none;
+                color: inherit;
+                font: inherit;
+                font-size: 12.5px;
+                text-align: left;
+                opacity: .8;
+                cursor: pointer;
+            }
+            #${SETTINGS_ID} .st-nav-item:hover { opacity: 1; background: #ffffff10; }
+            #${SETTINGS_ID} .st-nav-item[aria-selected="true"] { opacity: 1; font-weight: 700; background: #ffffff1c; }
+            #${SETTINGS_ID} .st-content { min-width: 0; }
+            #${SETTINGS_ID} .st-content > details.st-group { margin: 0; border: 0; }
+            #${SETTINGS_ID} .st-content > details.st-group > summary { display: none; }
+            #${SETTINGS_ID} .st-content > details.st-group > .st-group-body { padding: 0; }
+            #${SETTINGS_ID} .st-content [hidden] { display: none !important; }
+
+            /* светлое оформление */
+            #${WIDGET_ID}[data-skin="light"] .eq-section { border-top-color: #e6e9ed; }
+            #${WIDGET_ID}[data-skin="light"] .eq-days { background: #eef1f4; }
+            #${WIDGET_ID}[data-skin="light"] .eq-days button[aria-pressed="true"] { background: #fff; box-shadow: 0 1px 2px #0000001f; }
+            #${WIDGET_ID}[data-skin="light"] .eq-group { border-bottom-color: #eef1f4; }
+            #${WIDGET_ID}[data-skin="light"] .eq-item > summary,
+            #${WIDGET_ID}[data-skin="light"] .eq-total { color: #2b2f36; }
+            #${WIDGET_ID}[data-skin="light"] .s-overview-actions .da-btn { background: #f4f6f8; }
+            #${WIDGET_ID}[data-skin="light"] .st-nav-item:hover { background: #f1f3f6; }
+            #${WIDGET_ID}[data-skin="light"] .st-nav-item[aria-selected="true"] {
+                background: color-mix(in srgb, var(--s-accent) 10%, #fff);
+                color: color-mix(in srgb, var(--s-accent) 72%, #000);
+            }
+            #${WIDGET_ID}[data-skin="light"] { box-shadow: 0 10px 32px #1f2d3d2e, 0 0 0 1px #0000000d; border-color: transparent; }
+            #${WIDGET_ID}[data-skin="light"] .s-head { background: #fff; border-bottom-color: #f0f2f5; }
+            #${WIDGET_ID}[data-skin="light"] .s-footer { background: #fff; border-top-color: #f0f2f5; }
         `,
         toast: `
             #${TOAST_ID} {
@@ -3086,7 +3236,7 @@
             const outgoing = reuse.outgoing.map(reuseOutText).join('; ');
             const incoming = reuse.incoming.map(reuseInText).join('; ');
 
-            const signature = [hasFon, hasEquipment, hasFrame, outgoing, incoming].join('::');
+            const signature = [hasFon, hasEquipment, info.equipment.length, hasFrame, outgoing, incoming].join('::');
 
             let box = card.querySelector('.s26-badges');
 
@@ -3106,7 +3256,7 @@
             box.replaceChildren();
 
             if (hasFon) box.appendChild(badge('s26-badge-bg', 'Фон'));
-            if (hasEquipment) box.appendChild(badge('s26-badge-eq', 'Оборудование'));
+            if (hasEquipment) box.appendChild(badge('s26-badge-eq', `Оборуд. ${info.equipment.length}`));
             if (hasFrame) box.appendChild(badge('s26-badge-eq s26-badge-frame', 'РАМА'));
             if (outgoing) box.appendChild(badge('s26-badge-keep', outgoing));
             if (incoming) box.appendChild(badge('s26-badge-keep', incoming));
@@ -3713,12 +3863,20 @@
 
         /* Колонка зала без броней: ищем заголовок с названием зала. */
         function findHallHeader(label) {
+            const element = findHallHeaderElement(label);
+
+            return element ? element.getBoundingClientRect() : null;
+        }
+
+        /* Подпись зала в шапке календаря (самая верхняя видимая). */
+        function findHallHeaderElement(label) {
             const wanted = label.toLowerCase();
             let best = null;
+            let bestTop = Infinity;
 
             document.querySelectorAll('div, span, th, td, p, li, b, a').forEach(element => {
                 if (element.children.length) return;
-                if (element.closest(`.deal-item-contaner, #${PANEL_ID}, .s26-arrows, .s26-moves`)) return;
+                if (element.closest(`.deal-item-contaner, #${PANEL_ID}, .s26-arrows, .s26-moves, .s26-hall-eq`)) return;
 
                 const text = (element.textContent || '').trim().toLowerCase();
 
@@ -3728,10 +3886,51 @@
                 const rect = element.getBoundingClientRect();
 
                 if (rect.width <= 0 || rect.height <= 0) return;
-                if (!best || rect.top < best.top) best = rect;
+                if (rect.top < bestTop) {
+                    best = element;
+                    bestTop = rect.top;
+                }
             });
 
             return best;
+        }
+
+        /*
+         * 5.1.0: итог оборудования зала за показанный день — маленький счётчик рядом с названием зала
+         * в шапке календаря, список во всплывающей подсказке. Правила те же, что в buildDayList
+         * (внутри зала максимум, звёздочка у первой брони). Пересчёт только при изменении состава.
+         */
+        let hallEquipmentSignature = '';
+
+        function renderHallEquipment(cardList) {
+            const records = features.compactCards
+                ? cardList.map(({ card, info }) => {
+                    const timing = timingMap.get(card) || {};
+
+                    return { hall: info.hallFull, items: info.items, start: timing.start, end: timing.end };
+                })
+                : [];
+            const day = buildDayList(records);
+            const signature = day.text;
+
+            if (signature === hallEquipmentSignature && document.querySelector('.s26-hall-eq')) return;
+
+            hallEquipmentSignature = signature;
+            document.querySelectorAll('.s26-hall-eq').forEach(node => node.remove());
+
+            day.blocks.forEach(block => {
+                const header = findHallHeaderElement(block.label);
+
+                if (!header || !header.parentElement) return;
+
+                const title = block.items
+                    .map(item => `${equipmentLine(item.name, item.qty)}${item.star ? ' *' : ''}`)
+                    .join('\n');
+                const pill = badge('s26-hall-eq', `⚙ ${block.items.length}`);
+
+                pill.title = `${block.label}\n${title}`;
+                header.insertAdjacentElement('afterend', pill);
+            });
         }
 
         function pickFreeY(occupied, yMin, yMax, sy) {
@@ -3966,6 +4165,7 @@
                 }
             });
 
+            renderHallEquipment(cardList);
             renderHandoffs(cardList);
             applyMarks(cardList);
             applyStages(cardList);
@@ -4104,7 +4304,7 @@
         function isOwnNode(node) {
             const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
 
-            return !!element?.closest?.(`#${PANEL_ID}, .booking-copy-button, .s26-badges, .s26-handoff, .s26-arrows, .s26-moves`);
+            return !!element?.closest?.(`#${PANEL_ID}, .booking-copy-button, .s26-badges, .s26-handoff, .s26-arrows, .s26-moves, .s26-hall-eq`);
         }
 
         const observer = new MutationObserver(mutations => {
@@ -4460,6 +4660,7 @@
                 STYLES.dayDialog,
                 STYLES.skin,
                 STYLES.native,
+                STYLES.v5,
                 STYLES.toast
             ].join('\n');
 
@@ -4532,33 +4733,6 @@
             root.style.top = top + 'px';
             root.style.right = Math.max(12, Math.round(window.innerWidth - rect.right)) + 'px';
             root.style.maxHeight = `calc(100vh - ${top + 12}px)`;
-        }
-
-        /* Строка «Оборудование на завтра» в Обзоре: кнопка открывает вкладку «Оборудование». */
-        function tomorrowLine() {
-            const entry = dayStore.get(dayIso('tomorrow'));
-            let text = 'Оборудование на завтра: загрузка…';
-
-            if (entry && entry.records) {
-                const summary = summarizeEquipment(recordsOfCategory(entry.records, category));
-                const count = summary.totals.length;
-
-                text = count
-                    ? `Оборудование на завтра: ${count} поз. в ${summary.halls.length} зал.${entry.error ? ' (устарело)' : ''}`
-                    : 'Оборудование на завтра: нет';
-            } else if (entry && entry.error) {
-                text = 'Оборудование на завтра: нет данных Bitrix24';
-            }
-
-            const button = el('button', { type: 'button', className: 's-link', title: 'Открыть вкладку «Оборудование»' }, [text]);
-
-            button.addEventListener('click', () => {
-                eqDay = 'tomorrow';
-                activateTab('equipment');
-                writeUi({ tab: 'equipment' });
-            });
-
-            return button;
         }
 
         function resetWidgetPosition(root) {
@@ -4669,7 +4843,7 @@
 
             if (chip) chip.setAttribute('aria-expanded', String(!collapsed));
 
-            if (!collapsed) loadDay(dayIso(activeTab === 'equipment' ? eqDay : 'tomorrow'));
+            if (!collapsed) loadDay(dayIso(eqDay));
 
             const button = root.querySelector('.s-collapse');
 
@@ -4753,7 +4927,7 @@
 
             panel.querySelectorAll('[data-skin-choice]').forEach(button => {
                 button.addEventListener('click', () => {
-                    writeUi({ skin: applySkin(root, button.dataset.skinChoice) });
+                    writeUi({ skin: applySkin(root, button.dataset.skinChoice), skinV: 2 });
                 });
             });
             applySkin(root, root.dataset.skin);
@@ -5480,17 +5654,21 @@
 
         /* Вкладка «Оборудование»: итоги дня по залам и по студии, раскрытие броней-источников. */
         function buildEquipmentPanel() {
-            const panel = el('div', { id: 's-panel-equipment', className: 's-panel', role: 'tabpanel', hidden: 'hidden' });
-            const switcher = el('div', { className: 's-switch eq-days', role: 'group', 'aria-label': 'День' }, [
+            const panel = el('div', { id: 's-panel-equipment', className: 's-section eq-section' });
+            const switcher = el('div', { className: 'eq-days', role: 'group', 'aria-label': 'День' }, [
                 el('button', { type: 'button', 'data-eq-day': 'today' }, ['Сегодня']),
                 el('button', { type: 'button', 'data-eq-day': 'tomorrow' }, ['Завтра'])
             ]);
             const status = el('div', { className: 's-muted eq-status', 'aria-live': 'polite' });
             const body = el('div', { className: 'eq-body' });
-            const copyButton = el('button', { type: 'button', className: 'da-btn eq-copy' }, ['Скопировать список']);
-            const refreshButton = el('button', { type: 'button', className: 'da-btn eq-refresh' }, ['Обновить']);
+            const copyButton = el('button', { type: 'button', className: 's-textbtn eq-copy' }, ['Скопировать']);
+            const refreshButton = el('button', { type: 'button', className: 's-textbtn eq-refresh' }, ['Обновить']);
 
-            panel.append(switcher, status, body, el('div', { className: 'eq-actions' }, [copyButton, refreshButton]));
+            panel.append(
+                el('div', { className: 'eq-head' }, [el('span', { className: 'eq-title' }, ['Оборудование']), switcher]),
+                body,
+                el('div', { className: 'eq-foot' }, [status, el('span', { className: 'eq-actions' }, [copyButton, refreshButton])])
+            );
 
             const rangeText = source => (Number.isFinite(source.start) && Number.isFinite(source.end))
                 ? `${formatClock(source.start)}–${formatClock(source.end)}`
@@ -5529,17 +5707,16 @@
                 const stale = !!entry.error || Date.now() - entry.fetchedAt > DAY_STALE_MS;
                 const filtered = recordsOfCategory(entry.records, category);
                 const summary = summarizeEquipment(filtered);
-                const parts = [
-                    `${branchName} · ${dayLabel(iso)}`,
-                    `обновлено ${clockOf(entry.fetchedAt)}`,
-                    `броней ${filtered.length}`
-                ];
+                const parts = [`${dayLabel(iso)}`, `обновлено ${clockOf(entry.fetchedAt)}`];
 
-                if (entry.excluded) parts.push(`отменённых не учтено ${entry.excluded} (все филиалы)`);
-                if (entry.withoutHall) parts.push(`без зала ${entry.withoutHall}`);
                 if (entry.loading) parts.push('обновляю…');
 
                 status.textContent = parts.join(' · ');
+                status.title = [
+                    `${branchName}: броней ${filtered.length}`,
+                    entry.excluded ? `отменённых не учтено ${entry.excluded} (все филиалы)` : '',
+                    entry.withoutHall ? `броней без зала ${entry.withoutHall}` : ''
+                ].filter(Boolean).join('\n');
 
                 if (stale) {
                     status.classList.add('eq-warn');
@@ -5549,7 +5726,7 @@
                 }
 
                 if (!summary.halls.length) {
-                    body.appendChild(el('div', { className: 's-muted eq-empty' }, [`На ${dayLabel(iso)} нет броней с оборудованием.`]));
+                    body.appendChild(el('div', { className: 's-muted eq-empty' }, [`На ${dayLabel(iso)} оборудование не заказано.`]));
                     return;
                 }
 
@@ -5557,14 +5734,16 @@
                 copyButton.disabled = false;
 
                 summary.halls.forEach(hall => {
-                    body.appendChild(el('div', { className: 'eq-hall' }, [hall.label]));
+                    const group = el('div', { className: 'eq-group' }, [el('div', { className: 'eq-hall' }, [hall.label])]);
+
+                    body.appendChild(group);
 
                     hall.items.forEach(item => {
                         const line = `${item.name}${item.star ? ' *' : ''}`;
                         const details = el('details', { className: 'eq-item', 'data-key': `${hall.label}|${item.name}` }, [
                             el('summary', {}, [
                                 el('span', {}, [line]),
-                                el('span', { className: 'eq-qty' }, [qtyText(item.qty)])
+                                el('span', { className: 'eq-qty' }, [formatQuantity(item.qty)])
                             ])
                         ]);
 
@@ -5588,22 +5767,31 @@
                             details.appendChild(row);
                         });
 
-                        body.appendChild(details);
+                        group.appendChild(details);
                     });
                 });
 
-                body.appendChild(el('div', { className: 'eq-hall' }, ['Всего по студии (сумма по залам)']));
+                /* Итог по студии нужен, только когда залов больше одного. */
+                if (summary.halls.length > 1) {
+                    const totals = el('details', { className: 'eq-totals', 'data-key': '__totals' }, [
+                        el('summary', {}, [`Всего по студии: ${summary.totals.length} поз.`])
+                    ]);
 
-                summary.totals.forEach(total => {
-                    body.appendChild(el('div', { className: 'eq-total' }, [
-                        el('span', {}, [total.halls > 1 ? `${total.name} (залов: ${total.halls})` : total.name]),
-                        el('span', { className: 'eq-qty' }, [qtyText(total.qty)])
-                    ]));
-                });
+                    if (openKeys.has('__totals')) totals.open = true;
 
-                body.appendChild(el('div', { className: 's-muted eq-note' }, [
-                    '* нужно к началу первой брони зала. Внутри зала оборудование между бронями переезжает (берётся максимум).'
-                ]));
+                    summary.totals.forEach(total => {
+                        totals.appendChild(el('div', { className: 'eq-total' }, [
+                            el('span', {}, [total.halls > 1 ? `${total.name} · залов ${total.halls}` : total.name]),
+                            el('span', { className: 'eq-qty' }, [formatQuantity(total.qty)])
+                        ]));
+                    });
+
+                    body.appendChild(totals);
+                }
+
+                if (summary.starCount) {
+                    body.appendChild(el('div', { className: 's-muted eq-note' }, ['* к началу первой брони зала']));
+                }
             };
 
             switcher.querySelectorAll('[data-eq-day]').forEach(button => {
@@ -5625,6 +5813,57 @@
             });
 
             return panel;
+        }
+
+        /*
+         * 5.1.0: настройки в две колонки — слева заголовки разделов, справа содержимое одного раздела;
+         * выбор другого раздела заменяет показанный. Сами контролы и их обработчики не меняются.
+         * «Сохранить / Сбросить цвета» и пояснение показываются только у разделов с цветами.
+         */
+        function layoutSettings(panel) {
+            const groups = [...panel.children].filter(node => node.matches('details.st-group'));
+            const rest = [...panel.children].filter(node => !groups.includes(node));
+            const nav = el('div', { className: 'st-nav', role: 'tablist', 'aria-label': 'Разделы настроек' });
+            const content = el('div', { className: 'st-content' });
+
+            groups.forEach((group, index) => {
+                const summary = group.querySelector('summary');
+                const title = summary && summary.firstChild ? summary.firstChild.textContent : `Раздел ${index + 1}`;
+
+                group.open = true;
+                nav.appendChild(el('button', { type: 'button', role: 'tab', className: 'st-nav-item', 'data-group': String(index) }, [title]));
+                content.appendChild(group);
+            });
+
+            rest.forEach(node => content.appendChild(node));
+            panel.replaceChildren(nav, content);
+
+            const show = index => {
+                const target = Math.min(groups.length - 1, Math.max(0, index));
+                const hasColors = !!groups[target] && !!groups[target].querySelector('[data-stage]');
+
+                groups.forEach((group, i) => { group.hidden = i !== target; });
+                rest.forEach(node => { node.hidden = !hasColors; });
+                nav.querySelectorAll('.st-nav-item').forEach((button, i) => {
+                    button.setAttribute('aria-selected', String(i === target));
+                });
+            };
+
+            nav.addEventListener('click', event => {
+                const button = event.target.closest('.st-nav-item');
+
+                if (!button) return;
+
+                const index = Number(button.dataset.group);
+
+                show(index);
+                writeUi({ settingsGroup: index });
+            });
+
+            /* Раздел нельзя свернуть кликом по заголовку — заголовки теперь слева. */
+            groups.forEach(group => group.addEventListener('toggle', () => { if (!group.open) group.open = true; }));
+
+            show(Number(readUi().settingsGroup) || 0);
         }
 
         /* Состояние интерфейса (вкладка, оформление) — один ключ, поля не затирают друг друга. */
@@ -5665,7 +5904,10 @@
 
             const root = document.createElement('div');
             root.id = WIDGET_ID;
-            root.dataset.skin = SKINS.includes(readUi().skin) ? readUi().skin : DEFAULT_SKIN;
+            /* 5.1.0: новый вид — светлый; прежний выбор оформления (до 5.1) сброшен один раз. */
+            const savedUi = readUi();
+
+            root.dataset.skin = savedUi.skinV === 2 && SKINS.includes(savedUi.skin) ? savedUi.skin : DEFAULT_SKIN;
 
             root.appendChild(el('div', { className: 's-head' }, [
                 el('span', { id: 's-head-title' }, ['STUDIO 1826']),
@@ -5675,41 +5917,30 @@
                 ])
             ]));
 
-            const TABS = [
-                ['overview', 'Обзор'],
-                ['payout', 'Выплаты'],
-                ['equipment', 'Оборудование'],
-                ['settings', 'Настройки']
-            ];
+            /*
+             * 5.1.0: вместо четырёх вкладок — одна страница («Главная»: выплата, оборудование, действия)
+             * и отдельный экран «Настройки». Элементы с прежними id сохранены: update() и обработчики
+             * работают с ними как раньше. Имена прежних вкладок принимаются для совместимости.
+             */
+            const VIEWS = ['home', 'settings'];
+            const viewOf = name => (name === 'settings' ? 'settings' : 'home');
 
-            const PANEL_IDS = { overview: 's-panel-overview', payout: 's-panel-payout', equipment: 's-panel-equipment', settings: SETTINGS_ID };
-
-            const tabs = el('div', { className: 's-tabs', role: 'tablist', 'aria-label': 'Разделы' },
-                TABS.map(([id, label]) => el('button', {
+            const overview = el('div', { id: 's-panel-overview', className: 's-section' }, [
+                el('div', { id: 's-branch-status', className: 's-overview-status' }, ['Загрузка данных…'])
+            ]);
+            const actions = el('div', { id: 's-actions', className: 's-overview-actions' });
+            const debugRow = el('div', { className: 's-debug' }, [
+                el('button', {
                     type: 'button',
-                    role: 'tab',
-                    'data-tab': id,
-                    'aria-controls': PANEL_IDS[id],
-                    tabindex: id === 'overview' ? '0' : '-1',
-                    'aria-selected': id === 'overview' ? 'true' : 'false'
-                }, [label])));
-
-            /* Обзор — стартовая страница: где я и что можно сделать за один клик. */
-            const overview = el('div', { id: 's-panel-overview', className: 's-panel', role: 'tabpanel' }, [
-                el('div', { id: 's-branch-status', className: 's-overview-status' }, ['Загрузка данных…']),
-                el('div', { id: 's-actions', className: 's-overview-actions' }),
-                el('div', { className: 's-debug' }, [
-                    el('button', {
-                        type: 'button',
-                        className: 's-debug-button',
-                        title: 'Собрать технический отчёт (без имён клиентов и текстов броней): скопируется и скачается файлом'
-                    }, ['Диагностика']),
-                    el('span', { id: 's-debug-status', className: 's-muted', 'aria-live': 'polite' })
-                ])
+                    className: 's-debug-button',
+                    title: 'Собрать технический отчёт (без имён клиентов и текстов броней): скопируется и скачается файлом'
+                }, ['Диагностика']),
+                el('span', { id: 's-debug-status', className: 's-muted', 'aria-live': 'polite' }),
+                el('button', { type: 'button', className: 's-open-settings', title: 'Настройки' }, ['⚙ Настройки'])
             ]);
 
             /* Выплаты — подробный расчёт и параметры (раньше — главный экран). */
-            const payoutPanel = el('div', { id: 's-panel-payout', className: 's-panel', role: 'tabpanel', hidden: 'hidden' }, [
+            const payoutPanel = el('div', { id: 's-panel-payout', className: 's-fold-body' }, [
                 el('div', { className: 's-title' }, ['Бонусы · на одного']),
                 el('label', { className: 's-check' }, [
                     el('input', { id: 's3-light-on', type: 'checkbox' }),
@@ -5761,8 +5992,8 @@
                 ])
             ]);
 
-            /* Настройки — содержимое строит setupSettings(). */
-            const settingsPanel = el('div', { id: SETTINGS_ID, className: 's-panel', role: 'tabpanel', hidden: 'hidden' });
+            /* Настройки — отдельный экран; содержимое строит setupSettings(). */
+            const settingsPanel = el('div', { id: SETTINGS_ID, className: 's-panel' });
 
             /* Итог выплаты виден на любой вкладке. */
             const summary = el('div', { className: 's-summary' }, [
@@ -5775,8 +6006,19 @@
             ]);
 
             const equipmentPanel = buildEquipmentPanel();
+            const payoutFold = el('details', { className: 's-fold' }, [
+                el('summary', {}, ['Параметры расчёта']),
+                payoutPanel
+            ]);
+            const homeView = el('div', { className: 's-view s-view-home' }, [
+                summary, payoutFold, overview, equipmentPanel, actions, debugRow
+            ]);
+            const settingsView = el('div', { className: 's-view s-view-settings', hidden: 'hidden' }, [
+                el('button', { type: 'button', className: 's-back' }, ['← Назад']),
+                settingsPanel
+            ]);
 
-            root.appendChild(el('div', { className: 's-body' }, [tabs, overview, payoutPanel, equipmentPanel, settingsPanel, summary]));
+            root.appendChild(el('div', { className: 's-body' }, [homeView, settingsView]));
 
             root.appendChild(el('div', { className: 's-footer' }, [
                 el('span', { className: 's-version' }, [
@@ -5786,25 +6028,20 @@
             ]));
 
             activateTab = name => {
-                const target = TABS.some(([id]) => id === name) ? name : 'overview';
+                const target = viewOf(name);
 
-                tabs.querySelectorAll('[data-tab]').forEach(button => {
-                    button.setAttribute('aria-selected', String(button.dataset.tab === target));
-                    button.tabIndex = button.dataset.tab === target ? 0 : -1;
-                });
-
-                [['overview', overview], ['payout', payoutPanel], ['equipment', equipmentPanel], ['settings', settingsPanel]].forEach(([id, node]) => {
-                    node.hidden = id !== target;
-                });
-
+                homeView.hidden = target !== 'home';
+                settingsView.hidden = target !== 'settings';
+                root.dataset.view = target;
                 activeTab = target;
 
                 if (target === 'settings') fillSettingsControls();
-
-                if (target === 'equipment') {
+                else {
                     renderEquipment();
                     loadDay(dayIso(eqDay));
                 }
+
+                if (root.dataset.mode === 'header' && !collapsed) positionPopup(root);
             };
 
             const chooseTab = name => {
@@ -5812,26 +6049,8 @@
                 writeUi({ tab: name });
             };
 
-            tabs.querySelectorAll('[data-tab]').forEach(button => {
-                button.addEventListener('click', () => chooseTab(button.dataset.tab));
-            });
-
-            tabs.addEventListener('keydown', event => {
-                const order = TABS.map(([id]) => id);
-                const current = order.indexOf(document.activeElement?.dataset?.tab);
-                const move = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
-                let next = -1;
-
-                if (current === -1) return;
-                if (move) next = (current + move + order.length) % order.length;
-                if (event.key === 'Home') next = 0;
-                if (event.key === 'End') next = order.length - 1;
-                if (next === -1) return;
-
-                event.preventDefault();
-                chooseTab(order[next]);
-                tabs.querySelector(`[data-tab="${order[next]}"]`).focus();
-            });
+            debugRow.querySelector('.s-open-settings').addEventListener('click', () => chooseTab('settings'));
+            settingsView.querySelector('.s-back').addEventListener('click', () => chooseTab('home'));
 
 
             root.querySelector('#s3-light-on').checked = lightSetupEnabled;
@@ -5866,7 +6085,7 @@
             setInterval(() => {
                 if (collapsed || document.hidden) return;
 
-                loadDay(dayIso(activeTab === 'equipment' ? eqDay : 'tomorrow'));
+                loadDay(dayIso(eqDay));
             }, 120000);
 
             /* 5.0.1: клик в календаре (iframe) окно не закрывает — с ним работают, переключая дни. */
@@ -5891,11 +6110,10 @@
             });
 
             setupSettings(root);
+            layoutSettings(settingsPanel);
             setupDayTools(root);
 
-            const savedTab = readUi().tab;
-
-            if (TABS.some(([id]) => id === savedTab)) activateTab(savedTab);
+            activateTab(readUi().tab);
 
             root.querySelector('#s3-rate').addEventListener('input', event => {
                 rateValue = parseNumber(event.target.value);
@@ -6069,12 +6287,13 @@
             if (eqRenderedCategory !== null && eqRenderedCategory !== category) renderEquipment();
 
             const lines = [
-                el('div', {}, ['Филиал: ', el('strong', {}, [branchName]), categorySource === 'default' ? ' (по умолчанию)' : '']),
-                el('div', {}, [`Броней на экране: ${records.length}`, selectedDate ? ` · ${selectedDate}` : '']),
-                el('div', {}, [`Часов учтено: ${s.hours} · выплата ${money(s.payout)}`])
+                el('div', {}, [
+                    el('strong', {}, [branchName]),
+                    categorySource === 'default' ? ' (по умолчанию)' : '',
+                    selectedDate ? ` · ${selectedDate}` : '',
+                    ` · броней ${records.length} · ${s.hours} ч`
+                ])
             ];
-
-            lines.push(tomorrowLine());
 
             if (healthNote) {
                 lines.push(el('div', { className: 's-overview-warn' }, [healthNote]));
