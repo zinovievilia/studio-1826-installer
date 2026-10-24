@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v1.2.0 Studio 1826 — Пропуска списком (Авангард)
+// @name         v1.2.1 Studio 1826 — Пропуска списком (Авангард)
 // @namespace    studio1826
-// @version      1.2.0
+// @version      1.2.1
 // @description  Кнопка «Оформить пропуск» в окне ввода открытых линий Bitrix24: список ФИО + дата → пропуска в Авангарде оформляются по очереди
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
@@ -26,7 +26,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.2.0';
+  const VERSION = '1.2.1';
   const DEFAULT_GUESTS_URL = 'https://my.avanguard.pro/account/354/guests';
 
   // ── Чистые функции (тесты: tests/passes.test.js) ───────────────────────────
@@ -160,6 +160,10 @@
     .s1826p li.skip { color: #666; }
     .s1826p li.err { color: #c62828; }
     .s1826p li.work { font-weight: 600; }
+    .s1826p .confirm { display: flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: 8px; background: #eef4ff; }
+    .s1826p .confirm-title { font-weight: 600; }
+    .s1826p .confirm button.no { background: #8a8f98; }
+    .s1826p .confirm button { flex: 1; }
   `;
 
   /** Панель: список ФИО + даты + кнопка. `single` — одна дата вместо «с/по». */
@@ -239,6 +243,32 @@
       ui.area.disabled = ui.from.disabled = ui.to.disabled = running;
       if (running) ui.start.textContent = label || 'Стоп'; else ui.refresh();
     };
+
+    /** Подтверждение внутри панели (родной confirm() замораживает страницу). Resolve: true — «Да». */
+    ui.confirm = (title, names) => new Promise((resolve) => {
+      const box = document.createElement('div');
+      box.className = 'confirm';
+      const heading = document.createElement('div');
+      heading.className = 'confirm-title';
+      heading.textContent = title;
+      const list = document.createElement('ol');
+      for (const n of names) { const li = document.createElement('li'); li.textContent = n; list.appendChild(li); }
+      const row = document.createElement('div');
+      row.className = 'row';
+      const yes = document.createElement('button');
+      yes.className = 'main yes';
+      yes.textContent = 'Да, оформить';
+      const no = document.createElement('button');
+      no.className = 'main no';
+      no.textContent = 'Отмена';
+      row.append(yes, no);
+      box.append(heading, list, row);
+      ui.start.hidden = true;
+      ui.start.parentNode.insertBefore(box, ui.start);
+      const done = (answer) => { box.remove(); ui.start.hidden = false; resolve(answer); };
+      yes.addEventListener('click', () => done(true));
+      no.addEventListener('click', () => done(false));
+    });
 
     /** Статусы по именам: {name: 'ok' | 'skip' | 'work' | 'err:текст'} */
     ui.showStatus = (names, results) => {
@@ -435,7 +465,7 @@
         const { names } = parseNames(ui.area.value);
         const from = ui.from.value;
         const to = ui.to.value;
-        if (!confirm(`Оформить ${names.length} чел. на ${periodText(from, to)}?\n\n${names.join('\n')}`)) return;
+        if (!(await ui.confirm(`Оформить ${names.length} чел. на ${periodText(from, to)}?`, names))) return;
         stop = false;
         ui.setRunning(true, 'Стоп');
         const results = await runBatch(names, from, to, (r) => ui.showStatus(names, r), () => stop);
@@ -500,7 +530,7 @@
         if (ui.running) return;
         const { names } = parseNames(ui.area.value);
         const date = ui.from.value;
-        if (!confirm(`Оформить пропуска в Авангарде на ${humanDate(date)}?\n\n${names.join('\n')}`)) return;
+        if (!(await ui.confirm(`Оформить пропуска на ${humanDate(date)}?`, names))) return;
 
         const job = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), names, from: date, to: date };
         await store.set('job', job);
