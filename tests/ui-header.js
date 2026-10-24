@@ -51,6 +51,7 @@ const HEADER = `<header id="app-header"><div id="header" class="air-header" styl
     await page.click('#studio1826-chip');
     await page.frameLocator('#fake-app').locator('body').click();
     r.afterIframeClick = await st();
+    await page.click('.s-collapse');
     await page.click('#studio1826-chip');
     await page.keyboard.press('Escape');
     r.afterEsc = await st();
@@ -81,6 +82,10 @@ const HEADER = `<header id="app-header"><div id="header" class="air-header" styl
     await page.evaluate(() => document.querySelector('#header .air-header__personal-info').remove());
     await page.waitForTimeout(1800);
     r.blockerGone = await st();
+    await page.evaluate(() => document.documentElement.classList.add('s26-overlay-open'));
+    await page.waitForTimeout(1800);
+    r.modeWhileOverlay = (await st()).mode;
+    await page.evaluate(() => document.documentElement.classList.remove('s26-overlay-open'));
     await page.evaluate(() => document.getElementById('header').remove());
     await page.waitForTimeout(1800);
     r.headerRemoved = await page.evaluate(() => ({ mode: document.getElementById('studio1826-widget-v3').dataset.mode, chips: document.querySelectorAll('#studio1826-chip').length }));
@@ -95,9 +100,10 @@ const HEADER = `<header id="app-header"><div id="header" class="air-header" styl
 
     const ok = r.nativeClasses && r.start.mode === 'header' && r.start.chips === 1 && r.start.collapsed && !r.start.chipHidden &&
         r.open.shown && !r.open.collapsed && r.open.expanded === 'true' && r.open.rightAligned && Math.abs(r.open.gapBelowChip - 8) <= 1 && r.start.chipAfterMenu && r.open.inViewport &&
-        r.afterOutsideClick.collapsed && r.afterIframeClick.collapsed && r.afterEsc.collapsed && r.stillOpenAfterInsideClicks && r.closedByButton &&
+        r.afterOutsideClick.collapsed && !r.afterIframeClick.collapsed && r.afterEsc.collapsed && r.stillOpenAfterInsideClicks && r.closedByButton &&
         r.narrow.mode === 'float' && r.narrow.chipHidden === true && r.wideAgain.mode === 'header' &&
         r.withBlocker.mode === 'float' && r.blockerGone.mode === 'header' &&
+        r.modeWhileOverlay === 'header' &&
         r.headerRemoved.mode === 'float' && r.headerRemoved.chips === 0 && r.headerBack.mode === 'header' && r.headerBack.chips === 1 &&
         errors.length === 0;
     console.log(ok ? 'UI-HEADER OK' : 'UI-HEADER FAILED');
