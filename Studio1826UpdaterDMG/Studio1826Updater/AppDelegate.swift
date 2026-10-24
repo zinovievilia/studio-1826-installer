@@ -172,7 +172,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.autoenablesItems = false
 
         menu.addItem(item("Скрипты ответов", #selector(openReplies), symbol: AppSection.replies.systemImage))
-        menu.addItem(item("Быстрые ответы  ⌃⌥Пробел", #selector(openQuickReplies), symbol: "bolt"))
+        let quick = item("Быстрые ответы  ⌃⌥Пробел", #selector(openQuickReplies))
+        quick.image = logoImage(height: 12)
+        menu.addItem(quick)
         menu.addItem(item("Отчёт по кассе", #selector(openCashReport), symbol: AppSection.cashReport.systemImage))
         menu.addItem(.separator())
 
@@ -265,6 +267,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func quit() { NSApp.terminate(nil) }
 
     // MARK: - Помощники
+
+    /// Копия логотипа нужной высоты (NSImage(named:) общий — его размер не меняем).
+    private func logoImage(height: CGFloat) -> NSImage? {
+        guard let logo = NSImage(named: "MenuIcon")?.copy() as? NSImage else { return nil }
+        logo.isTemplate = true
+        let ratio = logo.size.height > 0 ? logo.size.width / logo.size.height : 1
+        logo.size = NSSize(width: height * ratio, height: height)
+        return logo
+    }
 
     /// Логотип 1826 Studio (набор MenuIcon в Assets.xcassets).
     /// Template-изображение: macOS само красит его в чёрный/белый под тему строки меню.

@@ -265,9 +265,7 @@ struct QuickReplyView: View {
 
         VStack(spacing: 0) {
             HStack(spacing: 10) {
-                Image(systemName: "bolt.fill")
-                    .font(.system(size: 18))
-                    .foregroundColor(.accentColor)
+                StudioLogo(height: 20)
                 QuickSearchField(text: $model.query, placeholder: "Быстрый ответ: парковка, пропуск, счёт…")
                     .frame(height: 28)
             }
@@ -533,6 +531,23 @@ struct QuickSearchField: NSViewRepresentable {
         func controlTextDidChange(_ note: Notification) {
             guard let field = note.object as? NSTextField else { return }
             text.wrappedValue = field.stringValue
+        }
+    }
+}
+
+/// Логотип 1826 (MenuIcon) в цвете текста; если картинки нет — надпись.
+struct StudioLogo: View {
+    var height: CGFloat
+
+    var body: some View {
+        if let logo = NSImage(named: "MenuIcon") {
+            Image(nsImage: logo)
+                .renderingMode(.template)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(height: height)
+        } else {
+            Text("1826").font(.system(size: height * 0.8, weight: .bold))
         }
     }
 }

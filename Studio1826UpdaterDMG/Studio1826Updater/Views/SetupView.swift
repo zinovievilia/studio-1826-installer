@@ -65,10 +65,8 @@ struct SetupView: View {
     private var quickRepliesCard: some View {
         Collapsible(isExpanded: $showQuickReplies) {
             HStack(spacing: 12) {
-                Image(systemName: "bolt")
-                    .font(.system(size: 16))
+                StudioLogo(height: 14)
                     .frame(width: 28)
-                    .foregroundColor(.accentColor)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Быстрые ответы — \(QuickReplySettings.hotKeyTitle)").font(.headline)
                     Text("Поиск по скриптам поверх любого окна").font(.callout).foregroundColor(.secondary)
