@@ -1,0 +1,26 @@
+{
+  "images": [
+    {
+      "idiom": "universal",
+      "scale": "1x",
+      "filename": "menuicon.png"
+    },
+    {
+      "idiom": "universal",
+      "scale": "2x",
+      "filename": "menuicon@2x.png"
+    },
+    {
+      "idiom": "universal",
+      "scale": "3x",
+      "filename": "menuicon@3x.png"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  },
+  "properties": {
+    "template-rendering-intent": "template"
+  }
+}

@@ -1,0 +1,428 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project Studio1826Updater.xcodeproj -scheme Studio1826Updater -configuration Release -derivedDataPath "/Users/zinovievilia/Downloads/proj 2/build/DerivedData" "CONFIGURATION_BUILD_DIR=/Users/zinovievilia/Downloads/proj 2/build" CODE_SIGN_IDENTITY= CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO PRODUCT_BUNDLE_IDENTIFIER=studio1826.updater build
+
+Build settings from command line:
+    CODE_SIGN_IDENTITY = 
+    CODE_SIGNING_ALLOWED = NO
+    CODE_SIGNING_REQUIRED = NO
+    CONFIGURATION_BUILD_DIR = /Users/zinovievilia/Downloads/proj 2/build
+    PRODUCT_BUNDLE_IDENTIFIER = studio1826.updater
+
+2026-10-21 21:49:15.839 xcodebuild[12758:326428] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:macOS, arch:arm64, id:00006040-001C69020AB8801C, name:My Mac }
+{ platform:macOS, arch:x86_64, id:00006040-001C69020AB8801C, name:My Mac }
+{ platform:macOS, name:Any Mac }
+note: Using codesigning identity override: 
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (1 target)
+    Target 'Studio1826Updater' in project 'Studio1826Updater' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+Build description signature: d648730251c774d969689b9e0d2208d1
+Build description path: /Users/zinovievilia/Downloads/proj 2/build/DerivedData/Build/Intermediates.noindex/XCBuildData/d648730251c774d969689b9e0d2208d1.xcbuilddata
+CreateBuildDirectory /Users/zinovievilia/Downloads/proj\ 2/build
+    cd /Users/zinovievilia/Downloads/proj\ 2/Studio1826Updater.xcodeproj
+    builtin-create-build-directory /Users/zinovievilia/Downloads/proj\ 2/build
+
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKStatCaches.noindex/macosx27.0-26A425-7231f6df4def33e022ae2eb8f782df1a.sdkstatcache
+    cd /Users/zinovievilia/Downloads/proj\ 2/Studio1826Updater.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -o /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKStatCaches.noindex/macosx27.0-26A425-7231f6df4def33e022ae2eb8f782df1a.sdkstatcache
+
+CreateBuildDirectory /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules
+    cd /Users/zinovievilia/Downloads/proj\ 2/Studio1826Updater.xcodeproj
+    builtin-create-build-directory /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules
+
+CreateBuildDirectory /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Products
+    cd /Users/zinovievilia/Downloads/proj\ 2/Studio1826Updater.xcodeproj
+    builtin-create-build-directory /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Products
+
+CreateBuildDirectory /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex
+    cd /Users/zinovievilia/Downloads/proj\ 2/Studio1826Updater.xcodeproj
+    builtin-create-build-directory /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex
+
+CreateBuildDirectory /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/ModuleCache.noindex
+    cd /Users/zinovievilia/Downloads/proj\ 2/Studio1826Updater.xcodeproj
+    builtin-create-build-directory /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/ModuleCache.noindex
+
+CreateBuildDirectory /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/CompilationCache.noindex
+    cd /Users/zinovievilia/Downloads/proj\ 2/Studio1826Updater.xcodeproj
+    builtin-create-build-directory /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/CompilationCache.noindex
+
+CreateBuildDirectory /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+    cd /Users/zinovievilia/Downloads/proj\ 2/Studio1826Updater.xcodeproj
+    builtin-create-build-directory /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+
+CreateBuildDirectory /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/ExplicitPrecompiledModules
+    cd /Users/zinovievilia/Downloads/proj\ 2/Studio1826Updater.xcodeproj
+    builtin-create-build-directory /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/ExplicitPrecompiledModules
+
+CreateBuildDirectory /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/PrecompiledHeaders
+    cd /Users/zinovievilia/Downloads/proj\ 2/Studio1826Updater.xcodeproj
+    builtin-create-build-directory /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/PrecompiledHeaders
+
+CreateBuildDirectory /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/EagerLinkingTBDs/Release
+    cd /Users/zinovievilia/Downloads/proj\ 2/Studio1826Updater.xcodeproj
+    builtin-create-build-directory /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/EagerLinkingTBDs/Release
+
+WriteAuxiliaryFile /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater-4b119e0b9b6a3e1fa8297308edf2e675-VFS/all-product-headers.yaml
+    cd /Users/zinovievilia/Downloads/proj\ 2/Studio1826Updater.xcodeproj
+    write-file /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater-4b119e0b9b6a3e1fa8297308edf2e675-VFS/all-product-headers.yaml
+
+WriteAuxiliaryFile /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater-project-headers.hmap (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    write-file /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater-project-headers.hmap
+
+WriteAuxiliaryFile /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater-all-target-headers.hmap (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    write-file /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater-all-target-headers.hmap
+
+WriteAuxiliaryFile /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater-all-non-framework-target-headers.hmap (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    write-file /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater-all-non-framework-target-headers.hmap
+
+WriteAuxiliaryFile /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater-own-target-headers.hmap (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    write-file /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater-own-target-headers.hmap
+
+WriteAuxiliaryFile /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater.hmap (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    write-file /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater.hmap
+
+WriteAuxiliaryFile /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater-generated-files.hmap (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    write-file /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater-generated-files.hmap
+
+WriteAuxiliaryFile /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater.DependencyStaticMetadataFileList (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    write-file /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater.DependencyStaticMetadataFileList
+
+WriteAuxiliaryFile /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater.DependencyMetadataFileList (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    write-file /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater.DependencyMetadataFileList
+
+WriteAuxiliaryFile /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater.SwiftConstValuesFileList (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    write-file /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater.SwiftConstValuesFileList
+
+WriteAuxiliaryFile /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater.SwiftFileList (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    write-file /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater.SwiftFileList
+
+WriteAuxiliaryFile /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater_const_extract_protocols.json (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    write-file /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater_const_extract_protocols.json
+
+WriteAuxiliaryFile /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater.LinkFileList (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    write-file /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater.LinkFileList
+
+WriteAuxiliaryFile /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater-OutputFileMap.json (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    write-file /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater-OutputFileMap.json
+
+MkDir /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    /bin/mkdir -p /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app
+
+MkDir /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app/Contents (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    /bin/mkdir -p /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app/Contents
+
+MkDir /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app/Contents/Resources (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    /bin/mkdir -p /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app/Contents/Resources
+
+MkDir /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app/Contents/MacOS (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    /bin/mkdir -p /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app/Contents/MacOS
+
+CopyPlistFile /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app/Contents/Resources/Info.plist /Users/zinovievilia/Downloads/proj\ 2/Studio1826Updater/Info.plist (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    builtin-copyPlist --outdir /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app/Contents/Resources -- /Users/zinovievilia/Downloads/proj\ 2/Studio1826Updater/Info.plist
+
+MkDir /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/assetcatalog_output/thinned (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    /bin/mkdir -p /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/assetcatalog_output/thinned
+
+MkDir /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/assetcatalog_output/unthinned (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    /bin/mkdir -p /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/assetcatalog_output/unthinned
+
+GenerateAssetSymbols /Users/zinovievilia/Downloads/proj\ 2/Studio1826Updater/Assets.xcassets (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    /Applications/Xcode.app/Contents/Developer/usr/bin/actool /Users/zinovievilia/Downloads/proj\ 2/Studio1826Updater/Assets.xcassets --compile /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app/Contents/Resources --output-format human-readable-text --notices --warnings --export-dependency-info /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/assetcatalog_dependencies --output-partial-info-plist /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/assetcatalog_generated_info.plist --app-icon AppIcon --accent-color AccentColor --enable-on-demand-resources NO --development-region ru --target-device mac --minimum-deployment-target 13.0 --platform macosx --bundle-identifier studio1826.updater --generate-swift-asset-symbol-extensions NO --generate-swift-asset-symbols /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/DerivedSources/GeneratedAssetSymbols.swift --generate-objc-asset-symbols /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/DerivedSources/GeneratedAssetSymbols.h --generate-asset-symbol-index /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/DerivedSources/GeneratedAssetSymbols-Index.plist
+/* com.apple.actool.compilation-results */
+/Users/zinovievilia/Downloads/proj 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/DerivedSources/GeneratedAssetSymbols-Index.plist
+/Users/zinovievilia/Downloads/proj 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/DerivedSources/GeneratedAssetSymbols.h
+/Users/zinovievilia/Downloads/proj 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/DerivedSources/GeneratedAssetSymbols.swift
+
+
+CompileAssetCatalogVariant thinned /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app/Contents/Resources /Users/zinovievilia/Downloads/proj\ 2/Studio1826Updater/Assets.xcassets (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    /Applications/Xcode.app/Contents/Developer/usr/bin/actool /Users/zinovievilia/Downloads/proj\ 2/Studio1826Updater/Assets.xcassets --compile /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/assetcatalog_output/thinned --output-format human-readable-text --notices --warnings --export-dependency-info /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/assetcatalog_dependencies_thinned --output-partial-info-plist /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/assetcatalog_generated_info.plist_thinned --app-icon AppIcon --accent-color AccentColor --enable-on-demand-resources NO --development-region ru --target-device mac --minimum-deployment-target 13.0 --platform macosx
+/* com.apple.actool.notices */
+/Users/zinovievilia/Downloads/proj 2/Studio1826Updater/Assets.xcassets: warning: Accent color ‘AccentColor’ is not present in any asset catalogs.
+/* com.apple.actool.compilation-results */
+/Users/zinovievilia/Downloads/proj 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/assetcatalog_generated_info.plist_thinned
+/Users/zinovievilia/Downloads/proj 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/assetcatalog_output/thinned/AppIcon.icns
+/Users/zinovievilia/Downloads/proj 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/assetcatalog_output/thinned/Assets.car
+
+
+LinkAssetCatalog /Users/zinovievilia/Downloads/proj\ 2/Studio1826Updater/Assets.xcassets (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    builtin-linkAssetCatalog --thinned /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/assetcatalog_output/thinned --thinned-dependencies /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/assetcatalog_dependencies_thinned --thinned-info-plist-content /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/assetcatalog_generated_info.plist_thinned --unthinned /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/assetcatalog_output/unthinned --unthinned-dependencies /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/assetcatalog_dependencies_unthinned --unthinned-info-plist-content /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/assetcatalog_generated_info.plist_unthinned --output /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app/Contents/Resources --plist-output /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/assetcatalog_generated_info.plist
+note: Emplaced /Users/zinovievilia/Downloads/proj 2/build/Studio1826Updater.app/Contents/Resources/AppIcon.icns (in target 'Studio1826Updater' from project 'Studio1826Updater')
+note: Emplaced /Users/zinovievilia/Downloads/proj 2/build/Studio1826Updater.app/Contents/Resources/Assets.car (in target 'Studio1826Updater' from project 'Studio1826Updater')
+
+ProcessInfoPlistFile /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app/Contents/Info.plist /Users/zinovievilia/Downloads/proj\ 2/Studio1826Updater/Info.plist (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    builtin-infoPlistUtility /Users/zinovievilia/Downloads/proj\ 2/Studio1826Updater/Info.plist -producttype com.apple.product-type.application -genpkginfo /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app/Contents/PkgInfo -expandbuildsettings -platform macosx -additionalcontentfile /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/assetcatalog_generated_info.plist -o /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app/Contents/Info.plist
+
+SwiftDriver Studio1826Updater normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name Studio1826Updater -O -whole-module-optimization @/Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater.SwiftFileList -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -target arm64-apple-macos13.0 -g -module-cache-path /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -swift-version 5 -I /Users/zinovievilia/Downloads/proj\ 2/build -F /Users/zinovievilia/Downloads/proj\ 2/build -emit-localized-strings -emit-localized-strings-path /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64 -c -num-threads 12 -Xcc -ivfsstatcache -Xcc /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKStatCaches.noindex/macosx27.0-26A425-7231f6df4def33e022ae2eb8f782df1a.sdkstatcache -output-file-map /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater-OutputFileMap.json -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/ModuleCache.noindex -sdk-module-cache-path /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules -emit-dependencies -emit-module -emit-module-path /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater.swiftmodule -serialize-diagnostics -dependency-scan-serialize-diagnostics-path /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater-dependency-scan.dia -validate-clang-modules-once -clang-build-session-file /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -fmodules-prune-interval\=86400 -Xcc -fmodules-prune-after\=345600 -emit-const-values -const-gather-protocols-list /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater_const_extract_protocols.json -Xcc -iquote -Xcc /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater-generated-files.hmap -Xcc -I/Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater-own-target-headers.hmap -Xcc -I/Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater-all-target-headers.hmap -Xcc -iquote -Xcc /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater-project-headers.hmap -Xcc -I/Users/zinovievilia/Downloads/proj\ 2/build/include -Xcc -I/Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/DerivedSources-normal/arm64 -Xcc -I/Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/DerivedSources/arm64 -Xcc -I/Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/DerivedSources -emit-objc-header -emit-objc-header-path /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater-Swift.h -working-directory /Users/zinovievilia/Downloads/proj\ 2 -no-emit-module-separately-wmo
+
+SwiftDriver\ Compilation Studio1826Updater normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name Studio1826Updater -O -whole-module-optimization @/Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater.SwiftFileList -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -target arm64-apple-macos13.0 -g -module-cache-path /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -swift-version 5 -I /Users/zinovievilia/Downloads/proj\ 2/build -F /Users/zinovievilia/Downloads/proj\ 2/build -emit-localized-strings -emit-localized-strings-path /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64 -c -num-threads 12 -Xcc -ivfsstatcache -Xcc /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKStatCaches.noindex/macosx27.0-26A425-7231f6df4def33e022ae2eb8f782df1a.sdkstatcache -output-file-map /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater-OutputFileMap.json -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/ModuleCache.noindex -sdk-module-cache-path /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules -emit-dependencies -emit-module -emit-module-path /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater.swiftmodule -serialize-diagnostics -dependency-scan-serialize-diagnostics-path /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater-dependency-scan.dia -validate-clang-modules-once -clang-build-session-file /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -fmodules-prune-interval\=86400 -Xcc -fmodules-prune-after\=345600 -emit-const-values -const-gather-protocols-list /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater_const_extract_protocols.json -Xcc -iquote -Xcc /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater-generated-files.hmap -Xcc -I/Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater-own-target-headers.hmap -Xcc -I/Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater-all-target-headers.hmap -Xcc -iquote -Xcc /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater-project-headers.hmap -Xcc -I/Users/zinovievilia/Downloads/proj\ 2/build/include -Xcc -I/Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/DerivedSources-normal/arm64 -Xcc -I/Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/DerivedSources/arm64 -Xcc -I/Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/DerivedSources -emit-objc-header -emit-objc-header-path /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater-Swift.h -working-directory /Users/zinovievilia/Downloads/proj\ 2 -no-emit-module-separately-wmo
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/SwiftShims-BCCPIJYDC11DJSE2CZWN8PBR4.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_AvailabilityInternal-DCQ4D3AF7NCU060JZGDRSX648.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_Builtin_stdarg-2VNV9DRF1NCKOR2ZTAQJDN70H.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_SwiftConcurrencyShims-87W4UFML6XQMTKDQJZX4CZ1CT.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/ptrcheck-DMEC9K77S3ZDKYRG8XPFVXGEZ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_Builtin_stddef-1QNFRMSZN89V7DD3RBOPP063T.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_Builtin_float-D0E9UJ35AP3OTVIBONAGQEOM6.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/ptrauth-1G0C3IY9VCZ823YPRV2JIX869.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_Builtin_stdbool-4C1YBTGKOS1CPPGDRFFHLZBX0.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/DeveloperToolsSupport-6NCLJI84TW6YO5Z2A7RLRL57H.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_DarwinFoundation1-3KTG8NR6MUJ4ZFG9L6TWI5XOH.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_DarwinFoundation2-24BK4D84ONR0XUZS1KF5OO7ZX.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_Builtin_limits-72CO2HY64S86KITL3I6XYRKO1.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/sys_types-88NR0RJR80Q35Q3BVJ4C272Z0.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_Builtin_stdint-BJL8K22E8QEDAVC4XKLDB739D.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/string_h-E1DQEP1DJ8BJVEVGN9R6G6QUX.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_Builtin_tgmath-A8P09JX2UCQSYB8NR5DIWPPT.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/libDER-ERVM1HGAVYK7KI8KQANEL6KSM.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_Builtin_intrinsics-90VALMY7X9RJ2DZZQ2R64SKZ1.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_DarwinFoundation3-9QBKZ3LLSMZLZRXCQTD4QW4X8.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_Builtin_stdatomic-DO1SFZIMWPX0TO15P1E46L4W.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_Builtin_inttypes-1V4OJ82XHTVIYLQBVBH91OYHO.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/Darwin-CJWCP5YNSMO5N5X8OR7Y8D98R.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/simd-6OFHCY3O00XH59K4WWKJGVJSI.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/CUPS-1XN9CXBOPRECUZWXDR75NXF3W.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/libkern-BPXOZ3PH0JDYKO8CGE9GY3NPH.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/MachO-17ZARSSP7VKUBYOJ6HM31LU9G.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/launch-59Q874IB1F2K7PDBRIWUGOZ86.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/ObjectiveC-3KF706MQ6D6ZPM59A3JACFRIC.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/Spatial-CPRBF3QICJRQLR8XB0F70D9RA.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/os_object-8S2O0VTR7W6L9O1SQA5NF4UHQ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/os_workgroup-5XN20YHGF8NM5V5995FMLHIXF.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/Dispatch-1LNM3K0K3ULOFMKIIBCPMJ31D.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/XPC-475C0CYVGLW1XK8K0ZB9U2QU1.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/CoreFoundation-5W9246NJI1Z05DN3UTX0VM0P9.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/os-1ASHB974BK87XRZDMLSY8XTEU.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/CoreAudioTypes-4Z9OFFGA6AHA6YKDWR4H5ZPVF.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/CFNetwork-5I0OX9JSZXAD745CVIG2ZE52V.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/Security-BRYZOJ3OUG52BO47UU90B9D7E.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/ColorSync-1LFIE0ERZDBI3BZ6RAJ2COZ1P.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/IOKit-EUQZFPZ9FUWPUH8983405HEAQ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/DiskArbitration-1M0U1QFE0WG8TCTFBKJ08XUV5.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/CoreGraphics-4YBPBDFQEWD6TJL4IFYMGWXCW.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/CoreServices-BDOJOE4ACTHJN27O5F4CPP1K4.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/CoreText-1UJ3OUSNEPCANB0OXVIH0GKKR.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/ImageIO-CADBMNZX6VQBAGXD5Q5FHJ2TI.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/Foundation-6BGEVRSLR80DKDJY563A9R3D2.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/Symbols-3KEJAAHQUU45H1Y0TPUPM39TL.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/CoreAudio-EZUDD0NU6NMRYDWZT2ISGYHAU.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/CoreData-7ASENFRNJ4DBZ20RNYX9WBWZQ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/Accessibility-2Q8JXJKTAHTUG7ZPECNDWSVN5.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/OSLog-1OUHFND175WXIAEV0E1PAV5BJ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/UniformTypeIdentifiers-CODAB259RSC4LOC81VDS9YA4C.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/CoreTransferable-D6INT0TBW6F7TG21ZKX4GDRJ8.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/IOSurface-7WWK78671CTRXVKY80F88BQRZ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/DataDetection-Z2FQMLPBFNDJT7ELD2DYNL7T.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/ApplicationServices-7L7WBRTIQVGAMX1YT2SHIYNPL.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/Metal-7Y4MU67J7H7WRWVYV5Q3SKV1D.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/OpenGL-566GIZ9RXM1POO5QOJ9UMT2P0.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/CoreVideo-2PB125E32PXDIENM88XOFK86.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/QuartzCore-C6FZXVOWMAEHG7FKSTYUO3E20.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/CoreImage-A5K9EXGDET5SF72M8NZG4KT7Q.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/CoreMedia-DLUCWL85T5NEKTJBSTLXWODHK.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/SwiftUICore-29C7484W05CXW3POSN3OIFSNT.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/AppKit-AGJ7ONZGUXKH95C2GSZH1QU7C.pcm
+
+SwiftExplicitDependencyCompileModuleFromInterface arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/SwiftUICore-360Q7BFBG3D6R.swiftmodule
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/Cocoa-201C0M1UVNIP4CSKL50HUR2QC.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/SwiftUI-9VO0XPQ8PRJD2NF3BBY99ZN0S.pcm
+
+SwiftExplicitDependencyCompileModuleFromInterface arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/AppKit-G59DGF16O6OG.swiftmodule
+
+SwiftExplicitDependencyCompileModuleFromInterface arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/SwiftUI-23WHLW2JAL2OH.swiftmodule
+
+SwiftCompile normal arm64 Compiling\ App.swift,\ AppDelegate.swift,\ UpdaterService.swift,\ ContentView.swift,\ GeneratedAssetSymbols.swift /Users/zinovievilia/Downloads/proj\ 2/Studio1826Updater/App.swift /Users/zinovievilia/Downloads/proj\ 2/Studio1826Updater/AppDelegate.swift /Users/zinovievilia/Downloads/proj\ 2/Studio1826Updater/UpdaterService.swift /Users/zinovievilia/Downloads/proj\ 2/Studio1826Updater/ContentView.swift /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/DerivedSources/GeneratedAssetSymbols.swift /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/Darwin.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/CoreFoundation.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/CoreData.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/_DarwinFoundation3.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/DataDetection.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/os.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/_Concurrency.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/CoreImage.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/ColorSync.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/Observation.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/IOKit.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/CoreGraphics.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/ObjectiveC.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/simd.swiftmodule/arm64e-apple-macos.swiftmodule /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/SwiftUI-23WHLW2JAL2OH.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/Metal.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/XPC.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/ImageIO.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/Spatial.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/CoreAudio.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/CoreVideo.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/OSLog.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/Symbols.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/Accessibility.swiftmodule/arm64e-apple-macos.swiftmodule /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/SwiftUICore-360Q7BFBG3D6R.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/Synchronization.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/QuartzCore.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/Foundation.swiftmodule/arm64e-apple-macos.swiftmodule /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/AppKit-G59DGF16O6OG.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/UniformTypeIdentifiers.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/_StringProcessing.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/Dispatch.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/_DarwinFoundation2.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/System.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/DeveloperToolsSupport.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/_Builtin_float.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/CoreMedia.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/CoreTransferable.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/_DarwinFoundation1.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/Swift.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/CoreText.swiftmodule/arm64e-apple-macos.swiftmodule /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx/prebuilt-modules/27.0/Combine.swiftmodule/arm64e-apple-macos.swiftmodule /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_DarwinFoundation3-9QBKZ3LLSMZLZRXCQTD4QW4X8.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_Builtin_stdarg-2VNV9DRF1NCKOR2ZTAQJDN70H.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/QuartzCore-C6FZXVOWMAEHG7FKSTYUO3E20.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/Spatial-CPRBF3QICJRQLR8XB0F70D9RA.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_Builtin_stdbool-4C1YBTGKOS1CPPGDRFFHLZBX0.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/CoreData-7ASENFRNJ4DBZ20RNYX9WBWZQ.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/CoreText-1UJ3OUSNEPCANB0OXVIH0GKKR.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/ApplicationServices-7L7WBRTIQVGAMX1YT2SHIYNPL.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/launch-59Q874IB1F2K7PDBRIWUGOZ86.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_Builtin_float-D0E9UJ35AP3OTVIBONAGQEOM6.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/os_object-8S2O0VTR7W6L9O1SQA5NF4UHQ.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/CoreFoundation-5W9246NJI1Z05DN3UTX0VM0P9.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/libDER-ERVM1HGAVYK7KI8KQANEL6KSM.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/XPC-475C0CYVGLW1XK8K0ZB9U2QU1.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/Metal-7Y4MU67J7H7WRWVYV5Q3SKV1D.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/ptrcheck-DMEC9K77S3ZDKYRG8XPFVXGEZ.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/AppKit-AGJ7ONZGUXKH95C2GSZH1QU7C.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/DiskArbitration-1M0U1QFE0WG8TCTFBKJ08XUV5.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/SwiftShims-BCCPIJYDC11DJSE2CZWN8PBR4.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/ptrauth-1G0C3IY9VCZ823YPRV2JIX869.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/CoreAudioTypes-4Z9OFFGA6AHA6YKDWR4H5ZPVF.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/IOSurface-7WWK78671CTRXVKY80F88BQRZ.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/CoreTransferable-D6INT0TBW6F7TG21ZKX4GDRJ8.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/SwiftUICore-29C7484W05CXW3POSN3OIFSNT.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/OSLog-1OUHFND175WXIAEV0E1PAV5BJ.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_Builtin_stdint-BJL8K22E8QEDAVC4XKLDB739D.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/ImageIO-CADBMNZX6VQBAGXD5Q5FHJ2TI.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_SwiftConcurrencyShims-87W4UFML6XQMTKDQJZX4CZ1CT.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/DeveloperToolsSupport-6NCLJI84TW6YO5Z2A7RLRL57H.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_Builtin_stdatomic-DO1SFZIMWPX0TO15P1E46L4W.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/DataDetection-Z2FQMLPBFNDJT7ELD2DYNL7T.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/simd-6OFHCY3O00XH59K4WWKJGVJSI.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_Builtin_stddef-1QNFRMSZN89V7DD3RBOPP063T.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/Cocoa-201C0M1UVNIP4CSKL50HUR2QC.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_AvailabilityInternal-DCQ4D3AF7NCU060JZGDRSX648.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/os-1ASHB974BK87XRZDMLSY8XTEU.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/Darwin-CJWCP5YNSMO5N5X8OR7Y8D98R.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_Builtin_intrinsics-90VALMY7X9RJ2DZZQ2R64SKZ1.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/Symbols-3KEJAAHQUU45H1Y0TPUPM39TL.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/CUPS-1XN9CXBOPRECUZWXDR75NXF3W.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/CoreMedia-DLUCWL85T5NEKTJBSTLXWODHK.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/IOKit-EUQZFPZ9FUWPUH8983405HEAQ.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/Accessibility-2Q8JXJKTAHTUG7ZPECNDWSVN5.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/CoreImage-A5K9EXGDET5SF72M8NZG4KT7Q.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/UniformTypeIdentifiers-CODAB259RSC4LOC81VDS9YA4C.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/MachO-17ZARSSP7VKUBYOJ6HM31LU9G.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_Builtin_inttypes-1V4OJ82XHTVIYLQBVBH91OYHO.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/CFNetwork-5I0OX9JSZXAD745CVIG2ZE52V.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/CoreServices-BDOJOE4ACTHJN27O5F4CPP1K4.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/Security-BRYZOJ3OUG52BO47UU90B9D7E.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/os_workgroup-5XN20YHGF8NM5V5995FMLHIXF.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/CoreAudio-EZUDD0NU6NMRYDWZT2ISGYHAU.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/ColorSync-1LFIE0ERZDBI3BZ6RAJ2COZ1P.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/Foundation-6BGEVRSLR80DKDJY563A9R3D2.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_DarwinFoundation1-3KTG8NR6MUJ4ZFG9L6TWI5XOH.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/libkern-BPXOZ3PH0JDYKO8CGE9GY3NPH.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_Builtin_limits-72CO2HY64S86KITL3I6XYRKO1.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/OpenGL-566GIZ9RXM1POO5QOJ9UMT2P0.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/Dispatch-1LNM3K0K3ULOFMKIIBCPMJ31D.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/CoreGraphics-4YBPBDFQEWD6TJL4IFYMGWXCW.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/ObjectiveC-3KF706MQ6D6ZPM59A3JACFRIC.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/string_h-E1DQEP1DJ8BJVEVGN9R6G6QUX.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_Builtin_tgmath-A8P09JX2UCQSYB8NR5DIWPPT.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/sys_types-88NR0RJR80Q35Q3BVJ4C272Z0.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/SwiftUI-9VO0XPQ8PRJD2NF3BBY99ZN0S.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/CoreVideo-2PB125E32PXDIENM88XOFK86.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules/_DarwinFoundation2-24BK4D84ONR0XUZS1KF5OO7ZX.pcm /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater-dependencies-1.json (in target 'Studio1826Updater' from project 'Studio1826Updater')
+
+SwiftCompile normal arm64 (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling App.swift, AppDelegate.swift, UpdaterService.swift, ContentView.swift, GeneratedAssetSymbols.swift (in target 'Studio1826Updater' from project 'Studio1826Updater')
+
+SwiftDriver\ Compilation\ Requirements Studio1826Updater normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name Studio1826Updater -O -whole-module-optimization @/Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater.SwiftFileList -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -target arm64-apple-macos13.0 -g -module-cache-path /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -swift-version 5 -I /Users/zinovievilia/Downloads/proj\ 2/build -F /Users/zinovievilia/Downloads/proj\ 2/build -emit-localized-strings -emit-localized-strings-path /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64 -c -num-threads 12 -Xcc -ivfsstatcache -Xcc /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKStatCaches.noindex/macosx27.0-26A425-7231f6df4def33e022ae2eb8f782df1a.sdkstatcache -output-file-map /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater-OutputFileMap.json -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/ModuleCache.noindex -sdk-module-cache-path /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/SDKExplicitPrecompiledModules -emit-dependencies -emit-module -emit-module-path /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater.swiftmodule -serialize-diagnostics -dependency-scan-serialize-diagnostics-path /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater-dependency-scan.dia -validate-clang-modules-once -clang-build-session-file /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -fmodules-prune-interval\=86400 -Xcc -fmodules-prune-after\=345600 -emit-const-values -const-gather-protocols-list /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater_const_extract_protocols.json -Xcc -iquote -Xcc /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater-generated-files.hmap -Xcc -I/Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater-own-target-headers.hmap -Xcc -I/Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater-all-target-headers.hmap -Xcc -iquote -Xcc /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater-project-headers.hmap -Xcc -I/Users/zinovievilia/Downloads/proj\ 2/build/include -Xcc -I/Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/DerivedSources-normal/arm64 -Xcc -I/Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/DerivedSources/arm64 -Xcc -I/Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/DerivedSources -emit-objc-header -emit-objc-header-path /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater-Swift.h -working-directory /Users/zinovievilia/Downloads/proj\ 2 -no-emit-module-separately-wmo
+
+SwiftMergeGeneratedHeaders /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/DerivedSources/Studio1826Updater-Swift.h /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater-Swift.h (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    builtin-swiftHeaderTool -arch arm64 /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater-Swift.h -o /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/DerivedSources/Studio1826Updater-Swift.h
+
+Copy /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.swiftmodule/arm64-apple-macos.abi.json /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater.abi.json (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater.abi.json /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.swiftmodule/arm64-apple-macos.abi.json
+
+Copy /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.swiftmodule/arm64-apple-macos.swiftmodule /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater.swiftmodule (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater.swiftmodule /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.swiftmodule/arm64-apple-macos.swiftmodule
+
+Copy /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.swiftmodule/arm64-apple-macos.swiftdoc /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater.swiftdoc (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater.swiftdoc /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.swiftmodule/arm64-apple-macos.swiftdoc
+
+Copy /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.swiftmodule/Project/arm64-apple-macos.swiftsourceinfo /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater.swiftsourceinfo (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater.swiftsourceinfo /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.swiftmodule/Project/arm64-apple-macos.swiftsourceinfo
+
+Ld /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app/Contents/MacOS/Studio1826Updater normal (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-macos13.0 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -Os -Xlinker -no_warn_duplicate_libraries -L/Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/EagerLinkingTBDs/Release -L/Users/zinovievilia/Downloads/proj\ 2/build -F/Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/EagerLinkingTBDs/Release -F/Users/zinovievilia/Downloads/proj\ 2/build -filelist /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater.LinkFileList -Xlinker -rpath -Xlinker /usr/lib/swift -Xlinker -rpath -Xlinker @executable_path/../Frameworks -Xlinker -object_path_lto -Xlinker /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater_lto.o -Xlinker -dependency_info -Xlinker /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater_dependency_info.dat -fobjc-link-runtime -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater.swiftmodule -o /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app/Contents/MacOS/Studio1826Updater
+
+CopySwiftLibs /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    builtin-swiftStdLibTool --copy --verbose --scan-executable /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app/Contents/MacOS/Studio1826Updater --scan-folder /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app/Contents/Frameworks --scan-folder /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app/Contents/PlugIns --scan-folder /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app/Contents/Library/SystemExtensions --scan-folder /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app/Contents/Extensions --platform macosx --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app/Contents/Frameworks --strip-bitcode --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+Ignoring --strip-bitcode because --sign was not passed
+
+ExtractAppIntentsMetadata (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name Studio1826Updater --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk --xcode-version 27A9275 --platform-family macOS --deployment-target 13.0 --bundle-identifier studio1826.updater --output /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app/Contents/Resources --target-triple arm64-apple-macos13.0 --binary-file /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app/Contents/MacOS/Studio1826Updater --dependency-file /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater_dependency_info.dat --stringsdata-file /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater.SwiftFileList --metadata-file-list /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater.DependencyMetadataFileList --static-metadata-file-list /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Studio1826Updater.DependencyStaticMetadataFileList --swift-const-vals-list /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/Studio1826Updater.build/Release/Studio1826Updater.build/Objects-normal/arm64/Studio1826Updater.SwiftConstValuesFileList --compile-time-extraction --deployment-aware-processing --no-app-shortcuts-localization
+2026-10-21 21:49:24.785 appintentsmetadataprocessor[12862:327072] Starting appintentsmetadataprocessor export
+2026-10-21 21:49:24.786 appintentsmetadataprocessor[12862:327072] warning: Metadata extraction skipped, no AppIntents.framework dependency found
+
+GenerateDSYMFile /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app.dSYM /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app/Contents/MacOS/Studio1826Updater (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    export PATH\=/Applications/Xcode.app/Contents/SharedFrameworks/SwiftBuild.framework/Versions/A/PlugIns/SWBBuildService.bundle/Contents/PlugIns/SWBUniversalPlatformPlugin.bundle/Contents/Frameworks/SWBUniversalPlatform.framework/Resources:/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin:/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/local/bin:/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/libexec:/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/usr/bin:/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/usr/local/bin:/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/bin:/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/local/bin:/Applications/Xcode.app/Contents/Developer/usr/bin:/Applications/Xcode.app/Contents/Developer/usr/local/bin:/Users/zinovievilia/.opencode/bin:/Users/zinovievilia/.local/bin:/Users/zinovievilia/.nvm/versions/node/v24.21.0/bin:/Library/Frameworks/Python.framework/Versions/3.14/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/Library/Apple/usr/bin
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/dsymutil /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app/Contents/MacOS/Studio1826Updater -o /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app.dSYM
+
+RegisterExecutionPolicyException /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    builtin-RegisterExecutionPolicyException /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app
+
+Validate /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    builtin-validationUtility /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app -no-validate-extension -infoplist-subpath Contents/Info.plist
+
+RegisterWithLaunchServices /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    builtin-lsregisterurl --record-path /Users/zinovievilia/Downloads/proj\ 2/build/DerivedData/Build/Intermediates.noindex/XCBuildData/registered-launchservices.txt -- /System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister -f -R -trusted /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app
+
+Touch /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app (in target 'Studio1826Updater' from project 'Studio1826Updater')
+    cd /Users/zinovievilia/Downloads/proj\ 2
+    /usr/bin/touch -c /Users/zinovievilia/Downloads/proj\ 2/build/Studio1826Updater.app
+
+PruneExplicitPrecompiledModules /Users/zinovievilia/Downloads/proj 2/build/DerivedData/SDKExplicitPrecompiledModules
+
+PruneExplicitPrecompiledModules /Users/zinovievilia/Downloads/proj 2/build/DerivedData/Build/Intermediates.noindex/ExplicitPrecompiledModules
+
+PruneExplicitPrecompiledModules /Users/zinovievilia/Downloads/proj 2/build/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+
+/Users/zinovievilia/Downloads/proj 2/Studio1826Updater.xcodeproj: warning: The Copy Bundle Resources build phase contains this target's Info.plist file '/Users/zinovievilia/Downloads/proj 2/Studio1826Updater/Info.plist'. (in target 'Studio1826Updater' from project 'Studio1826Updater')
+** BUILD SUCCEEDED **
+
