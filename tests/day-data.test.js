@@ -145,3 +145,44 @@ test('сводка из данных REST совпадает с buildDayList п�
         assert.equal(m.summarizeEquipment(filtered).text, m.buildDayList(filtered).text);
     });
 });
+
+test('findDuplicateRows: двойной ввод позиции в одной брони, «Доплата за час» не считается', () => {
+    const issues = m.findDuplicateRows([
+        { id: '1', hall: 'Зал 75 (П)', start: 600, items: ['Парковка (1 час) (П) - 8 шт.', 'Парковка (1 час) (П) - 8 шт.', 'Зал 75 (П) - 8 шт.'] },
+        { id: '2', hall: 'Зал 70 (С)', start: 660, items: ['Доплата за час - 1 шт.', 'Доплата за час - 1 шт.', 'Зал 70 (С) - 2 шт.'] },
+        { id: '3', hall: 'Зал 50 (С)', start: 700, items: ['Зал 50 (С) - 1 шт.'] }
+    ]);
+
+    assert.deepEqual(issues, [{ id: '1', hall: 'Зал 75 (П)', start: 600, names: ['Парковка (1 час) (П) ×2'] }]);
+    assert.deepEqual(m.findDuplicateRows(null), []);
+});
+
+test('planTomorrowTiles: плашка на зал утра — оставить, принести и откуда, собрать; стрелки от последних броней', () => {
+    const today = [
+        { hall: 'Зал 70 (С)', start: 600, end: 1260, items: ['Зал 70 (С) - 11 шт.', 'Profoto Zoom 2 - 2 шт.'] },
+        { hall: 'Зал 75 (С)', start: 900, end: 1200, items: ['Зал 75 (С) - 5 шт.', 'Фон холщовый короткий Тёмный - 1 шт.'] }
+    ];
+    const tomorrowRecords = [
+        { hall: 'Зал 75 (С)', start: 600, end: 720, items: ['Зал 75 (С) - 2 шт.', 'Фон холщовый короткий Тёмный - 1 шт.', 'Profoto Zoom 2 - 3 шт.'] },
+        { hall: 'Зал 75 (С)', start: 780, end: 840, items: ['Зал 75 (С) - 1 шт.'] }
+    ];
+    const tomorrow = m.parseDayList(m.buildDayList(tomorrowRecords).text);
+    const plan = m.planTomorrowTiles(m.analyzeTomorrow(today, tomorrow), tomorrowRecords);
+
+    assert.equal(plan.tiles.length, 1);
+    assert.equal(plan.tiles[0].hall, 'Зал 75');
+    assert.equal(plan.tiles[0].start, 600);
+    assert.deepEqual(plan.tiles[0].items.map(item => [item.kind, item.name, item.qty, item.from]), [
+        ['keep', 'Фон холщовый короткий Тёмный', 1, 'Зал 75'],
+        ['move', 'Profoto Zoom 2', 2, 'Зал 70'],
+        ['missing', 'Profoto Zoom 2', 1, '']
+    ]);
+    assert.deepEqual(plan.links.map(link => [link.from, link.to, link.kind]).sort(), [
+        ['Зал 70 (С)|600', 'Зал 75', 'move'],
+        ['Зал 75 (С)|900', 'Зал 75', 'keep']
+    ]);
+});
+
+test('planTomorrowTiles: нет анализа — пустой план', () => {
+    assert.deepEqual(m.planTomorrowTiles(null, null), { tiles: [], links: [] });
+});
