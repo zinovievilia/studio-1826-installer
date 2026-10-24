@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Studio 1826 — Пропуска списком (Авангард)
 // @namespace    studio1826
-// @version      1.1.0
-// @description  Значок 🎫 в окне ввода открытых линий Bitrix24: список ФИО + дата → пропуска в Авангарде оформляются по очереди
+// @version      1.2.0
+// @description  Кнопка «Оформить пропуск» в окне ввода открытых линий Bitrix24: список ФИО + дата → пропуска в Авангарде оформляются по очереди
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
 // @match        https://1826studio.bitrix24.ru/*
@@ -14,6 +14,7 @@
 // @grant        GM.getValue
 // @grant        GM.setValue
 // @grant        GM.openInTab
+// @grant        unsafeWindow
 // ==/UserScript==
 
 // Отдельный скрипт, не часть «Основного» (studio1826.user.js).
@@ -25,7 +26,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.1.0';
+  const VERSION = '1.2.0';
   const DEFAULT_GUESTS_URL = 'https://my.avanguard.pro/account/354/guests';
 
   // ── Чистые функции (тесты: tests/passes.test.js) ───────────────────────────
@@ -107,15 +108,19 @@
     },
   };
 
-  function openTab(url) {
-    if (typeof GM !== 'undefined' && GM.openInTab) return GM.openInTab(url, { active: true });
-    if (typeof GM_openInTab !== 'undefined') return GM_openInTab(url, { active: true });
+  /** Вкладка Авангарда в фоне: Bitrix остаётся на экране. Возвращает ручку вкладки (чтобы закрыть), если менеджер её даёт. */
+  async function openBackgroundTab(url) {
+    const options = { active: false, insert: true, setParent: true };
+    try {
+      if (typeof GM_openInTab !== 'undefined') return GM_openInTab(url, options);
+      if (typeof GM !== 'undefined' && GM.openInTab) return await GM.openInTab(url, options);
+    } catch (e) { /* ниже обычное окно */ }
     return window.open(url, '_blank');
   }
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  async function waitFor(fn, timeout = 8000, step = 100) {
+  async function waitFor(fn, timeout = 8000, step = 50) {
     const start = Date.now();
     while (Date.now() - start < timeout) {
       const value = fn();
@@ -314,7 +319,7 @@
 
     const modal = await waitFor(findModal, 5000);
     if (!modal) return 'не открылось окно «Добавить нового посетителя»';
-    await sleep(150);
+    await sleep(50);
 
     const dates = [...modal.querySelectorAll('input[type="date"]')].filter(visible);
     if (dates.length < 2) return 'не нашёл поля дат';
@@ -326,7 +331,7 @@
     setValue(dates[0], from);
     setValue(dates[1], to);
     setValue(fio, name);
-    await sleep(150);
+    await sleep(50);
     if (fio.value !== name) return 'ФИО не вписалось в поле';
     if (dates[0].value !== from || dates[1].value !== to) return 'даты не вписались';
 
@@ -358,7 +363,7 @@
       results[name] = error ? `err:${error}` : 'ok';
       await report(results);
       if (error) break;
-      await sleep(400);
+      await sleep(150);
     }
     return results;
   }
@@ -377,6 +382,13 @@
       const job = await store.get('job', null);
       if (job && job.id === jobMatch[1] && !job.taken) {
         await store.set('job', { ...job, taken: true });
+        // Вкладка в фоне: Chrome не вызывает requestAnimationFrame, а окна сайта открываются с анимацией.
+        // Подменяем на таймер, чтобы окно «Новый посетитель» появлялось и в фоновой вкладке.
+        try {
+          const page = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
+          page.requestAnimationFrame = (cb) => page.setTimeout(() => cb(page.performance.now()), 16);
+          page.cancelAnimationFrame = (id) => page.clearTimeout(id);
+        } catch (e) { /* не вышло — сработает, когда вкладку откроют */ }
         history.replaceState(null, '', location.pathname + location.search);
         const ready = await waitFor(() => onGuestsPage() && buttonByText(document, 'Новый посетитель'), 30000, 300);
         if (!ready) {
@@ -390,6 +402,7 @@
           () => false);
         await store.set(`result:${job.id}`, { done: true, results });
         document.title = document.title.replace(/^⏳ Пропуска… /, '✓ ');
+        setTimeout(() => window.close(), 1500); // если Bitrix не закрыл вкладку сам
         return;
       }
     }
@@ -441,21 +454,23 @@
 
   function bitrixMain() {
     addStyle(PANEL_CSS + `
-      .s1826p-icon { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px;
-        font-size: 17px; line-height: 1; cursor: pointer; opacity: .75; filter: grayscale(.3); }
-      .s1826p-icon:hover { opacity: 1; filter: none; }
+      .s1826p-btn { display: inline-flex; align-items: center; gap: 4px; height: 24px; margin-left: 6px; padding: 0 10px;
+        border: 1px solid rgba(31,111,235,.35); border-radius: 12px; background: rgba(31,111,235,.08); color: #1f6feb;
+        font: 600 12px system-ui; white-space: nowrap; cursor: pointer; }
+      .s1826p-btn:hover { background: rgba(31,111,235,.16); }
     `);
     let ui = null;
     const panel = () => ui || (ui = createBitrixPanel());
 
     const inject = () => {
       for (const row of document.querySelectorAll(LINES_BUTTONS)) {
-        if (row.querySelector('.s1826p-icon')) continue;
+        if (row.querySelector('.s1826p-btn')) continue;
         const wrap = document.createElement('span');
-        const icon = document.createElement('div');
-        icon.className = 's1826p-icon';
-        icon.title = 'Оформить пропуска в Авангарде';
-        icon.textContent = '🎫';
+        const icon = document.createElement('button');
+        icon.type = 'button';
+        icon.className = 's1826p-btn';
+        icon.title = 'Оформить пропуска в Авангарде списком';
+        icon.textContent = '🎫 Оформить пропуск';
         icon.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); panel().openAt(icon); });
         wrap.appendChild(icon);
         row.appendChild(wrap);
@@ -489,7 +504,7 @@
         await store.set('job', job);
         await store.set(`result:${job.id}`, { done: false, results: {} });
         const url = await store.get('guestsUrl', DEFAULT_GUESTS_URL);
-        openTab(`${url}#s1826-job=${job.id}`);
+        const tab = await openBackgroundTab(`${url}#s1826-job=${job.id}`);
 
         ui.setRunning(true, 'Оформляю в Авангарде…');
         ui.showStatus(names, {});
@@ -510,6 +525,8 @@
             break;
           }
         }
+        // Фоновая вкладка Авангарда больше не нужна
+        try { if (tab && tab.close) tab.close(); } catch (e) { /* закроется сама или останется */ }
         ui.setRunning(false);
         const results = (last && last.results) || {};
         const left = names.filter((n) => results[n] !== 'ok' && results[n] !== 'skip');
