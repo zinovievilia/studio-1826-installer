@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v5.4.2 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v5.5.0 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      5.4.2
+// @version      5.5.0
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '5.4.2';
+    const VERSION = '5.5.0';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -164,6 +164,20 @@
                 outline: 1px solid var(--s26-border, #000);
                 outline-offset: -1px;
             }
+            /* 5.5.0: брони с оборудованием, рамой или фоном видны издалека — цветная рамка и полоса слева. */
+            .deal-item-contaner.s26-k-eq,
+            .deal-item-contaner.s26-k-frame,
+            .deal-item-contaner.s26-k-bg {
+                outline: 2px solid var(--s26-k) !important;
+                outline-offset: -2px;
+                box-shadow: inset 6px 0 0 var(--s26-k) !important;
+            }
+            .deal-item-contaner.s26-k-eq { --s26-k: #2563eb; }
+            .deal-item-contaner.s26-k-frame { --s26-k: #f59e0b; }
+            .deal-item-contaner.s26-k-bg { --s26-k: #dc2626; }
+            .deal-item-contaner.s26-k-eq .reserve-content-box,
+            .deal-item-contaner.s26-k-frame .reserve-content-box,
+            .deal-item-contaner.s26-k-bg .reserve-content-box { padding-left: 6px; }
             .deal-item-contaner .s26-handoff {
                 position: absolute;
                 left: 0;
@@ -2797,6 +2811,43 @@
         return { from: `${day}T00:00:00+03:00`, to: `${next}T00:00:00+03:00` };
     }
 
+    /* Сдвиг календарной даты ГГГГ-ММ-ДД на n дней. */
+    function shiftDay(day, n) {
+        return new Date(Date.parse(`${day}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+    }
+
+    /*
+     * 5.5.0: день, открытый в календаре («ДД.ММ» без года) → ГГГГ-ММ-ДД. Год выбирается ближайший
+     * к сегодняшнему дню по Москве (декабрь ↔ январь на стыке лет). Пусто или мусор — сегодня.
+     */
+    function calendarDayIso(ddmm, now = new Date()) {
+        const today = moscowDay(0, now);
+        const m = /^(\d{2})\.(\d{2})$/.exec(String(ddmm || ''));
+
+        if (!m) return today;
+
+        const year = Number(today.slice(0, 4));
+        const base = Date.parse(`${today}T00:00:00Z`);
+        let best = today;
+        let bestDiff = Infinity;
+
+        [year - 1, year, year + 1].forEach(y => {
+            const candidate = `${y}-${m[2]}-${m[1]}`;
+            const time = Date.parse(`${candidate}T00:00:00Z`);
+
+            if (!Number.isFinite(time) || new Date(time).toISOString().slice(0, 10) !== candidate) return;
+
+            const diff = Math.abs(time - base);
+
+            if (diff < bestDiff) {
+                best = candidate;
+                bestDiff = diff;
+            }
+        });
+
+        return best;
+    }
+
     /* Дата и минуты от начала суток по Москве из строки CRM; null, если строка не разбирается. */
     function moscowParts(iso) {
         const time = Date.parse(iso);
@@ -3509,6 +3560,12 @@
             const rawEquipment = info.equipment.length > 0;
 
             card.classList.toggle('s26-outlined', features.borders && (rawFon || rawEquipment));
+
+            /* 5.5.0: вид выделения по содержимому: рама > оборудование > фон. */
+            const rawFrame = rawEquipment && info.equipment.some(isFrostframeHighlight);
+            const kind = !features.borders ? '' : rawFrame ? 'frame' : rawEquipment ? 'eq' : rawFon ? 'bg' : '';
+
+            ['frame', 'eq', 'bg'].forEach(name => card.classList.toggle(`s26-k-${name}`, kind === name));
 
             /* Имя клиента жирным, если есть фон или оборудование. */
             const nameElement = card.querySelector('.reserve-title-label');
@@ -4399,7 +4456,7 @@
                 const node = el('div', { className: 's26-tile' }, [
                     el('div', { className: 's26-tile-head' }, [
                         close,
-                        `ЗАВТРА${Number.isFinite(tile.start) ? ' ' + formatClock(tile.start) : ''}`
+                        `ЗАВТРА${tile.date ? ' ' + tile.date : ''}${Number.isFinite(tile.start) ? ' · ' + formatClock(tile.start) : ''}`
                     ])
                 ]);
 
@@ -4913,6 +4970,7 @@
                         .filter(tile => tile && str(tile.hall, 60) && Array.isArray(tile.items))
                         .map(tile => ({
                             hall: tile.hall,
+                            date: str(tile.date, 10) ? tile.date : '',
                             start: Number.isFinite(tile.start) ? tile.start : null,
                             items: tile.items
                                 .slice(0, 30)
@@ -5001,7 +5059,10 @@
             if (document.getElementById(WIDGET_ID)) update();
         };
 
-        const dayIso = which => moscowDay(which === 'tomorrow' ? 1 : 0);
+        /* 5.5.0: «сегодня/завтра» считаются от дня, открытого в календаре (27 → завтра = 28). */
+        const baseDayIso = () => calendarDayIso(selectedDate);
+        const dayIso = which => (which === 'tomorrow' ? shiftDay(baseDayIso(), 1) : baseDayIso());
+        const isRealToday = () => baseDayIso() === moscowDay(0);
         const dayLabel = iso => iso.slice(8, 10) + '.' + iso.slice(5, 7);
         const clockOf = time => new Intl.DateTimeFormat('ru-RU', {
             timeZone: MOSCOW_TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
@@ -6249,6 +6310,9 @@
             renderEquipment = () => {
                 switcher.querySelectorAll('[data-eq-day]').forEach(button => {
                     button.setAttribute('aria-pressed', String(button.dataset.eqDay === eqDay));
+                    button.textContent = isRealToday()
+                        ? (button.dataset.eqDay === 'today' ? 'Сегодня' : 'Завтра')
+                        : dayLabel(dayIso(button.dataset.eqDay));
                 });
 
                 const iso = dayIso(eqDay);
@@ -7043,7 +7107,11 @@
             }
 
             if (typeof event.data.selectedDate === 'string' && event.data.selectedDate && event.data.selectedDate.length <= 40) {
-                selectedDate = event.data.selectedDate;
+                if (selectedDate !== event.data.selectedDate) {
+                    selectedDate = event.data.selectedDate;
+                    loadDay(dayIso('tomorrow'));
+                    renderEquipment();
+                }
             }
 
             if (event.data.category === 'C' || event.data.category === 'P') {
@@ -7140,16 +7208,18 @@
          */
         function computeTomorrowPlan() {
             const entry = dayStore.get(dayIso('tomorrow'));
-            const showsToday = selectedDate === dayLabel(dayIso('today'));
-
-            if (!features.moveArrows || !showsToday || !entry || !entry.records || !records.length) {
+            if (!features.moveArrows || !entry || !entry.records || !records.length) {
                 return { tiles: [], links: [] };
             }
 
             const tomorrowRecords = recordsOfCategory(entry.records, category);
             const analysis = analyzeTomorrow(records, parseDayList(buildDayList(tomorrowRecords).text));
+            const plan = planTomorrowTiles(analysis, tomorrowRecords);
+            const date = isRealToday() ? '' : dayLabel(dayIso('tomorrow'));
 
-            return planTomorrowTiles(analysis, tomorrowRecords);
+            plan.tiles.forEach(tile => { tile.date = date; });
+
+            return plan;
         }
 
         function requestData(full = false) {
@@ -7259,7 +7329,8 @@
 
                 '#bx-im-external-recent-list > div.bx-im-messenger__scope.bx-im-compact-navigation__container:first-child > div.bx-im-compact-navigation__items:first-child > div.bx-im-compact-navigation__icon.--ui-hoverable:nth-child(2) > div.ui-icon-set.--o-copilot.--hoverable-alt',
 
-                '#header > div.air-header__personal-info:last-child > div.air-header__buttons:last-child',
+                '#header .air-header__personal-info .air-header__buttons',
+                '#air-header-marta-slot',
 
                 '#menu-items-block > div.menu-items-footer:last-child > div.menu-items-footer-inner > button.menu-item-block.menu-settings.--footer:nth-child(2) > span.menu-item-link'
             ];
@@ -7727,7 +7798,7 @@
             findHallName, formatClock,
             buildDayList, parseDayList, analyzeTomorrow, computePayout,
             validateCollectorPayload, encodeRequest, decodeRequest,
-            moscowDay, dayBounds, moscowParts, dealToRecord, recordsOfCategory, recordEquipment, summarizeEquipment, findDuplicateRows, planTomorrowTiles,
+            moscowDay, dayBounds, moscowParts, shiftDay, calendarDayIso, dealToRecord, recordsOfCategory, recordEquipment, summarizeEquipment, findDuplicateRows, planTomorrowTiles,
             sanitizeFeatures, exportSettings, parseSettingsImport, FEATURE_KEYS, COLOR_ITEMS,
             money, formatAmount,
             EQUIPMENT, SERVICES, HOURS_BONUSES,
