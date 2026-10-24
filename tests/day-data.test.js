@@ -216,3 +216,18 @@ test('bookingCopyLine: «1 шт. | Зонт - 165см Deep white» — коли�
     assert.equal(m.bookingCopyLine('Avenger C-Stand A2033L', 2), '2 шт. | Avenger C-Stand A2033L');
     assert.equal(m.bookingCopyLine('Текстиль Silk 12x12', 1.5), '1,5 шт. | Текстиль Silk 12x12');
 });
+
+test('цвета стадий по умолчанию (5.5.2) и перенос прежних исходных цветов Bitrix', () => {
+    const fresh = m.sanitizeFeatures({});
+
+    assert.deepEqual(
+        ['multi', 'done', 'prepaid', 'checked'].map(id => fresh.colors[id]),
+        ['#fff893', '#cce8b5', '#94e3fe', '#a3d49b']
+    );
+
+    /* сохранённый старый цвет по умолчанию (= исходный Bitrix) заменяется новым, свой цвет пользователя остаётся */
+    const migrated = m.sanitizeFeatures({ colors: { done: '#7bd500', prepaid: '#123456' } });
+
+    assert.equal(migrated.colors.done, '#cce8b5');
+    assert.equal(migrated.colors.prepaid, '#123456');
+});
