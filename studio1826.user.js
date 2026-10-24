@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v5.3.0 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v5.4.0 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      5.3.0
+// @version      5.4.0
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '5.3.0';
+    const VERSION = '5.4.0';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -278,6 +278,18 @@
                 text-overflow: ellipsis;
             }
             .s26-tile-line { padding: 2px 6px; overflow-wrap: anywhere; }
+            .s26-tile-line.later { color: #4c1d95; opacity: .85; }
+            .s26-tile-close {
+                float: right;
+                margin: -1px -2px 0 6px;
+                padding: 0 4px;
+                border: 0;
+                background: none;
+                color: #fff;
+                font: 800 13px/1 -apple-system, BlinkMacSystemFont, sans-serif;
+                cursor: pointer;
+                pointer-events: auto;
+            }
             .s26-tile-line b { font-weight: 800; }
             .s26-tile-line.missing { color: #b91c1c; font-weight: 700; }
             .s26-moves .s26-tile-path {
@@ -1313,6 +1325,33 @@
                 z-index: 3;
             }
             #${CHIP_SLOT_ID}[hidden] { display: none; }
+            #${CHIP_SLOT_ID} { display: flex; align-items: center; gap: 6px; }
+            .s26-off-toggle {
+                position: relative;
+                flex: none;
+                width: 30px;
+                height: 18px;
+                margin: 0;
+                padding: 0;
+                border: 0;
+                border-radius: 9px;
+                background: #9aa3ad;
+                cursor: pointer;
+                transition: background .15s;
+            }
+            .s26-off-toggle[aria-pressed="true"] { background: var(--ui-color-primary, #2067b0); }
+            .s26-off-toggle .s26-knob {
+                position: absolute;
+                top: 2px;
+                left: 2px;
+                width: 14px;
+                height: 14px;
+                border-radius: 50%;
+                background: #fff;
+                transition: left .15s;
+            }
+            .s26-off-toggle[aria-pressed="true"] .s26-knob { left: 14px; }
+            #${WIDGET_ID}[data-mode="header"] .s-head-toggle { display: none; }
             #${CHIP_ID} .s-chip-sum { font-weight: 700; font-variant-numeric: tabular-nums; }
             html.s26-overlay-open #${CHIP_SLOT_ID} { display: none; }
             #${WIDGET_ID}[data-mode="header"] {
@@ -1487,6 +1526,36 @@
                 border-color: transparent;
                 box-shadow: 0 10px 32px #1f2d3d2e, 0 0 0 1px #0000000d;
             }
+
+            /* 5.4.0: сворачиваемый раздел и заметный выбор дня. */
+            #${WIDGET_ID} .eq-toggle {
+                display: flex;
+                align-items: baseline;
+                gap: 8px;
+                min-width: 0;
+                padding: 0;
+                border: 0;
+                background: none;
+                color: inherit;
+                font: inherit;
+                text-align: left;
+                cursor: pointer;
+            }
+            #${WIDGET_ID} .eq-toggle::after { content: '›'; opacity: .6; transition: transform .15s; }
+            #${WIDGET_ID} .eq-toggle[aria-expanded="true"]::after { transform: rotate(90deg); }
+            #${WIDGET_ID} .eq-count { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 12px; opacity: .7; white-space: nowrap; }
+            #${WIDGET_ID} .eq-toggle { flex: 1 1 auto; overflow: hidden; }
+            #${WIDGET_ID} .eq-days { flex: none; }
+            #${WIDGET_ID} .eq-section[data-open="0"] .eq-body,
+            #${WIDGET_ID} .eq-section[data-open="0"] .eq-foot { display: none; }
+            #${WIDGET_ID} .eq-body { max-height: 360px; overflow-y: auto; overscroll-behavior: contain; }
+            #${WIDGET_ID} .eq-days button[aria-pressed="true"] {
+                background: var(--s-accent, #2067b0) !important;
+                color: #fff !important;
+                font-weight: 700;
+                box-shadow: none !important;
+            }
+            #${WIDGET_ID}:not([data-skin="light"]) .eq-days button[aria-pressed="true"] { background: #7c3aed !important; }
 
             /* 5.3.0: блок «К утру» в разделе «Оборудование». */
             #${WIDGET_ID} .eq-morning { margin-bottom: 10px; padding: 8px 10px 4px; border-radius: 8px; background: #7c3aed22; border-left: 3px solid #7c3aed; }
@@ -2658,14 +2727,14 @@
         const tiles = new Map();
         const links = new Map();
 
-        const add = (hall, name, qty, kind, from, after = null) => {
+        const add = (hall, name, qty, kind, from, after = null, at = null) => {
             if (!tiles.has(hall)) tiles.set(hall, { hall, start: first.has(hall) ? first.get(hall) : null, items: [] });
 
             const tile = tiles.get(hall);
             const existing = tile.items.find(item => item.name === name && item.kind === kind && item.from === from);
 
             if (existing) existing.qty += qty;
-            else tile.items.push({ name, qty, kind, from, after });
+            else tile.items.push({ name, qty, kind, from, after, at });
         };
 
         const link = (from, hall, kind) => {
@@ -2683,6 +2752,15 @@
             link(from, need.hall, 'move');
         });
         ((analysis && analysis.missing) || []).forEach(({ need, qty }) => add(need.hall, need.name, qty, 'missing', ''));
+
+        /* 5.4.0: остальное оборудование завтрашнего дня (не к первой брони зала) — «к ЧЧ:ММ». */
+        summarizeEquipment(tomorrowRecords || []).halls.forEach(hall => {
+            hall.items.filter(item => !item.star).forEach(item => {
+                const at = item.sources.length && Number.isFinite(item.sources[0].start) ? item.sources[0].start : null;
+
+                add(hall.label, item.name, item.qty, 'later', '', null, at);
+            });
+        });
 
         return {
             tiles: [...tiles.values()].sort((a, b) => hallNumber(a.hall) - hallNumber(b.hall) || a.hall.localeCompare(b.hall, 'ru')),
@@ -2957,6 +3035,29 @@
         window.__studio1826CollectorV3 = true;
 
         let features = loadFeatures();
+        /* 5.4.0: тумблер «скрыть вмешательство скрипта» — календарь в исходном виде. */
+        let scriptOff = false;
+        const OFF_STYLE_ID = 'studio1826-off-style';
+
+        function applyOff() {
+            document.documentElement.classList.toggle('s26-off', scriptOff);
+
+            [BOOKING_STYLE_ID, STAGE_STYLE_ID].forEach(id => {
+                const node = document.getElementById(id);
+
+                if (node) node.disabled = scriptOff;
+            });
+
+            if (!document.getElementById(OFF_STYLE_ID)) {
+                const node = document.createElement('style');
+
+                node.id = OFF_STYLE_ID;
+                node.textContent = 'html.s26-off .s26-badges, html.s26-off .booking-copy-button, html.s26-off .s26-handoff,' +
+                    ' html.s26-off .s26-arrows, html.s26-off .s26-moves, html.s26-off .s26-tiles, html.s26-off .s26-hall-eq,' +
+                    ' html.s26-off #' + PANEL_ID + ' { display: none !important; }';
+                (document.head || document.documentElement).appendChild(node);
+            }
+        }
 
         if (!document.getElementById(BOOKING_STYLE_ID)) {
             const styleNode = document.createElement('style');
@@ -3784,6 +3885,8 @@
             const css = `${vars}\n${stageCss}`;
 
             if (node.textContent !== css) node.textContent = css;
+
+            node.disabled = scriptOff;
         }
 
         function applyStages(cardList = [...document.querySelectorAll('.deal-item-contaner')].map(card => ({ card }))) {
@@ -4035,6 +4138,8 @@
         let tomorrowTiles = [];
         let tileLinks = [];
         let tileLayer = null;
+        /* Закрытые крестиком плашки: только до перезагрузки страницы. */
+        const closedTiles = new Set();
 
         function clearMoves() {
             if (moveLayer && moveLayer.isConnected) moveLayer.replaceChildren();
@@ -4230,6 +4335,8 @@
             const placed = new Map();
 
             tomorrowTiles.forEach(tile => {
+                if (closedTiles.has(tile.hall)) return;
+
                 let col = columns.get(tile.hall);
 
                 if (!col) {
@@ -4240,9 +4347,20 @@
                     col = { left: header.left - rootRect.left, right: header.right - rootRect.left, bottom: yMin };
                 }
 
+                const close = el('button', { type: 'button', className: 's26-tile-close', title: 'Скрыть плашку до обновления страницы' }, ['×']);
+
+                close.addEventListener('click', event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    closedTiles.add(tile.hall);
+                    moveSignature = '';
+                    renderMoves(lastCardList);
+                });
+
                 const node = el('div', { className: 's26-tile' }, [
                     el('div', { className: 's26-tile-head' }, [
-                        `ЗАВТРА${Number.isFinite(tile.start) ? ' · ' + formatClock(tile.start) : ''}`
+                        close,
+                        `ЗАВТРА${Number.isFinite(tile.start) ? ' · с ' + formatClock(tile.start) : ''}`
                     ])
                 ]);
 
@@ -4251,9 +4369,10 @@
                     const what = el('b', {}, [`${item.name}${qty}`]);
                     const line = el('div', { className: `s26-tile-line ${item.kind}` });
 
-                    if (item.kind === 'keep') line.append('✓ ', what, ' — не разбирать');
-                    else if (item.kind === 'move') line.append('← ', what, ` из ${item.from}`);
-                    else line.append('+ ', what, ' — собрать');
+                    if (item.kind === 'keep') line.append('✓ Оставить: ', what);
+                    else if (item.kind === 'move') line.append('↻ Перекатить: ', what, ` из ${item.from}`);
+                    else if (item.kind === 'missing') line.append('+ Собрать с нуля: ', what);
+                    else line.append(`к ${Number.isFinite(item.at) ? formatClock(item.at) : 'днём'}: `, what);
 
                     node.appendChild(line);
                 });
@@ -4269,6 +4388,8 @@
             });
 
             tileLinks.forEach(linkItem => {
+                if (closedTiles.has(linkItem.to)) return;
+
                 const src = sources.get(linkItem.from);
                 const dst = placed.get(linkItem.to);
 
@@ -4716,9 +4837,14 @@
                     }
                 }
 
+                if (typeof request.off === 'boolean' && request.off !== scriptOff) {
+                    scriptOff = request.off;
+                    applyOff();
+                }
+
                 /* 5.3.0: плашки «на утро» (санитизация: длины и количество ограничены). */
                 if (Array.isArray(request.tiles)) {
-                    const KINDS = ['keep', 'move', 'missing'];
+                    const KINDS = ['keep', 'move', 'missing', 'later'];
                     const str = (value, max) => typeof value === 'string' && value.length <= max;
                     const nextTiles = request.tiles
                         .slice(0, 40)
@@ -4729,7 +4855,7 @@
                             items: tile.items
                                 .slice(0, 30)
                                 .filter(item => item && str(item.name, 160) && KINDS.includes(item.kind) && Number.isFinite(item.qty) && (item.from === '' || str(item.from, 60)))
-                                .map(item => ({ name: item.name, qty: item.qty, kind: item.kind, from: item.from }))
+                                .map(item => ({ name: item.name, qty: item.qty, kind: item.kind, from: item.from, at: Number.isFinite(item.at) ? item.at : null }))
                         }))
                         .filter(tile => tile.items.length);
                     const nextLinks = (Array.isArray(request.tileLinks) ? request.tileLinks : [])
@@ -4789,6 +4915,19 @@
          * один запрос на дату одновременно. Ошибка сохраняется в записи, прежние данные
          * при ошибке не выдаются за актуальные (интерфейс помечает их устаревшими).
          */
+        /* 5.4.0: «вмешательство скрипта» в календаре можно скрыть тумблером возле кнопки «Выплата». */
+        let scriptOff = false; // читается из studio1826.v4.ui в create(): UI_KEY объявлен ниже
+
+        function setScriptOff(value) {
+            scriptOff = !!value;
+            writeUi({ off: scriptOff });
+            document.querySelectorAll('.s26-off-toggle').forEach(button => {
+                button.setAttribute('aria-pressed', String(!scriptOff));
+                button.title = scriptOff ? 'Скрипт скрыт в календаре — нажмите, чтобы показать' : 'Скрыть всё, что скрипт рисует в календаре';
+            });
+            requestData(true);
+        }
+
         const DAY_TTL_MS = 60000;
         const DAY_STALE_MS = 5 * 60000;
         const dayStore = new Map();
@@ -4850,12 +4989,21 @@
         const recordsSignature = list =>
             list.map(record => `${record.hall}|${record.start}|${record.end}`).join(';');
 
+        /*
+         * 5.4.0: число админов запоминается отдельно по филиалу. По умолчанию Серпуховская — 3,
+         * Павелецкая — 2 (больше двух там не бывает). Прежнее общее значение переносится только на Павелецкую.
+         */
+        const adminsBy = { C: 3, P: 2 };
+
         /* Сохранение настроек между перезагрузками. */
         function loadSettings() {
             try {
                 const saved = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
 
-                if ([1, 2, 3].includes(saved.admins)) admins = saved.admins;
+                if ([1, 2, 3].includes(saved.adminsC)) adminsBy.C = saved.adminsC;
+                if ([1, 2].includes(saved.adminsP)) adminsBy.P = saved.adminsP;
+                else if ([1, 2].includes(saved.admins)) adminsBy.P = saved.admins;
+                admins = adminsBy[category] || 3;
                 if (typeof saved.rateEnabled === 'boolean') rateEnabled = saved.rateEnabled;
                 if (Number.isFinite(saved.rateValue)) rateValue = Math.max(0, saved.rateValue);
                 if (typeof saved.coffeeEnabled === 'boolean') coffeeEnabled = saved.coffeeEnabled;
@@ -4869,6 +5017,8 @@
             try {
                 localStorage.setItem(STORE_KEY, JSON.stringify({
                     admins,
+                    adminsC: adminsBy.C,
+                    adminsP: adminsBy.P,
                     rateEnabled,
                     rateValue,
                     coffeeEnabled,
@@ -4884,6 +5034,7 @@
         function setCategory(value, source) {
             category = value;
             categorySource = source;
+            admins = adminsBy[value] || admins;
         }
 
         /* Филиал по суффиксам залов в карточках: запасной способ. */
@@ -5151,7 +5302,17 @@
                 ]);
 
                 button.addEventListener('click', () => setCollapsed(root, !collapsed));
-                slot = el('div', { id: CHIP_SLOT_ID, className: 'air-header__button', 'data-id': 'studio1826' }, [button]);
+
+                const offToggle = el('button', {
+                    type: 'button',
+                    className: 's26-off-toggle',
+                    role: 'switch',
+                    'aria-pressed': String(!scriptOff),
+                    'aria-label': 'Показывать скрипт в календаре'
+                }, [el('span', { className: 's26-knob' })]);
+
+                offToggle.addEventListener('click', () => setScriptOff(!scriptOff));
+                slot = el('div', { id: CHIP_SLOT_ID, className: 'air-header__button', 'data-id': 'studio1826' }, [button, offToggle]);
             }
 
             if (slot.parentElement !== header) header.appendChild(slot);
@@ -5822,20 +5983,33 @@
 
                 const entry = dayStore.get(dayIso('tomorrow'));
                 const plan = planTomorrowTiles(analysis, entry && entry.records ? recordsOfCategory(entry.records, category) : []);
-                const groups = plan.tiles.map(tile => ({
-                    head: Number.isFinite(tile.start) ? `${tile.hall} · завтра с ${formatClock(tile.start)}` : tile.hall,
-                    sub: '',
-                    lines: tile.items.map(item => {
-                        const after = Number.isFinite(item.after) ? ` (после ${formatClock(item.after)})` : '';
+                /* 5.4.0: три раздела, как раньше — Оставить / Перекатить / Собрать с нуля; внутри — по залам утра. */
+                const SECTIONS = [
+                    ['keep', 'Оставить — не разбирать в этом зале'],
+                    ['move', 'Перекатить из другого зала'],
+                    ['missing', 'Собрать с нуля']
+                ];
 
-                        if (item.kind === 'keep') return { kind: 'keep', qty: item.qty, name: `✓ ${item.name} — не разбирать${after}` };
-                        if (item.kind === 'move') return { kind: 'move', qty: item.qty, name: `← ${item.name} — из ${item.from}${after}` };
+                SECTIONS.forEach(([kind, title]) => {
+                    const groups = plan.tiles
+                        .map(tile => ({
+                            head: Number.isFinite(tile.start) ? `${tile.hall} · завтра с ${formatClock(tile.start)}` : tile.hall,
+                            sub: '',
+                            lines: tile.items
+                                .filter(item => item.kind === kind)
+                                .map(item => {
+                                    const after = Number.isFinite(item.after) ? ` (после ${formatClock(item.after)})` : '';
 
-                        return { kind: 'missing', qty: item.qty, name: `+ ${item.name} — собрать` };
-                    })
-                }));
+                                    if (kind === 'move') return { name: `${item.name} — из ${item.from}${after}`, qty: item.qty };
+                                    if (kind === 'keep') return { name: `${item.name}${after}`, qty: item.qty };
 
-                addGroups('plan', 'На утро по залам', groups);
+                                    return { name: item.name, qty: item.qty };
+                                })
+                        }))
+                        .filter(group => group.lines.length);
+
+                    addGroups(kind, title, groups);
+                });
 
                 if (!analysis.needCount) {
                     addNote('В списке нет позиций со звёздочкой, поэтому сравнивать нечего.', 'dd-warn');
@@ -5981,11 +6155,28 @@
             const copyButton = el('button', { type: 'button', className: 's-textbtn eq-copy' }, ['Скопировать']);
             const refreshButton = el('button', { type: 'button', className: 's-textbtn eq-refresh' }, ['Обновить']);
 
-            panel.append(
-                el('div', { className: 'eq-head' }, [el('span', { className: 'eq-title' }, ['Оборудование']), switcher]),
-                body,
-                el('div', { className: 'eq-foot' }, [status, el('span', { className: 'eq-actions' }, [copyButton, refreshButton])])
-            );
+            /* 5.4.0: раздел сворачивается (по умолчанию свёрнут, состояние запоминается) — окно не растёт в длину. */
+            const toggle = el('button', { type: 'button', className: 'eq-toggle', 'aria-expanded': 'false' }, [
+                el('span', { className: 'eq-title' }, ['Оборудование']),
+                el('span', { className: 'eq-count' })
+            ]);
+            const foot = el('div', { className: 'eq-foot' }, [status, el('span', { className: 'eq-actions' }, [copyButton, refreshButton])]);
+
+            panel.append(el('div', { className: 'eq-head' }, [toggle, switcher]), body, foot);
+
+            const setOpen = open => {
+                panel.dataset.open = open ? '1' : '0';
+                toggle.setAttribute('aria-expanded', String(open));
+            };
+
+            setOpen(readUi().eqOpen === true);
+
+            toggle.addEventListener('click', () => {
+                const open = panel.dataset.open !== '1';
+
+                setOpen(open);
+                writeUi({ eqOpen: open });
+            });
 
             const rangeText = source => (Number.isFinite(source.start) && Number.isFinite(source.end))
                 ? `${formatClock(source.start)}–${formatClock(source.end)}`
@@ -6003,6 +6194,9 @@
                 const branchName = category === 'P' ? 'Павелецкая' : 'Серпуховская';
 
                 const openKeys = new Set([...body.querySelectorAll('details[open]')].map(node => node.getAttribute('data-key')));
+                const countNode = toggle.querySelector('.eq-count');
+
+                countNode.textContent = '';
 
                 eqRenderedCategory = category;
                 body.replaceChildren();
@@ -6043,6 +6237,7 @@
                 }
 
                 if (!summary.halls.length) {
+                    countNode.textContent = 'нет';
                     body.appendChild(el('div', { className: 's-muted eq-empty' }, [`На ${dayLabel(iso)} оборудование не заказано.`]));
                     renderIssues(filtered, entry, openKeys);
                     return;
@@ -6050,9 +6245,14 @@
 
                 lastText = summary.text;
                 copyButton.disabled = false;
+                countNode.textContent = `${summary.totals.length} поз.`;
 
                 /* 5.3.0: на завтра сначала — что сделать к утру в каждом зале (то же, что плашки в календаре). */
                 const morning = eqDay === 'tomorrow' ? computeTomorrowPlan() : { tiles: [] };
+
+                morning.tiles = morning.tiles
+                    .map(tile => ({ ...tile, items: tile.items.filter(item => item.kind !== 'later') }))
+                    .filter(tile => tile.items.length);
 
                 if (morning.tiles.length) {
                     const box = el('div', { className: 'eq-morning' }, [el('div', { className: 'eq-morning-title' }, ['К утру'])]);
@@ -6065,10 +6265,12 @@
                         tile.items.forEach(item => {
                             const qty = item.qty > 1 ? ` ×${formatQuantity(item.qty)}` : '';
                             const text = item.kind === 'keep'
-                                ? `✓ ${item.name}${qty} — не разбирать`
+                                ? `✓ Оставить: ${item.name}${qty}`
                                 : item.kind === 'move'
-                                    ? `← ${item.name}${qty} из ${item.from}${Number.isFinite(item.after) ? ' после ' + formatClock(item.after) : ''}`
-                                    : `+ ${item.name}${qty} — собрать`;
+                                    ? `↻ Перекатить: ${item.name}${qty} из ${item.from}${Number.isFinite(item.after) ? ' после ' + formatClock(item.after) : ''}`
+                                    : item.kind === 'missing'
+                                        ? `+ Собрать с нуля: ${item.name}${qty}`
+                                        : `к ${Number.isFinite(item.at) ? formatClock(item.at) : 'днём'}: ${item.name}${qty}`;
 
                             group.appendChild(el('div', { className: `eq-m ${item.kind}` }, [text]));
                         });
@@ -6299,11 +6501,20 @@
             /* 5.1.0: новый вид — светлый; прежний выбор оформления (до 5.1) сброшен один раз. */
             const savedUi = readUi();
 
+            scriptOff = savedUi.off === true;
+
             root.dataset.skin = savedUi.skinV === 2 && SKINS.includes(savedUi.skin) ? savedUi.skin : DEFAULT_SKIN;
 
             root.appendChild(el('div', { className: 's-head' }, [
                 el('span', { id: 's-head-title' }, ['STUDIO 1826']),
                 el('span', { className: 's-head-buttons' }, [
+                    el('button', {
+                        type: 'button',
+                        className: 's26-off-toggle s-head-toggle',
+                        role: 'switch',
+                        'aria-pressed': String(!scriptOff),
+                        'aria-label': 'Показывать скрипт в календаре'
+                    }, [el('span', { className: 's26-knob' })]),
                     el('button', { type: 'button', className: 's-icon s-head-copy', title: 'Копировать расчёт', 'aria-label': 'Копировать расчёт' }, ['⧉']),
                     el('button', { type: 'button', className: 's-icon s-collapse', title: 'Развернуть' }, ['☰'])
                 ])
@@ -6496,6 +6707,7 @@
                     if (category === 'P' && requested === 3) return;
 
                     admins = requested;
+                    adminsBy[category] = requested;
                     saveSettings();
                     update();
                 });
@@ -6531,6 +6743,9 @@
                 saveSettings();
                 update();
             });
+
+            root.querySelector('.s-head-toggle').addEventListener('click', () => setScriptOff(!scriptOff));
+            setScriptOff(scriptOff);
 
             root.querySelector('.s-collapse').addEventListener('click', () => {
                 setCollapsed(root, !collapsed);
@@ -6890,6 +7105,7 @@
                             moves: moveLinks,
                             tiles: plan.tiles,
                             tileLinks: plan.links,
+                            off: scriptOff,
                             full: full === true
                         }),
                         APP_ORIGIN
