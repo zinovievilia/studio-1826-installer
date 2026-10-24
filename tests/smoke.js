@@ -64,9 +64,33 @@ const { chromium } = require('playwright');
     await page2.evaluate(() => document.querySelector('.s-debug-button').click());
     await page2.waitForTimeout(3300);
     const debugStatus = await page2.evaluate(() => document.querySelector('#s-debug-status').textContent);
+
+    /* Регрессия 4.3.0–4.5.0: запрос с ИЗМЕНЁННЫМИ настройками/цветами должен
+     * применяться в iframe, сборщик обязан ответить, ошибок быть не должно. */
+    const errorsBefore = errors2.length;
+    const replies = await page2.evaluate(() => new Promise(resolve => {
+        const iframe = document.querySelector('iframe');
+        let count = 0;
+        window.addEventListener('message', e => {
+            if (e.data && e.data.type === 'STUDIO1826_V3_DATA') count++;
+        });
+        iframe.contentWindow.postMessage({
+            type: 'STUDIO1826_V3_REQUEST',
+            full: true,
+            settings: { arrows: false, colors: { done: '#123456' } }
+        }, '*');
+        setTimeout(() => resolve(count), 1500);
+    }));
+    const styled = await frame.evaluate(() => {
+        const style = document.getElementById('studio1826-stage-style-v32');
+        return !!style && /123456|18, ?52, ?86/i.test(style.textContent);
+    });
+    const settingsResult = { replies, styled };
+    const newErrors = errors2.slice(errorsBefore);
     await browser.close();
 
-    const ok = result &&
+    const ok = settingsResult.replies > 0 && newErrors.length === 0 &&
+        settingsResult.styled && result &&
         result.tabs.join() === 'overview,payout,settings' &&
         result.first.join() === 's-panel-overview' &&
         result.settings.join() === 'studio1826-settings-v32' &&
@@ -77,7 +101,7 @@ const { chromium } = require('playwright');
         errors2.length === 0 &&
         /Готово/.test(debugStatus) && !/не ответил/.test(debugStatus);
 
-    console.log(JSON.stringify({ result, errors, errors2, debugStatus }, null, 1));
+    console.log(JSON.stringify({ result, errors, errors2, debugStatus, settingsResult, newErrors }, null, 1));
     if (!ok) { console.error('SMOKE FAILED'); process.exit(1); }
     console.log('SMOKE OK');
 })().catch(e => { console.error(e); process.exit(1); });

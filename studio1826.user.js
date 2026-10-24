@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v4.5.0 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v4.5.1 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      4.5.0
+// @version      4.5.1
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '4.5.0';
+    const VERSION = '4.5.1';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -3650,6 +3650,9 @@
             if (event.origin !== MAIN_ORIGIN) return;
 
             if (event.data?.type === REQUEST_TYPE) {
+                let marksChanged = false;
+                let settingsChanged = false;
+
                 if (event.data.diag === true) sendDiagnostics();
 
                 if (event.data.settings) {
@@ -3662,9 +3665,6 @@
                         applyFeatures();
                     }
                 }
-
-                let marksChanged = false;
-                let settingsChanged = false;
 
                 if (Array.isArray(event.data.mark)) {
                     const next = new Set(event.data.mark
