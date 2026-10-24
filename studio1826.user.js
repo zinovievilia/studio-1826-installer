@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v5.6.0 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v5.6.1 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      5.6.0
+// @version      5.6.1
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '5.6.0';
+    const VERSION = '5.6.1';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -172,8 +172,8 @@
                 outline-offset: -2px;
                 box-shadow: inset 6px 0 0 var(--s26-k) !important;
             }
-            .deal-item-contaner.s26-k-eq { --s26-k: var(--s26-kEq, #2563eb); }
-            .deal-item-contaner.s26-k-frame { --s26-k: var(--s26-kFrame, #f59e0b); }
+            .deal-item-contaner.s26-k-eq { --s26-k: var(--s26-kEq, #dc2626); }
+            .deal-item-contaner.s26-k-frame { --s26-k: var(--s26-kFrame, #dc2626); }
             .deal-item-contaner.s26-k-bg { --s26-k: var(--s26-kBg, #dc2626); }
             .deal-item-contaner.s26-k-eq .reserve-content-box,
             .deal-item-contaner.s26-k-frame .reserve-content-box,
@@ -270,52 +270,67 @@
                 pointer-events: none;
                 z-index: 32;
             }
+            /* 5.6.1: плашка по ширине колонки, спокойная: светлая заливка и полоса слева цветом «Плашки ЗАВТРА». */
             .s26-tile {
+                --s26-t: var(--s26-tile, #7c3aed);
                 position: absolute;
                 box-sizing: border-box;
                 pointer-events: auto;
                 cursor: default;
                 overflow: hidden;
-                border: 2px dashed #7c3aed;
-                border-radius: 8px;
-                background: repeating-linear-gradient(135deg, #f5f0ff 0 8px, #ede4ff 8px 16px);
-                box-shadow: 0 4px 14px rgba(124, 58, 237, .25);
-                color: #2e1065;
-                font: 11px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                padding: 2px 0 3px;
+                border: 1px solid #ddd6fe;
+                border: 1px solid color-mix(in srgb, var(--s26-t) 35%, transparent);
+                border-left: 3px solid var(--s26-t);
+                border-radius: 5px;
+                background: #faf7ff;
+                background: color-mix(in srgb, var(--s26-t) 7%, #fff);
+                color: #1f2933;
+                font: 10.5px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             }
             .s26-tile-head {
-                padding: 3px 6px;
-                background: #7c3aed;
-                color: #fff;
-                font-weight: 800;
-                letter-spacing: .04em;
+                padding: 0 4px 1px 5px;
+                color: var(--s26-t);
+                font-size: 10px;
+                font-weight: 700;
+                letter-spacing: .03em;
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
             }
-            .s26-tile-line { padding: 2px 6px; overflow-wrap: anywhere; }
-            .s26-tile-line.later { color: #4c1d95; opacity: .85; }
+            .s26-tile-line {
+                padding: 0 5px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .s26-tile-line i { font-style: normal; font-weight: 700; margin-right: 3px; }
+            .s26-tile-line.keep i { color: #15803d; }
+            .s26-tile-line.move i { color: var(--s26-moveArrow, #2563eb); }
+            .s26-tile-line.missing i { color: #b91c1c; }
+            .s26-tile-line.more { opacity: .65; }
             .s26-tile-close {
                 float: right;
-                margin: -1px -2px 0 6px;
-                padding: 0 4px;
+                margin: 0;
+                padding: 0 2px;
                 border: 0;
                 background: none;
-                color: #fff;
-                font: 800 13px/1 -apple-system, BlinkMacSystemFont, sans-serif;
+                color: var(--s26-t);
+                opacity: .6;
+                font: 700 12px/1 -apple-system, BlinkMacSystemFont, sans-serif;
                 cursor: pointer;
                 pointer-events: auto;
             }
-            .s26-tile-line b { font-weight: 800; }
-            .s26-tile-line.missing { color: #b91c1c; font-weight: 700; }
+            .s26-tile-close:hover { opacity: 1; }
             .s26-moves .s26-tile-path {
                 fill: none;
-                stroke: #7c3aed;
-                stroke-width: 2.6;
-                stroke-dasharray: 6 4;
+                stroke: var(--s26-tile, #7c3aed);
+                stroke-width: 2;
+                stroke-dasharray: 5 4;
                 stroke-linecap: round;
+                opacity: .8;
             }
-            .s26-moves .s26-tile-arrow { fill: #7c3aed; }
+            .s26-moves .s26-tile-arrow { fill: var(--s26-tile, #7c3aed); }
             .s26-moves .s26-tile-path.move { stroke: var(--s26-moveArrow, #2563eb); stroke-dasharray: none; stroke-width: 2.8; }
             .s26-moves .s26-tile-arrow.move { fill: var(--s26-moveArrow, #2563eb); }
             .deal-item-contaner .booking-copy-button {
@@ -1530,24 +1545,22 @@
                 cursor: help;
                 outline: none;
             }
-            #${SETTINGS_ID} .st-hint:hover::after,
-            #${SETTINGS_ID} .st-hint:focus::after {
-                content: attr(data-hint);
-                position: absolute;
-                right: 0;
-                top: calc(100% + 6px);
-                z-index: 5;
-                width: 240px;
+            /* 5.6.1: подсказка «?» — отдельное окно поверх страницы, не обрезается краями настроек. */
+            #s26-hint-pop {
+                position: fixed;
+                z-index: 2147483647;
+                box-sizing: border-box;
+                max-width: 280px;
                 padding: 8px 10px;
                 border-radius: 8px;
                 background: #1f2933;
                 color: #fff;
-                font-size: 12px;
-                font-weight: 400;
-                line-height: 1.4;
+                font: 400 12px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
                 box-shadow: 0 6px 20px #0000004d;
+                pointer-events: none;
                 white-space: normal;
             }
+            #s26-hint-pop[hidden] { display: none; }
             #${SETTINGS_ID} .st-flash { animation: st-flash 1.6s ease; border-radius: 6px; }
             @keyframes st-flash { 0%, 60% { background: #fde68a; } 100% { background: transparent; } }
             #${WIDGET_ID}[data-skin="light"] #${SETTINGS_ID} .st-hint { background: #eef1f4; color: #4b5560; }
@@ -1666,6 +1679,26 @@
             #${WIDGET_ID}[data-skin="light"] { box-shadow: 0 10px 32px #1f2d3d2e, 0 0 0 1px #0000000d; border-color: transparent; }
             #${WIDGET_ID}[data-skin="light"] .s-head { background: #fff; border-bottom-color: #f0f2f5; }
             #${WIDGET_ID}[data-skin="light"] .s-footer { background: #fff; border-top-color: #f0f2f5; }
+
+            /* 5.6.1: «Скопировать», «Обновить», «Параметры расчёта» — кнопками, как «Сегодня/Завтра». */
+            #${WIDGET_ID} .eq-actions .s-textbtn,
+            #${WIDGET_ID} .s-fold > summary {
+                display: inline-block;
+                padding: 3px 9px !important;
+                border-radius: 6px;
+                background: #ffffff14 !important;
+                font-size: 12px;
+                opacity: 1;
+            }
+            #${WIDGET_ID} .eq-actions .s-textbtn:hover,
+            #${WIDGET_ID} .s-fold > summary:hover { background: #ffffff26 !important; }
+            #${WIDGET_ID} .eq-actions .s-textbtn:disabled { opacity: .45; background: #ffffff0d !important; }
+            #${WIDGET_ID} .eq-actions { gap: 4px; }
+            #${WIDGET_ID} .eq-foot { align-items: center; }
+            #${WIDGET_ID}[data-skin="light"] .eq-actions .s-textbtn,
+            #${WIDGET_ID}[data-skin="light"] .s-fold > summary { background: #eef1f4 !important; color: #2b2f36; }
+            #${WIDGET_ID}[data-skin="light"] .eq-actions .s-textbtn:hover,
+            #${WIDGET_ID}[data-skin="light"] .s-fold > summary:hover { background: #e2e6eb !important; }
         `,
         toast: `
             #${TOAST_ID} {
@@ -2118,13 +2151,15 @@
 
     /* Цвета меток: обводка, «Пересменки», последние брони дня. */
     const MARK_COLORS = [
-        { id: 'kEq', name: 'Обводка: оборудование', color: '#2563eb' },
-        { id: 'kFrame', name: 'Обводка: рама', color: '#f59e0b' },
+        /* 5.6.1: обводка по умолчанию красная (Илья); color — прежний цвет по умолчанию, он заменяется на def. */
+        { id: 'kEq', name: 'Обводка: оборудование', color: '#2563eb', def: '#dc2626' },
+        { id: 'kFrame', name: 'Обводка: рама', color: '#f59e0b', def: '#dc2626' },
         { id: 'kBg', name: 'Обводка: фон', color: '#dc2626' },
         { id: 'handoff', name: 'Пересменки', color: '#800020' },
         { id: 'last', name: 'Последние брони дня', color: '#2563eb' },
         { id: 'arrow', name: 'Стрелки переноса оборудования', color: '#e11d48' },
-        { id: 'moveArrow', name: 'Синие стрелки «не разбирать на завтра»', color: '#2563eb' }
+        { id: 'moveArrow', name: 'Синие стрелки «не разбирать на завтра»', color: '#2563eb' },
+        { id: 'tile', name: 'Плашки «ЗАВТРА»', color: '#7c3aed' }
     ];
 
     const COLOR_ITEMS = [...STAGES, ...MARK_COLORS];
@@ -2608,8 +2643,9 @@
                 blocks.push({ label, items });
             });
 
+        /* 5.6.1: формат как у кнопки в брони — «1 шт. | название», звёздочка в конце. */
         const dayLine = item => {
-            let line = equipmentLine(item.name, item.qty);
+            let line = bookingCopyLine(item.name, item.qty);
 
             /* С утра нужно меньше, чем нужно в течение дня. */
             if (item.star && item.starQty && item.starQty !== item.qty) {
@@ -2672,8 +2708,20 @@
                 })
                 .trim();
 
-            const qty = quantity(line);
-            const match = findEquipment(line);
+            /* 5.6.1: новый формат «1 шт. | название»; прежний «название — 1 шт.» тоже читается. */
+            let qty;
+            const lead = line.match(/^(\d+(?:[.,]\d+)?)\s*шт\.?\s*\|\s*(.+)$/i);
+
+            if (lead) {
+                qty = parseNumber(lead[1]);
+                line = lead[2].trim();
+            } else {
+                qty = quantity(line);
+            }
+
+            /* Зонты в скопированном списке без «Umbrella» (shortEquipmentName) — для поиска возвращаем. */
+            const match = findEquipment(line) ||
+                findEquipment(line.replace(/^(Зонт\s*-\s*)(?!Umbrella)/i, '$1Umbrella '));
 
             current.items.push({
                 name: match ? match.name : line.replace(/\s*[-–—]\s*[\d\s\u00A0.,]+\s*шт\.?\s*$/i, '').trim(),
@@ -4365,7 +4413,7 @@
                 if (!header || !header.parentElement) return;
 
                 const title = block.items
-                    .map(item => `${equipmentLine(item.name, item.qty)}${item.star ? ' *' : ''}`)
+                    .map(item => `${bookingCopyLine(item.name, item.qty)}${item.star ? ' *' : ''}`)
                     .join('\n');
                 const pill = badge('s26-hall-eq', `⚙ ${block.items.length}`);
 
@@ -4514,6 +4562,16 @@
 
             const placed = new Map();
 
+            /*
+             * 5.6.1: все плашки одной строкой — на одну клетку времени ниже последней брони дня
+             * (по всем залам), чтобы не пестрить между бронями.
+             */
+            /* Высота клетки — медиана шага меток времени (первые метки «00:00, 08:00» стоят тесно). */
+            const steps = axis ? axis.labels.slice(1).map((label, i) => label.top - axis.labels[i].top).filter(d => d > 0).sort((x, y) => x - y) : [];
+            const slot = steps.length ? Math.max(20, Math.min(120, steps[Math.floor(steps.length / 2)])) : 45;
+            const lastBottom = Math.max(yMin, ...[...columns.values()].map(c => c.bottom));
+            const rowTop = lastBottom + slot;
+
             tomorrowTiles.forEach(tile => {
                 if (closedTiles.has(tile.hall)) return;
 
@@ -4544,28 +4602,35 @@
                     ])
                 ]);
 
-                tile.items.forEach(item => {
-                    const qty = item.qty > 1 ? ` ×${formatQuantity(item.qty)}` : '';
-                    const what = el('b', {}, [`${item.name}${qty}`]);
-                    const line = el('div', { className: `s26-tile-line ${item.kind}` });
+                /* Строка коротко: значок действия и название; подробности — в окне при наведении. */
+                const TILE_LINES = 3;
+                const ICONS = { keep: '✓', move: '↻', missing: '+' };
 
-                    if (item.kind === 'keep') line.append('✓ Оставить: ', what);
-                    else if (item.kind === 'move') line.append('↻ Перекатить: ', what, ` из ${item.from}`);
-                    else if (item.kind === 'missing') line.append('+ Собрать с нуля: ', what);
-                    else line.append(`к ${Number.isFinite(item.at) ? formatClock(item.at) : 'днём'}: `, what);
+                tile.items.slice(0, TILE_LINES).forEach(item => {
+                    const qty = item.qty > 1 ? ` ×${formatQuantity(item.qty)}` : '';
+                    /* Откуда перекатить — впереди, чтобы не обрезалось в узкой колонке. */
+                    const from = item.kind === 'move' && item.from ? `${item.from} → ` : '';
+                    const line = el('div', { className: `s26-tile-line ${item.kind}` }, [
+                        el('i', {}, [ICONS[item.kind] || '•']),
+                        `${from}${shortEquipmentName(item.name)}${qty}`
+                    ]);
 
                     node.appendChild(line);
                 });
 
-                /* Узкие колонки: плашка шире колонки, чтобы текст читался. */
-                const width = Math.max(120, col.right - col.left - 6);
+                if (tile.items.length > TILE_LINES) {
+                    node.appendChild(el('div', { className: 's26-tile-line more' }, [`ещё ${tile.items.length - TILE_LINES}…`]));
+                }
+
+                /* По ширине колонки зала, без выхода на соседние залы. */
+                const width = Math.max(40, col.right - col.left - 6);
 
                 node.addEventListener('mouseenter', () => showTilePanel(tile, node));
                 node.addEventListener('mouseleave', () => {
                     tilePanelOpen = false;
                     hidePanel();
                 });
-                const top = col.bottom + 10;
+                const top = rowTop;
 
                 node.style.left = `${col.left + 3}px`;
                 node.style.top = `${top}px`;
@@ -5644,17 +5709,54 @@
                 reuse: 'На брони подписывается, какое оборудование не разбирать, потому что оно нужно следующей брони, и откуда оно придёт.',
                 aliases: 'К названиям оборудования добавляются привычные подписи: бум, роллер и т. п.',
                 arrows: 'Стрелки между бронями, по которым оборудование переезжает из зала в зал в течение дня.',
-                moveArrows: 'Плашки «ЗАВТРА» в свободном времени залов, где к первой брони следующего дня нужно оборудование, и стрелки, откуда его взять. Цвет синих стрелок — кнопкой 🎨.'
+                moveArrows: 'Плашки «ЗАВТРА» одной строкой под последней бронью дня, в колонках залов, где к первой брони следующего дня нужно оборудование: ✓ оставить, ↻ перекатить из другого зала (синяя стрелка), + собрать с нуля. Наведите на плашку — подробности; × скрывает её до обновления страницы. Цвет плашек и стрелок — кнопкой 🎨.'
             };
             const FEATURE_COLORS = {
                 borders: ['kEq', 'kFrame', 'kBg'],
                 handoff: ['handoff'],
                 stripes: ['done'],
                 arrows: ['arrow'],
-                moveArrows: ['moveArrow']
+                moveArrows: ['tile', 'moveArrow']
             };
 
-            const hintNode = text => el('span', { className: 'st-hint', tabindex: '0', role: 'note', 'aria-label': text, 'data-hint': text }, ['?']);
+            /* 5.6.1: одно окно подсказки на странице; ставится у «?» и прижимается к краям окна браузера. */
+            const showHint = node => {
+                let pop = document.getElementById('s26-hint-pop');
+
+                if (!pop) {
+                    pop = el('div', { id: 's26-hint-pop', role: 'tooltip', hidden: 'hidden' });
+                    document.body.appendChild(pop);
+                }
+
+                pop.textContent = node.dataset.hint || '';
+                pop.hidden = false;
+
+                const r = node.getBoundingClientRect();
+                const w = pop.offsetWidth;
+                const h = pop.offsetHeight;
+                const left = Math.min(Math.max(8, r.right - w), window.innerWidth - w - 8);
+                const below = r.bottom + 6;
+                const top = below + h + 8 <= window.innerHeight ? below : Math.max(8, r.top - h - 6);
+
+                pop.style.left = `${Math.max(8, left)}px`;
+                pop.style.top = `${top}px`;
+            };
+            const hideHint = () => {
+                const pop = document.getElementById('s26-hint-pop');
+
+                if (pop) pop.hidden = true;
+            };
+
+            const hintNode = text => {
+                const node = el('span', { className: 'st-hint', tabindex: '0', role: 'note', 'aria-label': text, 'data-hint': text }, ['?']);
+
+                node.addEventListener('mouseenter', () => showHint(node));
+                node.addEventListener('focus', () => showHint(node));
+                node.addEventListener('mouseleave', hideHint);
+                node.addEventListener('blur', hideHint);
+
+                return node;
+            };
 
             const colorButton = ids => {
                 const button = el('button', { type: 'button', className: 'st-colors-link', title: 'Настроить цвета', 'aria-label': 'Настроить цвета' }, ['🎨']);
@@ -6304,7 +6406,7 @@
                     section.groups.forEach(group => {
                         out.push('', group.head);
                         if (group.sub) out.push(group.sub);
-                        group.lines.forEach(({ name, qty }) => out.push(`• ${name} — ${qtyText(qty)}`));
+                        group.lines.forEach(({ name, qty }) => out.push(bookingCopyLine(name, qty)));
                     });
                 });
 
