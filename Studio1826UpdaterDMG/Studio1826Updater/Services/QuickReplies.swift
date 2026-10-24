@@ -89,6 +89,20 @@ final class QuickReplyPanelController: NSObject, NSWindowDelegate {
         }
         panel.makeKeyAndOrderFront(nil)
         installKeyMonitor()
+        // Курсор сразу в поле поиска — можно печатать без клика
+        DispatchQueue.main.async { [weak panel] in
+            guard let panel, let field = Self.findSearchField(in: panel.contentView) else { return }
+            panel.makeFirstResponder(field)
+        }
+    }
+
+    private static func findSearchField(in view: NSView?) -> NSView? {
+        guard let view else { return nil }
+        if view is QuickSearchField.FieldView { return view }
+        for sub in view.subviews {
+            if let found = findSearchField(in: sub) { return found }
+        }
+        return nil
     }
 
     func hide() {
@@ -103,20 +117,19 @@ final class QuickReplyPanelController: NSObject, NSWindowDelegate {
     private func makePanel() -> QuickReplyPanel {
         let p = QuickReplyPanel(
             contentRect: NSRect(origin: .zero, size: size),
-            styleMask: [.nonactivatingPanel, .titled, .fullSizeContentView],
+            styleMask: [.nonactivatingPanel, .borderless],
             backing: .buffered,
             defer: false
         )
-        p.titleVisibility = .hidden
-        p.titlebarAppearsTransparent = true
+        // Без заголовка: никакой пустой полосы сверху, скругление и фон рисует SwiftUI
+        p.isOpaque = false
+        p.backgroundColor = .clear
+        p.hasShadow = true
         p.isMovableByWindowBackground = true
         p.level = .floating
         p.hidesOnDeactivate = false
         p.isReleasedWhenClosed = false
         p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        p.standardWindowButton(.closeButton)?.isHidden = true
-        p.standardWindowButton(.miniaturizeButton)?.isHidden = true
-        p.standardWindowButton(.zoomButton)?.isHidden = true
         p.delegate = self
         return p
     }
@@ -166,7 +179,6 @@ struct QuickReplyView: View {
     @ObservedObject var model: QuickReplyModel
     @EnvironmentObject var store: ReplyStore
     let onChoose: (ReplyItem) -> Void
-    @FocusState private var searchFocused: Bool
 
     init(model: QuickReplyModel, onChoose: @escaping (ReplyItem) -> Void) {
         self.model = model
@@ -180,10 +192,8 @@ struct QuickReplyView: View {
                 Image(systemName: "bolt.fill")
                     .font(.system(size: 18))
                     .foregroundColor(.accentColor)
-                TextField("Быстрый ответ: парковка, пропуск, счёт…", text: $model.query)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 20))
-                    .focused($searchFocused)
+                QuickSearchField(text: $model.query, placeholder: "Быстрый ответ: парковка, пропуск, счёт…")
+                    .frame(height: 28)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
@@ -232,8 +242,10 @@ struct QuickReplyView: View {
             .padding(.vertical, 8)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.regularMaterial)
-        .onAppear { searchFocused = true }
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .strokeBorder(Color(nsColor: .separatorColor).opacity(0.6)))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .onChange(of: model.query) { _ in model.selected = 0 }
     }
 }
@@ -249,18 +261,56 @@ private struct QuickReplyRow: View {
                 Spacer()
                 Text(ReplyLibrary.categoryName(item.script.category))
                     .font(.caption)
-                    .foregroundColor(isSelected ? .white.opacity(0.85) : .secondary)
+                    .foregroundColor(.secondary)
             }
             Text(item.script.text.replacingOccurrences(of: "\n", with: " "))
                 .font(.callout)
                 .lineLimit(3)
-                .foregroundColor(isSelected ? .white.opacity(0.9) : .secondary)
+                .foregroundColor(.secondary)
         }
-        .foregroundColor(isSelected ? .white : .primary)
+        .foregroundColor(.primary)
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 8).fill(isSelected ? Color.accentColor : Color.clear))
+        .background(RoundedRectangle(cornerRadius: 8).fill(isSelected ? Color.accentColor.opacity(0.22) : Color.clear))
         .contentShape(Rectangle())
+    }
+}
+
+/// Поле поиска на AppKit: в панели без активации приложения SwiftUI-фокус ненадёжен,
+/// а NSTextField можно сделать первым респондером напрямую.
+struct QuickSearchField: NSViewRepresentable {
+    final class FieldView: NSTextField {}
+
+    @Binding var text: String
+    let placeholder: String
+
+    func makeNSView(context: Context) -> FieldView {
+        let field = FieldView()
+        field.isBordered = false
+        field.drawsBackground = false
+        field.focusRingType = .none
+        field.font = .systemFont(ofSize: 20)
+        field.placeholderString = placeholder
+        field.delegate = context.coordinator
+        field.cell?.isScrollable = true
+        field.cell?.wraps = false
+        return field
+    }
+
+    func updateNSView(_ field: FieldView, context: Context) {
+        if field.stringValue != text { field.stringValue = text }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
+
+    final class Coordinator: NSObject, NSTextFieldDelegate {
+        var text: Binding<String>
+        init(text: Binding<String>) { self.text = text }
+
+        func controlTextDidChange(_ note: Notification) {
+            guard let field = note.object as? NSTextField else { return }
+            text.wrappedValue = field.stringValue
+        }
     }
 }
