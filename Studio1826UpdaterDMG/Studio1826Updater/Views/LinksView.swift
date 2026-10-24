@@ -10,6 +10,16 @@ struct LinksView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Hint(text: "Открыть страницу или скопировать ссылку, чтобы отправить клиенту.")
 
+                Card {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Label("Телефоны", systemImage: "phone").font(.headline)
+                        ForEach(Array(StudioPhone.all.enumerated()), id: \.element.id) { pair in
+                            if pair.offset > 0 { Divider() }
+                            PhoneRow(phone: pair.element)
+                        }
+                    }
+                }
+
                 ForEach(StudioBranch.allCases) { branch in
                     BranchCard(branch: branch)
                 }
@@ -104,6 +114,29 @@ private struct LinkRow: View {
                 Clipboard.copy(url.absoluteString)
                 toaster.show("Ссылка скопирована")
             }
+        }
+    }
+}
+
+private struct PhoneRow: View {
+    let phone: StudioPhone
+    @EnvironmentObject var toaster: Toaster
+
+    var body: some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(phone.title).font(.body.weight(.medium))
+                Text(phone.formatted).font(.callout.monospacedDigit()).foregroundColor(.secondary)
+                    .textSelection(.enabled)
+            }
+            Spacer()
+            Button {
+                Clipboard.copy(phone.number)
+                toaster.show("Номер \(phone.title) скопирован")
+            } label: {
+                Label("Скопировать", systemImage: "doc.on.doc")
+            }
+            .help(phone.number)
         }
     }
 }

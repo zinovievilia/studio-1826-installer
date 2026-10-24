@@ -46,9 +46,9 @@ private struct Header: View {
                     .renderingMode(.template)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .frame(height: 16)
+                    .frame(height: 28)
             } else {
-                Text("Studio 1826").font(.headline)
+                Text("Studio 1826").font(.title2.weight(.semibold))
             }
             Spacer()
             BrowserMenu()

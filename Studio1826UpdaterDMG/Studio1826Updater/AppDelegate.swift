@@ -143,6 +143,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             parent.submenu = sub
             menu.addItem(parent)
         }
+        let phones = NSMenuItem(title: "Скопировать телефон", action: nil, keyEquivalent: "")
+        phones.image = NSImage(systemSymbolName: "phone", accessibilityDescription: nil)
+        let phoneMenu = NSMenu()
+        for phone in StudioPhone.all {
+            let pi = item("\(phone.title)  \(phone.formatted)", #selector(copyPhone(_:)))
+            pi.representedObject = phone.number
+            phoneMenu.addItem(pi)
+        }
+        phones.submenu = phoneMenu
+        menu.addItem(phones)
+
         let salary = item("Таблица зарплаты", #selector(openLink(_:)), symbol: "tablecells")
         salary.representedObject = StudioLinks.salarySheet
         menu.addItem(salary)
@@ -190,6 +201,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func openLink(_ sender: NSMenuItem) {
         guard let url = sender.representedObject as? URL else { return }
         NSWorkspace.shared.open(url)
+    }
+
+    @objc private func copyPhone(_ sender: NSMenuItem) {
+        guard let number = sender.representedObject as? String else { return }
+        Clipboard.copy(number)
     }
 
     @objc private func checkUpdates() {

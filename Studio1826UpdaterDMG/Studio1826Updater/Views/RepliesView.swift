@@ -274,10 +274,12 @@ private struct ReplyRow: View {
                         .lineLimit(1)
                     OriginMark(origin: item.origin)
                 }
-                Text(item.script.text.replacingOccurrences(of: "\n", with: " "))
+                // При наведении — весь текст, чтобы понять, что именно отправится
+                Text(hovering ? item.script.text : item.script.text.replacingOccurrences(of: "\n", with: " "))
                     .font(.caption)
-                    .foregroundColor(.secondary)
-                    .lineLimit(2)
+                    .foregroundColor(hovering ? .primary : .secondary)
+                    .lineLimit(hovering ? nil : 2)
+                    .fixedSize(horizontal: false, vertical: hovering)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
@@ -291,7 +293,9 @@ private struct ReplyRow: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
         .background(hovering ? Color.accentColor.opacity(0.07) : Color.clear)
-        .onHover { hovering = $0 }
+        .onHover { inside in
+            withAnimation(.easeInOut(duration: 0.15)) { hovering = inside }
+        }
         .contextMenu {
             Button("Скопировать текст", action: copy)
             Button("Открыть", action: open)

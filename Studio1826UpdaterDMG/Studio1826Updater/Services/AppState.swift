@@ -65,10 +65,14 @@ final class Toaster: ObservableObject {
 }
 
 enum Clipboard {
+    /// changeCount после нашего последнего копирования — чтобы не принять свой же текст за сообщение клиента.
+    static var ownChangeCount = -1
+
     static func copy(_ text: String) {
         let pb = NSPasteboard.general
         pb.clearContents()
         pb.setString(text, forType: .string)
+        ownChangeCount = pb.changeCount
     }
 }
 

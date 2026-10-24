@@ -161,5 +161,18 @@ if let data = try? Data(contentsOf: resource) {
     expect(false, "нет файла \(resource.path)")
 }
 
+// MARK: Подбор по сообщению клиента и телефоны
+
+let parking = ReplyItem(script: ReplyScript(id: "p", title: "Парковка", category: "", text: "Есть парковка, 150₽/ч",
+                                            keywords: ["парковка", "машина", "госномер"]), origin: .studio)
+let cancel = ReplyItem(script: ReplyScript(id: "c", title: "Отмена брони", category: "", text: "Отмена за 72 часа",
+                                           keywords: ["отмена", "отменить", "возврат"]), origin: .studio)
+expect(ReplySuggest.rank(clientText: "Здравствуйте, а где можно припарковать машину?", items: [cancel, parking]).first?.id == "p",
+       "подбор: машина → парковка")
+expect(ReplySuggest.rank(clientText: "Хотим отменить бронь, вернёте деньги?", items: [parking, cancel]).first?.id == "c",
+       "подбор: отменить → отмена")
+expect(ReplySuggest.rank(clientText: "Спасибо!", items: [parking, cancel]).isEmpty, "подбор: нет совпадений")
+expect(StudioPhone.all.first { $0.id == "serp" }?.formatted == "+7 916 520-18-26", "формат телефона")
+
 print(failures == 0 ? "✓ Все проверки пройдены: \(checks)" : "✗ Провалено \(failures) из \(checks)")
 exit(failures == 0 ? 0 : 1)

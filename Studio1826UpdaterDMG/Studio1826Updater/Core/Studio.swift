@@ -48,6 +48,27 @@ struct StudioLink: Identifiable, Hashable {
     let url: URL
 }
 
+struct StudioPhone: Identifiable, Hashable {
+    let id: String
+    let title: String
+    /// Для копирования: +79165201826
+    let number: String
+
+    /// Для показа: +7 916 520-18-26
+    var formatted: String {
+        let d = number.filter(\.isNumber)
+        guard d.count == 11 else { return number }
+        let c = Array(d)
+        return "+\(c[0]) \(String(c[1...3])) \(String(c[4...6]))-\(String(c[7...8]))-\(String(c[9...10]))"
+    }
+
+    static let all: [StudioPhone] = [
+        StudioPhone(id: "pav", title: "Павелецкая", number: "+79162481826"),
+        StudioPhone(id: "serp", title: "Серпуховская", number: "+79165201826"),
+        StudioPhone(id: "school", title: "Фотошкола", number: "+79957935547"),
+    ]
+}
+
 enum StudioLinks {
     static let salarySheet = URL(string: "https://docs.google.com/spreadsheets/d/1lf9CrUuzlzHZa4cH70gbzeBtW68uPvNArI__W-d-wy8/edit?gid=371799261#gid=371799261")!
     static let bitrix = URL(string: "https://1826studio.bitrix24.ru/")!

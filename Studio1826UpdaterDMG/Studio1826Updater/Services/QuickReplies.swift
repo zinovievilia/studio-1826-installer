@@ -45,9 +45,19 @@ final class QuickReplyPanel: NSPanel {
 final class QuickReplyModel: ObservableObject {
     @Published var query = ""
     @Published var selected = 0
+    /// Сообщение клиента из буфера обмена (если его только что скопировали)
+    @Published var clientText: String?
+
+    /// Подсказки по сообщению клиента — пока ничего не набрано в поиске.
+    func suggestions(in store: ReplyStore) -> [ReplyItem] {
+        guard query.isEmpty, let clientText else { return [] }
+        return ReplySuggest.rank(clientText: clientText, items: store.library.items)
+    }
 
     func results(in store: ReplyStore) -> [ReplyItem] {
-        Array(store.library.search(query: query, category: nil).prefix(50))
+        let suggested = suggestions(in: store)
+        if !suggested.isEmpty { return suggested }
+        return Array(store.library.search(query: query, category: nil).prefix(50))
     }
 }
 
@@ -58,7 +68,7 @@ final class QuickReplyPanelController: NSObject, NSWindowDelegate {
     private var panel: QuickReplyPanel?
     private var keyMonitor: Any?
 
-    private let size = NSSize(width: 620, height: 460)
+    private let size = NSSize(width: 820, height: 500)
 
     init(store: ReplyStore) {
         self.store = store
@@ -71,6 +81,7 @@ final class QuickReplyPanelController: NSObject, NSWindowDelegate {
     func show() {
         model.query = ""
         model.selected = 0
+        model.clientText = Self.clientTextFromClipboard(store: store)
 
         let panel = self.panel ?? makePanel()
         self.panel = panel
@@ -94,6 +105,17 @@ final class QuickReplyPanelController: NSObject, NSWindowDelegate {
             guard let panel, let field = Self.findSearchField(in: panel.contentView) else { return }
             panel.makeFirstResponder(field)
         }
+    }
+
+    /// Текст из буфера, если его скопировал человек (не мы) и это не один из скриптов.
+    private static func clientTextFromClipboard(store: ReplyStore) -> String? {
+        let pb = NSPasteboard.general
+        guard pb.changeCount != Clipboard.ownChangeCount,
+              let raw = pb.string(forType: .string) else { return nil }
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, text.count <= 2000,
+              !store.library.items.contains(where: { $0.script.text == text }) else { return nil }
+        return text
     }
 
     private static func findSearchField(in view: NSView?) -> NSView? {
@@ -187,6 +209,9 @@ struct QuickReplyView: View {
 
     var body: some View {
         let results = model.results(in: store)
+        let suggesting = !model.suggestions(in: store).isEmpty
+        let current = results.indices.contains(model.selected) ? results[model.selected] : nil
+
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 Image(systemName: "bolt.fill")
@@ -197,6 +222,31 @@ struct QuickReplyView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
+
+            if suggesting, let client = model.clientText {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "text.bubble").foregroundColor(.accentColor)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Подходит к сообщению клиента").font(.caption.weight(.semibold))
+                        Text("«\(client.replacingOccurrences(of: "\n", with: " "))»")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                    }
+                    Spacer()
+                    Button {
+                        model.clientText = nil
+                        model.selected = 0
+                    } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Показать все скрипты")
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(Color.accentColor.opacity(0.08))
+            }
 
             Divider()
 
@@ -209,21 +259,41 @@ struct QuickReplyView: View {
                 }
                 .frame(maxWidth: .infinity)
             } else {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(spacing: 2) {
-                            ForEach(Array(results.enumerated()), id: \.element.id) { pair in
-                                QuickReplyRow(item: pair.element, isSelected: pair.offset == model.selected)
-                                    .id(pair.offset)
-                                    .onTapGesture { onChoose(pair.element) }
-                                    .onHover { inside in if inside { model.selected = pair.offset } }
+                HStack(spacing: 0) {
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            LazyVStack(spacing: 2) {
+                                ForEach(Array(results.enumerated()), id: \.element.id) { pair in
+                                    QuickReplyRow(item: pair.element, isSelected: pair.offset == model.selected)
+                                        .id(pair.offset)
+                                        .onTapGesture { onChoose(pair.element) }
+                                        .onHover { inside in if inside { model.selected = pair.offset } }
+                                }
                             }
+                            .padding(6)
                         }
-                        .padding(6)
+                        .onChange(of: model.selected) { index in
+                            proxy.scrollTo(index)
+                        }
                     }
-                    .onChange(of: model.selected) { index in
-                        proxy.scrollTo(index)
+                    .frame(width: 340)
+
+                    Divider()
+
+                    // Полный текст выбранного скрипта
+                    ScrollView {
+                        if let current {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(current.script.title).font(.headline)
+                                Text(current.script.text)
+                                    .font(.callout)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .padding(14)
+                        }
                     }
+                    .frame(maxWidth: .infinity)
                 }
             }
 
@@ -234,7 +304,7 @@ struct QuickReplyView: View {
                 Text(QuickReplySettings.autoPaste && QuickReplySettings.canPaste ? "↩ вставить в чат" : "↩ скопировать")
                 Text("esc закрыть")
                 Spacer()
-                Text(QuickReplySettings.hotKeyTitle)
+                Text("Скопируйте сообщение клиента — подскажу ответ")
             }
             .font(.caption)
             .foregroundColor(.secondary)
@@ -265,7 +335,7 @@ private struct QuickReplyRow: View {
             }
             Text(item.script.text.replacingOccurrences(of: "\n", with: " "))
                 .font(.callout)
-                .lineLimit(3)
+                .lineLimit(2)
                 .foregroundColor(.secondary)
         }
         .foregroundColor(.primary)

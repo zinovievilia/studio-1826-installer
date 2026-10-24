@@ -323,3 +323,37 @@ enum ReplySearch {
         return total
     }
 }
+
+/// Подбор скриптов по сообщению клиента: «а парковка у вас есть?» → «Парковка в БЦ «Кошелев»».
+/// Сравниваются основы слов (первые 5 букв), чтобы «парковку», «парковаться», «парковка» совпадали.
+enum ReplySuggest {
+    static func stems(_ text: String) -> Set<String> {
+        let words = ReplySearch.normalize(text)
+            .split(whereSeparator: { ch in !(ch.isLetter || ch.isNumber) })
+            .map(String.init)
+        var result = Set<String>()
+        for word in words where word.count >= 3 {
+            result.insert(String(word.prefix(5)))
+        }
+        return result
+    }
+
+    /// Скрипты, отсортированные по совпадению с текстом клиента (только с хотя бы одним совпадением).
+    /// Ключевые слова весят ×3, название ×2, текст скрипта ×1.
+    static func rank(clientText: String, items: [ReplyItem], limit: Int = 8) -> [ReplyItem] {
+        let client = stems(clientText)
+        guard !client.isEmpty else { return [] }
+        let scored: [(offset: Int, item: ReplyItem, score: Int)] = items.enumerated().compactMap { pair in
+            let s = pair.element.script
+            let score = 3 * client.intersection(stems(s.keywords.joined(separator: " "))).count
+                + 2 * client.intersection(stems(s.title)).count
+                + client.intersection(stems(s.text)).count
+            guard score >= 3 else { return nil }
+            return (offset: pair.offset, item: pair.element, score: score)
+        }
+        return scored
+            .sorted { a, b in a.score != b.score ? a.score > b.score : a.offset < b.offset }
+            .prefix(limit)
+            .map { $0.item }
+    }
+}
