@@ -61,6 +61,15 @@ const STUB = `(${function (fx) {
     await page.evaluate(() => document.querySelector('.s-collapse').click());
     await page.waitForTimeout(600);
     r.view = await page.evaluate(() => document.getElementById('studio1826-widget-v3').dataset.view);
+    r.collapsedDefault = await page.evaluate(() => document.getElementById('s-panel-equipment').dataset.open === '0' &&
+        getComputedStyle(document.querySelector('.eq-body')).display === 'none');
+    r.count = await page.evaluate(() => document.querySelector('.eq-count').textContent);
+    await page.click('.eq-toggle');
+    /* тумблер «скрыть вмешательство скрипта» */
+    await page.click('.s-head-toggle');
+    r.offSaved = await page.evaluate(() => JSON.parse(localStorage.getItem('studio1826.v4.ui')).off === true &&
+        document.querySelector('.s-head-toggle').getAttribute('aria-pressed') === 'false');
+    await page.click('.s-head-toggle');
     r.tab = await page.evaluate(() => ({
         pressed: [...document.querySelectorAll('[data-eq-day]')].map(b => b.dataset.eqDay + ':' + b.getAttribute('aria-pressed')),
         status: document.querySelector('.eq-status').textContent,
@@ -121,7 +130,7 @@ const STUB = `(${function (fx) {
     await browser.close();
 
     const checks = [
-        r.view === 'home',
+        r.view === 'home', r.collapsedDefault, r.count === '2 поз.', r.offSaved,
         r.tab.pressed.join() === 'today:false,tomorrow:true',
         r.tab.halls.join() === 'Зал 75,Зал 105',
         r.tab.items.length === 2, r.tab.totals.length === 2,

@@ -186,3 +186,13 @@ test('planTomorrowTiles: плашка на зал утра — оставить,
 test('planTomorrowTiles: нет анализа — пустой план', () => {
     assert.deepEqual(m.planTomorrowTiles(null, null), { tiles: [], links: [] });
 });
+
+test('planTomorrowTiles: оборудование не к первой брони зала попадает на плашку как «к ЧЧ:ММ»', () => {
+    const records = m.recordsOfCategory(recordsFromFixture(fixture), 'P');
+    const plan = m.planTomorrowTiles(m.analyzeTomorrow([], []), records);
+
+    assert.deepEqual(plan.tiles.map(tile => [tile.hall, tile.start, tile.items.map(item => [item.kind, item.name, item.qty, item.at])]), [
+        ['Зал 100', 600, [['later', 'Фон холщовый короткий Желто-коричневый - Песочный', 1, 17 * 60]]]
+    ]);
+    assert.deepEqual(plan.links, []);
+});
