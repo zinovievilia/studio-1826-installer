@@ -63,3 +63,7 @@ Bitrix: значок 🎫 в ряду значков окна ввода отк�
 На странице посетителей Авангарда своя панель «Пропуска списком» (с/по). Чистые функции — `tests/passes.test.js`.
 Поля формы Авангарда (24.10.2026): даты «с/по» input[type=date], «ФИО *» одной строкой, телефон и номер авто необязательны;
 API api.avanguard.pro/api (`/account/<id>/guests`), напрямую не вызываем — только через интерфейс.
+API Авангарда (из бандла, 24.10.2026, без проверки запросом): база `https://api.avanguard.pro/api/`; создание — `POST guests`, тело формы
+(`accountId, name, phone?, carNumber, carRegion, dateStart, dateFinish`), ошибки приходят 200 с `error/errorDescription`;
+список — `GET guests?accountId&dateStart&dateFinish&search&…`. Авторизация не изучена: прямые запросы из Bitrix потребуют токен сессии
+Авангарда — решение за Ильёй (безопасность). Пока — фоновая вкладка `GM_openInTab({active:false})` + подмена `requestAnimationFrame` таймером.
