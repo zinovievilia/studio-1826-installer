@@ -64,6 +64,14 @@ const { chromium } = require('playwright');
     await page2.evaluate(() => document.querySelector('.s-debug-button').click());
     await page2.waitForTimeout(3300);
     const debugStatus = await page2.evaluate(() => document.querySelector('#s-debug-status').textContent);
+    /* Регресс «панель пропала после действий с бронью»: карточки исчезают и возвращаются. */
+    const html = await frame.evaluate(() => document.querySelector('.deal-item-contaner').outerHTML);
+    await frame.evaluate(() => document.querySelector('.deal-item-contaner').remove());
+    await page2.waitForTimeout(1500);
+    const hiddenWhileMissing = await page2.evaluate(() => document.documentElement.classList.contains('s26-overlay-open'));
+    await frame.evaluate(h => document.body.insertAdjacentHTML('beforeend', h), html);
+    await page2.waitForTimeout(9000);
+    const visibleAgain = await page2.evaluate(() => !document.documentElement.classList.contains('s26-overlay-open'));
     await browser.close();
 
     const ok = result &&
@@ -75,9 +83,10 @@ const { chromium } = require('playwright');
         /₽/.test(result.collapsedTitle) &&
         errors.length === 0 &&
         errors2.length === 0 &&
+        hiddenWhileMissing && visibleAgain &&
         /Готово/.test(debugStatus) && !/не ответил/.test(debugStatus);
 
-    console.log(JSON.stringify({ result, errors, errors2, debugStatus }, null, 1));
+    console.log(JSON.stringify({ result, errors, errors2, debugStatus, hiddenWhileMissing, visibleAgain }, null, 1));
     if (!ok) { console.error('SMOKE FAILED'); process.exit(1); }
     console.log('SMOKE OK');
 })().catch(e => { console.error(e); process.exit(1); });

@@ -3726,6 +3726,11 @@
         let lightSetupEnabled = true;
         let collapsed = true;
         let cardsMissing = false;
+        let cardsMissingSince = 0;
+        let styleNode = null;
+        let widgetNode = null;
+        let toastNode = null;
+        let dialogNode = null;
         let toastTimer = null;
         let toastFadeTimer = null;
         let closeDayDialog = () => {};
@@ -3898,8 +3903,10 @@
         function injectStyle() {
             if (document.getElementById(STYLE_ID)) return;
 
+
             const node = document.createElement('style');
             node.id = STYLE_ID;
+            styleNode = node;
 
             node.textContent = [
                 STYLES.widget,
@@ -3929,10 +3936,23 @@
         const SIDE_PANEL_SELECTOR = '#a11y-slider-container .side-panel.side-panel-container';
         let sidePanelWasOpen = false;
 
-        function sidePanelOpen() {
-            const node = document.querySelector(SIDE_PANEL_SELECTOR);
+        /* Элемент реально виден: есть размеры, не visibility:hidden и не прозрачный.
+         * Раньше хватало getClientRects(), и скрытая, но не удалённая панель Bitrix
+         * навсегда прятала наш интерфейс. */
+        function reallyVisible(node) {
+            if (!node || node.getClientRects().length === 0) return false;
 
-            return !!node && node.getClientRects().length > 0;
+            const rect = node.getBoundingClientRect();
+
+            if (rect.width < 2 || rect.height < 2) return false;
+
+            const style = getComputedStyle(node);
+
+            return style.visibility !== 'hidden' && style.display !== 'none' && Number(style.opacity) > 0.05;
+        }
+
+        function sidePanelOpen() {
+            return reallyVisible(document.querySelector(SIDE_PANEL_SELECTOR));
         }
 
         /* Окно чата Bitrix (мессенджер поверх страницы). */
@@ -3952,15 +3972,38 @@
 
                 const rect = node.getBoundingClientRect();
 
-                return rect.width > 120 && rect.height > 120;
+                return rect.width > 120 && rect.height > 120 && reallyVisible(node);
             });
         }
 
         /* Пока открыта бронь или чат — наши кнопки и окна полностью скрыты. */
-        function updateOverlayVisibility() {
-            const hide = cardsMissing || sidePanelOpen() || chatOpen();
+        function ensureAttached() {
+            /* Bitrix может перерисовать <body>/<head> и унести наши узлы — возвращаем их. */
+            if (styleNode && !styleNode.isConnected) document.head.appendChild(styleNode);
 
-            document.documentElement.classList.toggle('s26-overlay-open', hide);
+            [widgetNode, toastNode, dialogNode].forEach(node => {
+                if (node && !node.isConnected && document.body) document.body.appendChild(node);
+            });
+        }
+
+        function overlayReasons() {
+            return { cardsMissing, sidePanel: sidePanelOpen(), chat: chatOpen() };
+        }
+
+        function updateOverlayVisibility() {
+            ensureAttached();
+
+            const reasons = overlayReasons();
+
+            /* Предохранитель: «карточек нет» без открытой панели/чата дольше 6 с — это
+             * не открытая бронь, а потерянные данные. Снимаем флаг и просим данные заново. */
+            if (cardsMissing && !reasons.sidePanel && !reasons.chat && Date.now() - cardsMissingSince > 6000) {
+                cardsMissing = false;
+                reasons.cardsMissing = false;
+                requestData(true);
+            }
+
+            document.documentElement.classList.toggle('s26-overlay-open', reasons.cardsMissing || reasons.sidePanel || reasons.chat);
         }
 
         function resetWidgetPosition(root) {
@@ -4309,6 +4352,7 @@
             ]));
 
             document.body.appendChild(dialog);
+            dialogNode = dialog;
 
             const result = dialog.querySelector('.dd-result');
 
@@ -4915,12 +4959,14 @@
             resetWidgetPosition(root);
 
             document.body.appendChild(root);
+            widgetNode = root;
 
             const toast = document.createElement('div');
             toast.id = TOAST_ID;
             toast.setAttribute('role', 'status');
             toast.setAttribute('aria-live', 'polite');
             document.body.appendChild(toast);
+            toastNode = toast;
 
             root.querySelectorAll('[data-admin]').forEach(button => {
                 button.addEventListener('click', () => {
@@ -5164,6 +5210,7 @@
             if (nextRecords.length === 0 && records.length > 0) {
                 if (!cardsMissing) {
                     cardsMissing = true;
+                    cardsMissingSince = Date.now();
 
                     /* Бронь открыта: наши кнопки и окна прячем, вернутся после выхода. */
                     updateOverlayVisibility();
@@ -5256,6 +5303,8 @@
                     selectedDate,
                     healthNote,
                     collapsed,
+                    overlay: overlayReasons(),
+                    widgetConnected: !!widgetNode && widgetNode.isConnected,
                     iframes: [...document.querySelectorAll('iframe')].slice(0, 10).map(frame => {
                         try {
                             const url = new URL(frame.src, location.href);
@@ -5300,7 +5349,7 @@
         }
 
         requestData(true);
-        setInterval(() => requestData(records.length === 0), 3000);
+        setInterval(() => requestData(records.length === 0 || cardsMissing), 3000);
 
         /* Р-6: при возврате на вкладку iframe мог работать со старыми
          * settings до следующего тика setInterval(3000). Немедленно
