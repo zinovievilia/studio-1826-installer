@@ -164,6 +164,8 @@
 
   /** Панель: список ФИО + даты + кнопка. `single` — одна дата вместо «с/по». */
   function buildPanel({ id, toggleText, position, single, defaultDate, onStart }) {
+    // Две копии скрипта (старая и новая под другим именем) не должны рисовать две панели
+    if (document.getElementById(id)) return null;
     // Без toggleText плавающей кнопки нет — панель открывают снаружи (ui.openAt)
     const toggle = toggleText ? document.createElement('button') : null;
     if (toggle) {
@@ -178,7 +180,7 @@
     panel.id = id;
     Object.assign(panel.style, position.panel);
     panel.innerHTML = `
-      <h3><span>Оформить пропуска</span><button class="close" title="Свернуть">✕</button></h3>
+      <h3><span>Оформить пропуск · v${VERSION}</span><button class="close" title="Свернуть">✕</button></h3>
       <div class="hint">ФИО — по одному на строку. Нумерация, запятые и пустые строки уберутся сами.</div>
       <textarea placeholder="Воронцова Лилия Эдуардовна&#10;Хван Валерия Алексеевна"></textarea>
       <div class="row">
@@ -469,9 +471,9 @@
         const icon = document.createElement('button');
         icon.type = 'button';
         icon.className = 's1826p-btn';
-        icon.title = 'Оформить пропуска в Авангарде списком';
+        icon.title = `Оформить пропуска в Авангарде списком (v${VERSION})`;
         icon.textContent = '🎫 Оформить пропуск';
-        icon.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); panel().openAt(icon); });
+        icon.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); const p = panel(); if (p) p.openAt(icon); });
         wrap.appendChild(icon);
         row.appendChild(wrap);
       }
