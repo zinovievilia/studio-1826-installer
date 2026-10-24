@@ -16,10 +16,15 @@ enum QuickReplySettings {
 
     static var canPaste: Bool { AXIsProcessTrusted() }
 
-    /// Показывает системный запрос и открывает нужный раздел настроек.
+    /// Системный запрос macOS появляется только один раз на сборку и может спрятаться за панелью,
+    /// поэтому сразу открываем Системные настройки → Универсальный доступ, а панель убираем с дороги.
     static func requestPastePermission() {
         let key = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
         _ = AXIsProcessTrustedWithOptions([key: true] as CFDictionary)
+        NSApp.windows.filter { $0 is QuickReplyPanel }.forEach { $0.orderOut(nil) }
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     /// ⌘V в активное приложение.
