@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v5.5.2 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v5.6.0 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      5.5.2
+// @version      5.6.0
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '5.5.2';
+    const VERSION = '5.6.0';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -172,9 +172,9 @@
                 outline-offset: -2px;
                 box-shadow: inset 6px 0 0 var(--s26-k) !important;
             }
-            .deal-item-contaner.s26-k-eq { --s26-k: #2563eb; }
-            .deal-item-contaner.s26-k-frame { --s26-k: #f59e0b; }
-            .deal-item-contaner.s26-k-bg { --s26-k: #dc2626; }
+            .deal-item-contaner.s26-k-eq { --s26-k: var(--s26-kEq, #2563eb); }
+            .deal-item-contaner.s26-k-frame { --s26-k: var(--s26-kFrame, #f59e0b); }
+            .deal-item-contaner.s26-k-bg { --s26-k: var(--s26-kBg, #dc2626); }
             .deal-item-contaner.s26-k-eq .reserve-content-box,
             .deal-item-contaner.s26-k-frame .reserve-content-box,
             .deal-item-contaner.s26-k-bg .reserve-content-box { padding-left: 6px; }
@@ -1501,6 +1501,57 @@
             #${SETTINGS_ID} .st-content > details.st-group > summary { display: none; }
             #${SETTINGS_ID} .st-content > details.st-group > .st-group-body { padding: 0; }
             #${SETTINGS_ID} .st-content [hidden] { display: none !important; }
+            /* 5.6.0: строка функции — переключатель, 🎨 и «?». */
+            #${SETTINGS_ID} .st-row { display: flex; align-items: center; gap: 6px; margin: 8px 0; }
+            #${SETTINGS_ID} .st-row > .st-check { flex: 1 1 auto; margin: 0; }
+            #${SETTINGS_ID} .st-colors-link {
+                flex: none;
+                width: 30px;
+                height: 30px;
+                padding: 0;
+                border: 1px solid #ffffff24;
+                border-radius: 7px;
+                background: none;
+                font-size: 14px;
+                cursor: pointer;
+            }
+            #${SETTINGS_ID} .st-hint {
+                position: relative;
+                flex: none;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 20px;
+                height: 20px;
+                border-radius: 50%;
+                background: #ffffff1f;
+                font-size: 12px;
+                font-weight: 700;
+                cursor: help;
+                outline: none;
+            }
+            #${SETTINGS_ID} .st-hint:hover::after,
+            #${SETTINGS_ID} .st-hint:focus::after {
+                content: attr(data-hint);
+                position: absolute;
+                right: 0;
+                top: calc(100% + 6px);
+                z-index: 5;
+                width: 240px;
+                padding: 8px 10px;
+                border-radius: 8px;
+                background: #1f2933;
+                color: #fff;
+                font-size: 12px;
+                font-weight: 400;
+                line-height: 1.4;
+                box-shadow: 0 6px 20px #0000004d;
+                white-space: normal;
+            }
+            #${SETTINGS_ID} .st-flash { animation: st-flash 1.6s ease; border-radius: 6px; }
+            @keyframes st-flash { 0%, 60% { background: #fde68a; } 100% { background: transparent; } }
+            #${WIDGET_ID}[data-skin="light"] #${SETTINGS_ID} .st-hint { background: #eef1f4; color: #4b5560; }
+            #${WIDGET_ID}[data-skin="light"] #${SETTINGS_ID} .st-colors-link { border-color: #d5dae0; }
 
             /* 5.2.0: диалог «Не разбирать на завтра» и подсказки в светлом оформлении. */
             #${DAY_DIALOG_ID}[data-skin="light"] {
@@ -2067,7 +2118,9 @@
 
     /* Цвета меток: обводка, «Пересменки», последние брони дня. */
     const MARK_COLORS = [
-        { id: 'border', name: 'Обводка (фон, оборудование)', color: '#000000' },
+        { id: 'kEq', name: 'Обводка: оборудование', color: '#2563eb' },
+        { id: 'kFrame', name: 'Обводка: рама', color: '#f59e0b' },
+        { id: 'kBg', name: 'Обводка: фон', color: '#dc2626' },
         { id: 'handoff', name: 'Пересменки', color: '#800020' },
         { id: 'last', name: 'Последние брони дня', color: '#2563eb' },
         { id: 'arrow', name: 'Стрелки переноса оборудования', color: '#e11d48' },
@@ -2082,12 +2135,17 @@
 
     const STAGE_BY_RGB = new Map(STAGES.map(stage => [hexToRgbKey(stage.color), stage.id]));
 
-    function sanitizeFeatures(raw) {
+    /*
+     * 5.6.0: для нового пользователя все функции выключены (настраивает с нуля). Сохранённые значения
+     * не меняются никогда; для давнего пользователя недостающие ключи берутся по-старому (включены),
+     * чтобы обновление ничего у него не выключило.
+     */
+    function sanitizeFeatures(raw, legacyDefault = false) {
         const source = raw && typeof raw === 'object' ? raw : {};
         const result = {};
 
         FEATURE_KEYS.forEach(key => {
-            result[key] = typeof source[key] === 'boolean' ? source[key] : true;
+            result[key] = typeof source[key] === 'boolean' ? source[key] : legacyDefault;
         });
 
         result.colors = {};
@@ -2127,9 +2185,21 @@
         }
     }
 
+    /* Давний пользователь: в этом браузере уже есть настройки скрипта. */
+    function isLegacyUser() {
+        try {
+            return ['studio1826.v32.features', 'studio1826.v3.settings', 'studio1826.v4.ui']
+                .some(key => localStorage.getItem(key) !== null);
+        } catch (_) {
+            return false;
+        }
+    }
+
     function loadFeatures() {
         try {
-            return sanitizeFeatures(JSON.parse(localStorage.getItem(FEATURES_KEY) || '{}'));
+            const stored = localStorage.getItem(FEATURES_KEY);
+
+            return sanitizeFeatures(JSON.parse(stored || '{}'), stored !== null || isLegacyUser());
         } catch (_) {
             return sanitizeFeatures({});
         }
@@ -5562,9 +5632,47 @@
                 stripes: 'Завершённые брони — диагональные полоски'
             };
 
-            const featureCheck = key => el('label', { className: 'st-check' }, [
-                el('input', { type: 'checkbox', 'data-feature': key }),
-                el('span', {}, [FEATURE_LABELS[key]])
+            /* 5.6.0: подсказка «?» у каждой функции и кнопка 🎨 к её цветам (если цвета есть). */
+            const FEATURE_HINTS = {
+                compactCards: 'Карточка брони короче: вместо длинного текста — метки «Фон», «Оборуд. N», «РАМА»; имя клиента жирным, если есть фон или оборудование.',
+                fonHighlight: 'В окне «Информация о бронировании» (при наведении на бронь) фон выделяется красным, чтобы его не пропустить.',
+                copyButton: 'На брони с оборудованием появляется кнопка ⧉: копирует зал и список «1 шт. | название» для чата.',
+                hoverFocus: 'При наведении на бронь остальные брони бледнеют, а её стрелки подсвечиваются.',
+                borders: 'Брони с оборудованием, рамой или фоном — в цветной рамке с полосой слева, видно издалека. Цвета — кнопкой 🎨.',
+                handoff: 'Полоска на стыке броней одного зала без перерыва — время пересменки.',
+                stripes: 'Завершённые брони заштрихованы диагональными полосками, чтобы отличать их от предстоящих.',
+                reuse: 'На брони подписывается, какое оборудование не разбирать, потому что оно нужно следующей брони, и откуда оно придёт.',
+                aliases: 'К названиям оборудования добавляются привычные подписи: бум, роллер и т. п.',
+                arrows: 'Стрелки между бронями, по которым оборудование переезжает из зала в зал в течение дня.',
+                moveArrows: 'Плашки «ЗАВТРА» в свободном времени залов, где к первой брони следующего дня нужно оборудование, и стрелки, откуда его взять. Цвет синих стрелок — кнопкой 🎨.'
+            };
+            const FEATURE_COLORS = {
+                borders: ['kEq', 'kFrame', 'kBg'],
+                handoff: ['handoff'],
+                stripes: ['done'],
+                arrows: ['arrow'],
+                moveArrows: ['moveArrow']
+            };
+
+            const hintNode = text => el('span', { className: 'st-hint', tabindex: '0', role: 'note', 'aria-label': text, 'data-hint': text }, ['?']);
+
+            const colorButton = ids => {
+                const button = el('button', { type: 'button', className: 'st-colors-link', title: 'Настроить цвета', 'aria-label': 'Настроить цвета' }, ['🎨']);
+
+                button.addEventListener('click', () => {
+                    panel.dispatchEvent(new CustomEvent('st-show-colors', { detail: ids }));
+                });
+
+                return button;
+            };
+
+            const featureCheck = key => el('div', { className: 'st-row' }, [
+                el('label', { className: 'st-check' }, [
+                    el('input', { type: 'checkbox', 'data-feature': key }),
+                    el('span', {}, [FEATURE_LABELS[key]])
+                ]),
+                FEATURE_COLORS[key] ? colorButton(FEATURE_COLORS[key]) : null,
+                hintNode(FEATURE_HINTS[key] || '')
             ]);
 
             /* Карточки брони: визуальное отображение и подсветка. */
@@ -5597,9 +5705,12 @@
                 REUSE_KEYS.map(featureCheck));
 
             group('Интерфейс Bitrix24', 2, [
-                el('label', { className: 'st-check' }, [
-                    el('input', { type: 'checkbox', 'data-theme-hide': '1' }),
-                    el('span', {}, ['Скрывать лишнее (Маркет, Copilot, футер…)'])
+                el('div', { className: 'st-row' }, [
+                    el('label', { className: 'st-check' }, [
+                        el('input', { type: 'checkbox', 'data-theme-hide': '1' }),
+                        el('span', {}, ['Скрывать лишнее (Маркет, Copilot, футер…)'])
+                    ]),
+                    hintNode('Скрывает в Bitrix24 Маркет, Copilot, кнопки «Пригласить», «Мой тариф», «Помощь», значок ассистента, футер и список чатов справа.')
                 ]),
                 el('label', { className: 'st-color' }, [
                     el('span', {}, ['Основной цвет']),
@@ -6577,6 +6688,27 @@
                     button.setAttribute('aria-selected', String(i === target));
                 });
             };
+
+            /* Кнопка 🎨 у функции: открыть раздел с её цветами и подсветить их. */
+            panel.addEventListener('st-show-colors', event => {
+                const ids = event.detail || [];
+                const index = groups.findIndex(group => ids.some(id => group.querySelector(`[data-stage="${id}"]`)));
+
+                if (index < 0) return;
+
+                show(index);
+                writeUi({ settingsGroup: index });
+                ids.forEach(id => {
+                    const row = groups[index].querySelector(`[data-stage="${id}"]`)?.closest('.st-color');
+
+                    if (!row) return;
+
+                    row.classList.remove('st-flash');
+                    void row.offsetWidth;
+                    row.classList.add('st-flash');
+                });
+                groups[index].querySelector('.st-flash')?.scrollIntoView({ block: 'nearest' });
+            });
 
             nav.addEventListener('click', event => {
                 const button = event.target.closest('.st-nav-item');
@@ -7575,11 +7707,16 @@
                 }
             }
 
+            /* 5.6.0: у нового пользователя «Скрывать лишнее» выключено; давнему сохраняем прежнее (включено). */
             function getSavedHideState() {
                 try {
-                    return localStorage.getItem(STORAGE_HIDE) !== 'false';
+                    const value = localStorage.getItem(STORAGE_HIDE);
+
+                    if (value === null) return isLegacyUser();
+
+                    return value !== 'false';
                 } catch {
-                    return true;
+                    return false;
                 }
             }
 
