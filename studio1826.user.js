@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v4.7.1 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v5.0.0 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      4.7.1
+// @version      5.0.0
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '4.7.1';
+    const VERSION = '5.0.0';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -727,6 +727,61 @@
                 line-height: 1;
                 text-align: center;
             }
+            /* 5.0.0: вкладка «Оборудование» и ссылка в Обзоре. */
+            #${WIDGET_ID} .eq-status { margin: 10px 0 8px; }
+            #${WIDGET_ID} .eq-status.eq-warn { color: #f0b429; }
+            #${WIDGET_ID} .eq-hall {
+                margin: 14px 0 5px;
+                color: #aaa;
+                font-size: 10px;
+                font-weight: 750;
+                letter-spacing: .06em;
+                text-transform: uppercase;
+            }
+            #${WIDGET_ID} .eq-item {
+                margin: 5px 0;
+                border: 1px solid #3a3a3a;
+                border-radius: 7px;
+                background: #161616;
+            }
+            #${WIDGET_ID} .eq-item > summary,
+            #${WIDGET_ID} .eq-total {
+                display: flex;
+                justify-content: space-between;
+                gap: 10px;
+                padding: 8px 10px;
+                color: #ddd;
+                list-style: none;
+                cursor: pointer;
+            }
+            #${WIDGET_ID} .eq-total { cursor: default; padding: 5px 2px; border-bottom: 1px solid #333; }
+            #${WIDGET_ID} .eq-item > summary::-webkit-details-marker { display: none; }
+            #${WIDGET_ID} .eq-item > summary > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+            #${WIDGET_ID} .eq-qty { flex: none; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+            #${WIDGET_ID} .eq-src { padding: 0 10px 8px; color: #999; font-size: 11px; }
+            #${WIDGET_ID} .eq-src a { color: inherit; text-decoration: underline; }
+            #${WIDGET_ID} .eq-note { margin-top: 10px; }
+            #${WIDGET_ID} .eq-actions { display: flex; gap: 8px; margin-top: 12px; }
+            #${WIDGET_ID} .eq-actions .da-btn { flex: 1; text-align: center; }
+            #${WIDGET_ID} .eq-actions .da-btn:disabled { opacity: .5; cursor: default; }
+            #${WIDGET_ID} .s-link {
+                display: block;
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                border: 0;
+                background: none;
+                color: inherit;
+                font: inherit;
+                text-align: left;
+                text-decoration: underline;
+                text-decoration-color: #8888;
+                text-underline-offset: 2px;
+                cursor: pointer;
+            }
+            #${WIDGET_ID} .s-tabs button { flex: 1 1 auto; padding: 8px 6px; font-size: 11.5px; white-space: nowrap; }
+            #${WIDGET_ID}:not(.collapsed):not([data-mode="header"]) { width: 340px; }
+            #${DAY_DIALOG_ID} .dd-source { margin: 6px 0 0; font-size: 11px; color: #999; }
             /* 4.6.0: на низком окне шапка (перетаскивание и «свернуть») уезжала за экран,
              * и панель нельзя было ни свернуть, ни сдвинуть. Теперь высота ограничена окном,
              * шапка и подвал остаются на месте, прокручивается только тело. */
@@ -1165,6 +1220,13 @@
                 border-color: #cfd5db;
                 color: #4b5560;
             }
+            #${WIDGET_ID}[data-skin="light"] .eq-hall { color: #828b95; }
+            #${WIDGET_ID}[data-skin="light"] .eq-item { background: #f4f6f8; border-color: #e0e4e9; }
+            #${WIDGET_ID}[data-skin="light"] .eq-item > summary,
+            #${WIDGET_ID}[data-skin="light"] .eq-total { color: #4b5560; }
+            #${WIDGET_ID}[data-skin="light"] .eq-total { border-bottom-color: #e6e9ed; }
+            #${WIDGET_ID}[data-skin="light"] .eq-src { color: #6a737f; }
+            #${WIDGET_ID}[data-skin="light"] .eq-status.eq-warn { color: #b5651d; }
             #${WIDGET_ID}[data-skin="light"] .st-actions button:not(.st-reset) {
                 background: var(--s-accent);
                 border-color: var(--s-accent);
@@ -1191,7 +1253,7 @@
                 left: auto;
                 bottom: auto;
                 z-index: 1000;
-                width: 360px;
+                width: 380px;
                 max-width: calc(100vw - 24px);
                 transform: none;
                 border-radius: 12px;
@@ -2312,6 +2374,241 @@
     /* =========================================================
      * ЧАСТЬ 1. КАРТОЧКИ БРОНИРОВАНИЯ (iframe)
      * ========================================================= */
+    /* =========================================================
+     * ДАННЫЕ ДНЯ ИЗ BITRIX24 (5.0.0)
+     * Брони и их товарные строки читаются напрямую из CRM (REST по сессии
+     * пользователя, только чтение), без открытия календаря и копирования.
+     * Формат записей тот же, что у сборщика календаря: { hall, start, end, items },
+     * поэтому buildDayList / analyzeTomorrow / computePayout работают без изменений.
+     * ========================================================= */
+    const DEAL_PAGE = 50;
+    const MAX_DEALS = 500;
+    const HALL_ROW_RE = /^(?:Зал|Гримерное место)\s+\d+/i;
+    const MOSCOW_TZ = 'Europe/Moscow';
+
+    /* Календарный день по Москве (ГГГГ-ММ-ДД), со сдвигом в днях. Часовой пояс компьютера не используется. */
+    function moscowDay(offsetDays = 0, now = new Date()) {
+        const text = new Intl.DateTimeFormat('en-CA', {
+            timeZone: MOSCOW_TZ, year: 'numeric', month: '2-digit', day: '2-digit'
+        }).format(now);
+        const [year, month, day] = text.split('-').map(Number);
+
+        return new Date(Date.UTC(year, month - 1, day + offsetDays)).toISOString().slice(0, 10);
+    }
+
+    /* Границы суток по Москве (UTC+3 круглый год) для фильтра CRM: [from, to). */
+    function dayBounds(day) {
+        const next = new Date(Date.parse(`${day}T00:00:00Z`) + 86400000).toISOString().slice(0, 10);
+
+        return { from: `${day}T00:00:00+03:00`, to: `${next}T00:00:00+03:00` };
+    }
+
+    /* Дата и минуты от начала суток по Москве из строки CRM; null, если строка не разбирается. */
+    function moscowParts(iso) {
+        const time = Date.parse(iso);
+
+        if (!Number.isFinite(time)) return null;
+
+        const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+            timeZone: MOSCOW_TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+        }).formatToParts(new Date(time)).map(part => [part.type, part.value]));
+
+        return {
+            day: `${parts.year}-${parts.month}-${parts.day}`,
+            minutes: Number(parts.hour) * 60 + Number(parts.minute)
+        };
+    }
+
+    /*
+     * Сделка + её товарные строки → запись брони. Зал берётся из строки «Зал N (С/П)» или
+     * «Гримерное место N (С/П)». Нет такой строки — null (такие брони считаются отдельно в «Контроле»).
+     * Количество в тексте позиции — как у карточки календаря: «название - N шт.».
+     */
+    function dealToRecord(deal, rows) {
+        const list = Array.isArray(rows) ? rows : [];
+        const hallRow = list.find(row => HALL_ROW_RE.test(String(row.PRODUCT_NAME || '')));
+
+        if (!hallRow) return null;
+
+        const start = moscowParts(deal.UF_CRM_DATETIME_START);
+        const end = moscowParts(deal.UF_CRM_DATETIME_END);
+
+        return {
+            id: String(deal.ID),
+            hall: String(hallRow.PRODUCT_NAME).trim(),
+            start: start ? start.minutes : null,
+            end: end ? end.minutes : null,
+            stage: deal.STAGE_ID || '',
+            items: list
+                .filter(row => row && row.PRODUCT_NAME)
+                .map(row => `${String(row.PRODUCT_NAME).trim()} - ${formatQuantity(Number(row.QUANTITY) || 0)} шт.`)
+        };
+    }
+
+    /* Брони, не относящиеся к филиалу (по суффиксу зала), отбрасываются; category — 'C' или 'P'. */
+    function recordsOfCategory(records, category) {
+        return (records || []).filter(record => categoryFromHall(record.hall) === category);
+    }
+
+    /* Оборудование одной брони: ключ → { name, qty } (повторы внутри брони суммируются). */
+    function recordEquipment(record) {
+        const map = new Map();
+
+        (record.items || []).forEach(item => {
+            const match = findEquipment(item);
+
+            if (!match) return;
+
+            const current = map.get(match.key);
+            const qty = quantity(item);
+
+            if (current) current.qty += qty;
+            else map.set(match.key, { name: match.name, qty });
+        });
+
+        return map;
+    }
+
+    /*
+     * Сводка оборудования дня: по залам (те же правила, что у buildDayList: внутри зала берётся максимум,
+     * звёздочка у позиций первой брони зала) и итог по студии (сумма по залам). У каждой позиции — список
+     * броней-источников для ручной проверки.
+     */
+    function summarizeEquipment(records) {
+        const day = buildDayList(records);
+        const totals = new Map();
+        const halls = day.blocks.map(block => {
+            const hallRecords = (records || []).filter(record => (hallLabel(record.hall) || 'Зал не определён') === block.label);
+            const items = block.items.map(item => {
+                const sources = [];
+
+                hallRecords.forEach(record => {
+                    recordEquipment(record).forEach(value => {
+                        if (value.name === item.name) {
+                            sources.push({ id: record.id || '', start: record.start, end: record.end, qty: value.qty });
+                        }
+                    });
+                });
+
+                sources.sort((a, b) => (a.start ?? 1e9) - (b.start ?? 1e9));
+
+                const total = totals.get(item.name) || { name: item.name, qty: 0, halls: 0 };
+
+                total.qty += item.qty;
+                total.halls += 1;
+                totals.set(item.name, total);
+
+                return { ...item, sources };
+            });
+
+            return { label: block.label, items };
+        });
+
+        return {
+            halls,
+            totals: [...totals.values()].sort((a, b) => a.name.localeCompare(b.name, 'ru')),
+            unknownHalls: day.unknownHalls,
+            starCount: day.starCount,
+            text: day.text
+        };
+    }
+
+    /* Вызов REST Bitrix24 через штатный BX.rest (сессия пользователя). */
+    function restCall(method, params) {
+        return new Promise((resolve, reject) => {
+            const bx = typeof window !== 'undefined' ? window.BX : null;
+
+            if (!bx || !bx.rest || typeof bx.rest.callMethod !== 'function') {
+                reject(new Error('REST Bitrix24 недоступен на этой странице'));
+                return;
+            }
+
+            try {
+                bx.rest.callMethod(method, params, result => {
+                    const error = result && result.error && result.error();
+
+                    if (error) reject(new Error(error.error_description || error.error || 'ошибка REST'));
+                    else resolve(result);
+                });
+            } catch (error) {
+                reject(error);
+            }
+        });
+    }
+
+    function restBatch(commands) {
+        return new Promise((resolve, reject) => {
+            const bx = typeof window !== 'undefined' ? window.BX : null;
+
+            if (!bx || !bx.rest || typeof bx.rest.callBatch !== 'function') {
+                reject(new Error('REST Bitrix24 недоступен на этой странице'));
+                return;
+            }
+
+            try {
+                bx.rest.callBatch(commands, result => resolve(result));
+            } catch (error) {
+                reject(error);
+            }
+        });
+    }
+
+    /*
+     * Брони дня из CRM. Только чтение: crm.deal.list и crm.deal.productrows.get.
+     * Отменённые (семантика стадии F) исключаются и считаются. Любой сбой — исключение
+     * (неполные данные не отдаём как полные).
+     */
+    async function fetchDayRecords(day) {
+        const { from, to } = dayBounds(day);
+        const filter = { '>=UF_CRM_DATETIME_START': from, '<UF_CRM_DATETIME_START': to };
+        const select = ['ID', 'STAGE_ID', 'STAGE_SEMANTIC_ID', 'UF_CRM_DATETIME_START', 'UF_CRM_DATETIME_END'];
+        const deals = [];
+
+        for (let start = 0; ; start += DEAL_PAGE) {
+            if (start >= MAX_DEALS) throw new Error(`за день больше ${MAX_DEALS} броней`);
+
+            const result = await restCall('crm.deal.list', { order: { ID: 'ASC' }, filter, select, start });
+            const page = result.data() || [];
+
+            deals.push(...page);
+
+            if (page.length < DEAL_PAGE) break;
+        }
+
+        const active = deals.filter(deal => deal.STAGE_SEMANTIC_ID !== 'F');
+        const rowsById = new Map();
+
+        for (let index = 0; index < active.length; index += DEAL_PAGE) {
+            const chunk = active.slice(index, index + DEAL_PAGE);
+            const commands = {};
+
+            chunk.forEach(deal => { commands[`d${deal.ID}`] = ['crm.deal.productrows.get', { id: deal.ID }]; });
+
+            const answers = await restBatch(commands);
+
+            chunk.forEach(deal => {
+                const answer = answers && answers[`d${deal.ID}`];
+
+                if (!answer || (answer.error && answer.error())) throw new Error(`не загрузились товары брони ${deal.ID}`);
+
+                rowsById.set(String(deal.ID), answer.data() || []);
+            });
+        }
+
+        const records = [];
+        let withoutHall = 0;
+
+        active.forEach(deal => {
+            const record = dealToRecord(deal, rowsById.get(String(deal.ID)));
+
+            if (record) records.push(record);
+            else withoutHall += 1;
+        });
+
+        return { records, total: deals.length, excluded: deals.length - active.length, withoutHall };
+    }
+
     function startCollector() {
         if (window.__studio1826CollectorV3) return;
         trackErrors();
@@ -3926,6 +4223,66 @@
         let closeDayDialog = () => {};
         let activateTab = () => {};
         let fillSettingsControls = () => {};
+
+        /*
+         * Данные дней из CRM (5.0.0). Кэш по дате (по Москве); запрос не чаще раза в минуту,
+         * один запрос на дату одновременно. Ошибка сохраняется в записи, прежние данные
+         * при ошибке не выдаются за актуальные (интерфейс помечает их устаревшими).
+         */
+        const DAY_TTL_MS = 60000;
+        const DAY_STALE_MS = 5 * 60000;
+        const dayStore = new Map();
+        let eqDay = 'tomorrow';
+        let activeTab = 'overview';
+        let renderEquipment = () => {};
+        let eqRenderedCategory = null;
+        const refreshOverviewLine = () => {
+            if (document.getElementById(WIDGET_ID)) update();
+        };
+
+        const dayIso = which => moscowDay(which === 'tomorrow' ? 1 : 0);
+        const dayLabel = iso => iso.slice(8, 10) + '.' + iso.slice(5, 7);
+        const clockOf = time => new Intl.DateTimeFormat('ru-RU', {
+            timeZone: MOSCOW_TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+        }).format(new Date(time));
+
+        function notifyDays() {
+            renderEquipment();
+            refreshOverviewLine();
+        }
+
+        function loadDay(iso, force = false) {
+            const current = dayStore.get(iso);
+
+            if (current && current.promise) return current.promise;
+
+            if (!force && current && current.fetchedAt && !current.error && Date.now() - current.fetchedAt < DAY_TTL_MS) {
+                return Promise.resolve(current);
+            }
+
+            const entry = current || {};
+
+            entry.loading = true;
+            dayStore.set(iso, entry);
+
+            entry.promise = fetchDayRecords(iso)
+                .then(result => {
+                    Object.assign(entry, result, { fetchedAt: Date.now(), error: null });
+                })
+                .catch(error => {
+                    entry.error = String((error && error.message) || error).slice(0, 160);
+                })
+                .finally(() => {
+                    entry.loading = false;
+                    entry.promise = null;
+                    notifyDays();
+                })
+                .then(() => entry);
+
+            notifyDays();
+
+            return entry.promise;
+        }
         let markKeys = [];
         let moveLinks = [];
         let markSignature = '';
@@ -4177,6 +4534,33 @@
             root.style.maxHeight = `calc(100vh - ${top + 12}px)`;
         }
 
+        /* Строка «Оборудование на завтра» в Обзоре: кнопка открывает вкладку «Оборудование». */
+        function tomorrowLine() {
+            const entry = dayStore.get(dayIso('tomorrow'));
+            let text = 'Оборудование на завтра: загрузка…';
+
+            if (entry && entry.records) {
+                const summary = summarizeEquipment(recordsOfCategory(entry.records, category));
+                const count = summary.totals.length;
+
+                text = count
+                    ? `Оборудование на завтра: ${count} поз. в ${summary.halls.length} зал.${entry.error ? ' (устарело)' : ''}`
+                    : 'Оборудование на завтра: нет';
+            } else if (entry && entry.error) {
+                text = 'Оборудование на завтра: нет данных Bitrix24';
+            }
+
+            const button = el('button', { type: 'button', className: 's-link', title: 'Открыть вкладку «Оборудование»' }, [text]);
+
+            button.addEventListener('click', () => {
+                eqDay = 'tomorrow';
+                activateTab('equipment');
+                writeUi({ tab: 'equipment' });
+            });
+
+            return button;
+        }
+
         function resetWidgetPosition(root) {
             if (root.dataset.mode === 'header') {
                 positionPopup(root);
@@ -4281,6 +4665,8 @@
             const chip = document.getElementById(CHIP_ID);
 
             if (chip) chip.setAttribute('aria-expanded', String(!collapsed));
+
+            if (!collapsed) loadDay(dayIso(activeTab === 'equipment' ? eqDay : 'tomorrow'));
 
             const button = root.querySelector('.s-collapse');
 
@@ -4590,14 +4976,16 @@
 
             dialog.appendChild(el('div', { className: 'dd-cols' }, [
                 el('div', { className: 'dd-col dd-col-in' }, [
-                    el('div', { className: 'dd-label' }, ['Список за завтра (скопирован первой кнопкой на завтрашнем дне)']),
+                    el('div', { className: 'dd-label' }, ['Список за завтра (подставляется из Bitrix24, можно править)']),
                     el('textarea', {
                         className: 'dd-input',
                         spellcheck: 'false',
                         placeholder: 'Зал 75\nAputure 600d Pro *\nManfrotto 272b'
                     }),
+                    el('div', { className: 'dd-source s-muted', 'aria-live': 'polite' }),
                     el('div', { className: 'dd-actions' }, [
                         el('button', { type: 'button', className: 'dd-run' }, ['Посчитать']),
+                        el('button', { type: 'button', className: 'dd-load', title: 'Заново взять завтрашние брони из Bitrix24' }, ['Из Bitrix24']),
                         el('button', { type: 'button', className: 'dd-clear' }, ['Снять обводку'])
                     ])
                 ]),
@@ -4612,7 +5000,7 @@
                         }, ['Копировать'])
                     ]),
                     el('div', { className: 'dd-result' }, [
-                        el('div', { className: 'dd-empty' }, ['Откройте на странице сегодняшний день, вставьте список и нажмите «Посчитать».'])
+                        el('div', { className: 'dd-empty' }, ['Откройте на странице сегодняшний день: завтрашний список подставится из Bitrix24 сам. Затем нажмите «Посчитать».'])
                     ])
                 ])
             ]));
@@ -4757,6 +5145,46 @@
                 showCopyToast(day.text, ok, notes.join('\n'));
             });
 
+            /*
+             * Завтрашний список берётся из Bitrix24 (5.0.0): подставляется в поле и сразу считается.
+             * Текст, введённый вручную, не затирается, пока не нажата «Из Bitrix24». При сбое —
+             * понятное сообщение и прежний путь: вставить список, скопированный на завтрашнем дне.
+             */
+            const dialogInput = dialog.querySelector('.dd-input');
+            const dialogSource = dialog.querySelector('.dd-source');
+
+            dialogInput.addEventListener('input', () => { dialogInput.dataset.auto = ''; });
+
+            async function fillTomorrow(force) {
+                const iso = dayIso('tomorrow');
+
+                dialogSource.textContent = `Загружаю брони на ${dayLabel(iso)} из Bitrix24…`;
+
+                const entry = await loadDay(iso, force);
+
+                if (!entry || !entry.records) {
+                    dialogSource.textContent = `Не удалось загрузить завтра из Bitrix24 (${(entry && entry.error) || 'нет данных'}). Вставьте список вручную.`;
+                    return;
+                }
+
+                if (dialogInput.value.trim() && dialogInput.dataset.auto !== '1' && !force) {
+                    dialogSource.textContent = 'В поле ваш текст, из Bitrix24 он не заменён. Нажмите «Из Bitrix24», чтобы заменить.';
+                    return;
+                }
+
+                const day = buildDayList(recordsOfCategory(entry.records, category));
+
+                dialogInput.value = day.text;
+                dialogInput.dataset.auto = '1';
+                dialogSource.textContent = day.text
+                    ? `Завтра (${dayLabel(iso)}) из Bitrix24 в ${clockOf(entry.fetchedAt)}, можно править.`
+                    : `На ${dayLabel(iso)} в Bitrix24 нет броней с оборудованием.`;
+
+                if (day.text) dialog.querySelector('.dd-run').click();
+            }
+
+            dialog.querySelector('.dd-load').addEventListener('click', () => { fillTomorrow(true); });
+
             /* Кнопка 2: окно «не разбирать на завтра». */
             bar.querySelector('.da-plan').addEventListener('click', () => {
                 if (!dialog.hidden) {
@@ -4766,6 +5194,7 @@
 
                 dialog.hidden = false;
                 fitDialog();
+                fillTomorrow(false);
             });
 
             dialog.querySelector('.dd-close').addEventListener('click', () => {
@@ -5006,7 +5435,7 @@
                 lastSections = [];
 
                 if (!tomorrow.length) {
-                    addNote('Не удалось распознать список. Вставьте текст, скопированный первой кнопкой.', 'dd-warn');
+                    addNote('Не удалось распознать список. Нажмите «Из Bitrix24» или вставьте текст, скопированный на завтрашнем дне.', 'dd-warn');
                     return;
                 }
 
@@ -5044,6 +5473,155 @@
 
                 requestData();
             });
+        }
+
+        /* Вкладка «Оборудование»: итоги дня по залам и по студии, раскрытие броней-источников. */
+        function buildEquipmentPanel() {
+            const panel = el('div', { id: 's-panel-equipment', className: 's-panel', role: 'tabpanel', hidden: 'hidden' });
+            const switcher = el('div', { className: 's-switch eq-days', role: 'group', 'aria-label': 'День' }, [
+                el('button', { type: 'button', 'data-eq-day': 'today' }, ['Сегодня']),
+                el('button', { type: 'button', 'data-eq-day': 'tomorrow' }, ['Завтра'])
+            ]);
+            const status = el('div', { className: 's-muted eq-status', 'aria-live': 'polite' });
+            const body = el('div', { className: 'eq-body' });
+            const copyButton = el('button', { type: 'button', className: 'da-btn eq-copy' }, ['Скопировать список']);
+            const refreshButton = el('button', { type: 'button', className: 'da-btn eq-refresh' }, ['Обновить']);
+
+            panel.append(switcher, status, body, el('div', { className: 'eq-actions' }, [copyButton, refreshButton]));
+
+            const rangeText = source => (Number.isFinite(source.start) && Number.isFinite(source.end))
+                ? `${formatClock(source.start)}–${formatClock(source.end)}`
+                : 'время не указано';
+
+            let lastText = '';
+
+            renderEquipment = () => {
+                switcher.querySelectorAll('[data-eq-day]').forEach(button => {
+                    button.setAttribute('aria-pressed', String(button.dataset.eqDay === eqDay));
+                });
+
+                const iso = dayIso(eqDay);
+                const entry = dayStore.get(iso);
+                const branchName = category === 'P' ? 'Павелецкая' : 'Серпуховская';
+
+                const openKeys = new Set([...body.querySelectorAll('details[open]')].map(node => node.getAttribute('data-key')));
+
+                eqRenderedCategory = category;
+                body.replaceChildren();
+                status.classList.remove('eq-warn');
+                lastText = '';
+                copyButton.disabled = true;
+
+                if (!entry || (entry.loading && !entry.records)) {
+                    status.textContent = `Загружаю брони на ${dayLabel(iso)} из Bitrix24…`;
+                    return;
+                }
+
+                if (!entry.records) {
+                    status.classList.add('eq-warn');
+                    status.textContent = `Не удалось получить данные Bitrix24: ${entry.error || 'нет ответа'}. Нажмите «Обновить».`;
+                    return;
+                }
+
+                const stale = !!entry.error || Date.now() - entry.fetchedAt > DAY_STALE_MS;
+                const filtered = recordsOfCategory(entry.records, category);
+                const summary = summarizeEquipment(filtered);
+                const parts = [
+                    `${branchName} · ${dayLabel(iso)}`,
+                    `обновлено ${clockOf(entry.fetchedAt)}`,
+                    `броней ${filtered.length}`
+                ];
+
+                if (entry.excluded) parts.push(`отменённых не учтено ${entry.excluded} (все филиалы)`);
+                if (entry.withoutHall) parts.push(`без зала ${entry.withoutHall}`);
+                if (entry.loading) parts.push('обновляю…');
+
+                status.textContent = parts.join(' · ');
+
+                if (stale) {
+                    status.classList.add('eq-warn');
+                    status.textContent += entry.error
+                        ? ` · последнее обновление не удалось (${entry.error}), данные могли устареть`
+                        : ' · данные могли устареть, нажмите «Обновить»';
+                }
+
+                if (!summary.halls.length) {
+                    body.appendChild(el('div', { className: 's-muted eq-empty' }, [`На ${dayLabel(iso)} нет броней с оборудованием.`]));
+                    return;
+                }
+
+                lastText = summary.text;
+                copyButton.disabled = false;
+
+                summary.halls.forEach(hall => {
+                    body.appendChild(el('div', { className: 'eq-hall' }, [hall.label]));
+
+                    hall.items.forEach(item => {
+                        const line = `${item.name}${item.star ? ' *' : ''}`;
+                        const details = el('details', { className: 'eq-item', 'data-key': `${hall.label}|${item.name}` }, [
+                            el('summary', {}, [
+                                el('span', {}, [line]),
+                                el('span', { className: 'eq-qty' }, [qtyText(item.qty)])
+                            ])
+                        ]);
+
+                        if (openKeys.has(`${hall.label}|${item.name}`)) details.open = true;
+
+                        item.sources.forEach(source => {
+                            const row = el('div', { className: 'eq-src' }, [
+                                `${rangeText(source)} · ${qtyText(source.qty)} · `
+                            ]);
+
+                            if (source.id) {
+                                const link = el('a', {
+                                    href: `/crm/deal/details/${encodeURIComponent(source.id)}/`,
+                                    target: '_blank',
+                                    rel: 'noopener'
+                                }, [`бронь ${source.id}`]);
+
+                                row.appendChild(link);
+                            }
+
+                            details.appendChild(row);
+                        });
+
+                        body.appendChild(details);
+                    });
+                });
+
+                body.appendChild(el('div', { className: 'eq-hall' }, ['Всего по студии (сумма по залам)']));
+
+                summary.totals.forEach(total => {
+                    body.appendChild(el('div', { className: 'eq-total' }, [
+                        el('span', {}, [total.halls > 1 ? `${total.name} (залов: ${total.halls})` : total.name]),
+                        el('span', { className: 'eq-qty' }, [qtyText(total.qty)])
+                    ]));
+                });
+
+                body.appendChild(el('div', { className: 's-muted eq-note' }, [
+                    '* нужно к началу первой брони зала. Внутри зала оборудование между бронями переезжает (берётся максимум).'
+                ]));
+            };
+
+            switcher.querySelectorAll('[data-eq-day]').forEach(button => {
+                button.addEventListener('click', () => {
+                    eqDay = button.dataset.eqDay === 'today' ? 'today' : 'tomorrow';
+                    renderEquipment();
+                    loadDay(dayIso(eqDay));
+                });
+            });
+
+            refreshButton.addEventListener('click', () => loadDay(dayIso(eqDay), true));
+
+            copyButton.addEventListener('click', async () => {
+                if (!lastText) return;
+
+                const ok = await copyText(lastText);
+
+                showCopyToast(lastText, ok);
+            });
+
+            return panel;
         }
 
         /* Состояние интерфейса (вкладка, оформление) — один ключ, поля не затирают друг друга. */
@@ -5097,10 +5675,11 @@
             const TABS = [
                 ['overview', 'Обзор'],
                 ['payout', 'Выплаты'],
+                ['equipment', 'Оборудование'],
                 ['settings', 'Настройки']
             ];
 
-            const PANEL_IDS = { overview: 's-panel-overview', payout: 's-panel-payout', settings: SETTINGS_ID };
+            const PANEL_IDS = { overview: 's-panel-overview', payout: 's-panel-payout', equipment: 's-panel-equipment', settings: SETTINGS_ID };
 
             const tabs = el('div', { className: 's-tabs', role: 'tablist', 'aria-label': 'Разделы' },
                 TABS.map(([id, label]) => el('button', {
@@ -5192,7 +5771,9 @@
                 el('button', { type: 'button', className: 's-copy-button', title: 'Копировать расчёт' }, ['Копировать'])
             ]);
 
-            root.appendChild(el('div', { className: 's-body' }, [tabs, overview, payoutPanel, settingsPanel, summary]));
+            const equipmentPanel = buildEquipmentPanel();
+
+            root.appendChild(el('div', { className: 's-body' }, [tabs, overview, payoutPanel, equipmentPanel, settingsPanel, summary]));
 
             root.appendChild(el('div', { className: 's-footer' }, [
                 el('span', { className: 's-version' }, [
@@ -5209,11 +5790,18 @@
                     button.tabIndex = button.dataset.tab === target ? 0 : -1;
                 });
 
-                [['overview', overview], ['payout', payoutPanel], ['settings', settingsPanel]].forEach(([id, node]) => {
+                [['overview', overview], ['payout', payoutPanel], ['equipment', equipmentPanel], ['settings', settingsPanel]].forEach(([id, node]) => {
                     node.hidden = id !== target;
                 });
 
+                activeTab = target;
+
                 if (target === 'settings') fillSettingsControls();
+
+                if (target === 'equipment') {
+                    renderEquipment();
+                    loadDay(dayIso(eqDay));
+                }
             };
 
             const chooseTab = name => {
@@ -5270,6 +5858,13 @@
             });
 
             window.addEventListener('resize', () => ensureChip(root));
+
+            /* Автообновление данных дня: только пока окно открыто и вкладка браузера видна. */
+            setInterval(() => {
+                if (collapsed || document.hidden) return;
+
+                loadDay(dayIso(activeTab === 'equipment' ? eqDay : 'tomorrow'));
+            }, 120000);
 
             /* Календарь — iframe: клики внутри него до этого документа не доходят, зато окно теряет фокус. */
             window.addEventListener('blur', () => {
@@ -5472,11 +6067,15 @@
             const branchName = category === 'P' ? 'Павелецкая' : 'Серпуховская';
             const status = root.querySelector('#s-branch-status');
 
+            if (eqRenderedCategory !== null && eqRenderedCategory !== category) renderEquipment();
+
             const lines = [
                 el('div', {}, ['Филиал: ', el('strong', {}, [branchName]), categorySource === 'default' ? ' (по умолчанию)' : '']),
                 el('div', {}, [`Броней на экране: ${records.length}`, selectedDate ? ` · ${selectedDate}` : '']),
                 el('div', {}, [`Часов учтено: ${s.hours} · выплата ${money(s.payout)}`])
             ];
+
+            lines.push(tomorrowLine());
 
             if (healthNote) {
                 lines.push(el('div', { className: 's-overview-warn' }, [healthNote]));
@@ -6196,6 +6795,7 @@
             findHallName, formatClock,
             buildDayList, parseDayList, analyzeTomorrow, computePayout,
             validateCollectorPayload, encodeRequest, decodeRequest,
+            moscowDay, dayBounds, moscowParts, dealToRecord, recordsOfCategory, recordEquipment, summarizeEquipment,
             sanitizeFeatures, exportSettings, parseSettingsImport, FEATURE_KEYS, COLOR_ITEMS,
             money, formatAmount,
             EQUIPMENT, SERVICES, HOURS_BONUSES,
