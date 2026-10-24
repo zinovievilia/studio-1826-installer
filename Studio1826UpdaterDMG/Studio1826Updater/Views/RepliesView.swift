@@ -137,7 +137,7 @@ struct RepliesView: View {
                         VStack(spacing: 2) {
                             ForEach(Array(items.enumerated()), id: \.element.id) { pair in
                                 QuickReplyRow(item: pair.element, isSelected: pair.element.id == current?.id)
-                                    .onTapGesture { copy(pair.element) }
+                                    .onTapGesture { use(pair.element) }
                                     .onHover { inside in if inside { selected = pair.offset } }
                                     .contextMenu {
                                         Button("Скопировать текст") { copy(pair.element) }
@@ -188,9 +188,11 @@ struct RepliesView: View {
             }
             .frame(height: 150)
             Button {
-                copy(item)
+                use(item)
             } label: {
-                Label("Скопировать  ↩", systemImage: "doc.on.doc").frame(maxWidth: .infinity)
+                Label(PasteBack.isAvailable ? "Вставить  ↩" : "Скопировать  ↩",
+                      systemImage: PasteBack.isAvailable ? "text.insert" : "doc.on.doc")
+                    .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
         }
@@ -216,7 +218,7 @@ struct RepliesView: View {
         switch command {
         case .up: selected = max(min(selected, items.count - 1) - 1, 0)
         case .down: selected = min(selected + 1, items.count - 1)
-        case .enter: copy(items[min(selected, items.count - 1)])
+        case .enter: use(items[min(selected, items.count - 1)])
         }
         return true
     }
@@ -248,6 +250,17 @@ struct RepliesView: View {
     }
 
     // MARK: Действия
+
+    /// Клик, Enter, кнопка: копируем и сразу вставляем туда, где печатали (если можно).
+    private func use(_ item: ReplyItem) {
+        Clipboard.copy(item.script.text)
+        if PasteBack.pasteCopiedText() { return }
+        if QuickReplySettings.autoPaste && !QuickReplySettings.canPaste {
+            toaster.show("Скопировано. Чтобы вставлялось само — «Универсальный доступ» в Настройке")
+        } else {
+            toaster.show("Скопировано — вставьте клиенту (⌘V)")
+        }
+    }
 
     private func copy(_ item: ReplyItem) {
         Clipboard.copy(item.script.text)

@@ -35,6 +35,36 @@ enum QuickReplySettings {
     }
 }
 
+/// Вставка из окна под значком: запоминаем программу, где печатали, до открытия окна,
+/// а по клику на скрипт закрываем окно, возвращаемся туда и вставляем.
+@MainActor
+enum PasteBack {
+    /// Программа, которая была активной до открытия окна под значком
+    static var previousApp: NSRunningApplication?
+    static var closePopover: (() -> Void)?
+
+    static var isAvailable: Bool {
+        QuickReplySettings.autoPaste && QuickReplySettings.canPaste && previousApp != nil
+    }
+
+    static func rememberFrontApp() {
+        let front = NSWorkspace.shared.frontmostApplication
+        if front?.processIdentifier != ProcessInfo.processInfo.processIdentifier { previousApp = front }
+    }
+
+    /// Текст уже в буфере обмена. true — вставили, false — только скопировано.
+    @discardableResult
+    static func pasteCopiedText() -> Bool {
+        guard isAvailable, let app = previousApp, !app.isTerminated else { return false }
+        closePopover?()
+        app.activate(options: [])
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            QuickReplySettings.pasteToFrontApp()
+        }
+        return true
+    }
+}
+
 /// Панель, которая принимает ввод, не активируя приложение: браузер остаётся активным,
 /// и после выбора ответа курсор возвращается в поле чата.
 final class QuickReplyPanel: NSPanel {
@@ -313,6 +343,20 @@ struct QuickReplyView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
+            }
+
+            if QuickReplySettings.autoPaste && !QuickReplySettings.canPaste {
+                Divider()
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
+                    Text("Сейчас скрипт только копируется. Чтобы он сразу вставлялся в чат, разрешите «Универсальный доступ».")
+                        .font(.caption)
+                    Spacer()
+                    Button("Разрешить") { QuickReplySettings.requestPastePermission() }
+                        .controlSize(.small)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 6)
             }
 
             Divider()

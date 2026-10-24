@@ -62,6 +62,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         PopoverPin.shared.close = { [weak popover] in
             popover?.performClose(nil)
         }
+        PasteBack.closePopover = { [weak popover] in
+            popover?.performClose(nil)
+        }
 
         // Логотип шире, чем высота строки меню, поэтому длина — переменная
         let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -122,6 +125,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let section { navigation.section = section }
         guard let popover, let button = statusItem?.button else { return }
         if !popover.isShown {
+            PasteBack.rememberFrontApp()
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         }
         NSApp.activate(ignoringOtherApps: true)
