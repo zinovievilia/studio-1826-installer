@@ -54,3 +54,12 @@ test('версия одна и та же в @name, @version и VERSION', () => {
   assert.strictEqual(/@version\s+(\S+)/.exec(src)[1], VERSION);
   assert.strictEqual(/@name\s+v(\S+)/.exec(src)[1], VERSION);
 });
+
+test('период в таблице покрывает дату — пропуск уже есть', () => {
+  const row = 'Воронцова Лилия Эдуардовна 24.10.2026 - 31.10.2026 новый';
+  assert.ok(rowMatches(row, 'Воронцова Лилия Эдуардовна', '2026-10-29'));
+  assert.ok(rowMatches(row, 'воронцова лилия эдуардовна', '2026-10-29', '2026-10-29'));
+  assert.ok(!rowMatches(row, 'Воронцова Лилия Эдуардовна', '2026-11-01'));
+  assert.ok(!rowMatches(row, 'Воронцова Лилия Эдуардовна', '2026-10-29', '2026-11-02'), 'период шире существующего — не покрыт');
+  assert.ok(!rowMatches(row, 'Хван Валерия Алексеевна', '2026-10-29'));
+});

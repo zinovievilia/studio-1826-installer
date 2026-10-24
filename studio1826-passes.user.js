@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v1.2.1 Studio 1826 — Пропуска списком (Авангард)
+// @name         v1.2.2 Studio 1826 — Пропуска списком (Авангард)
 // @namespace    studio1826
-// @version      1.2.1
+// @version      1.2.2
 // @description  Кнопка «Оформить пропуск» в окне ввода открытых линий Bitrix24: список ФИО + дата → пропуска в Авангарде оформляются по очереди
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
@@ -26,7 +26,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.2.1';
+  const VERSION = '1.2.2';
   const DEFAULT_GUESTS_URL = 'https://my.avanguard.pro/account/354/guests';
 
   // ── Чистые функции (тесты: tests/passes.test.js) ───────────────────────────
@@ -77,14 +77,26 @@
     return from === to ? humanDate(from) : `${humanDate(from)} – ${humanDate(to)}`;
   }
 
-  /** Строка таблицы посетителей — уже оформленный пропуск на этого человека с этой даты? */
-  function rowMatches(rowText, name, fromIso) {
+  /**
+   * Строка таблицы посетителей — уже есть пропуск на этого человека, который покрывает [fromIso, toIso]?
+   * Период в таблице «24.10.2026 - 31.10.2026»: пропуск на 29-е уже есть, даже если «29.10.2026» в строке нет.
+   */
+  function rowMatches(rowText, name, fromIso, toIso = fromIso) {
     const row = normalize(rowText);
     if (!row.includes(normalize(name))) return false;
-    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(fromIso || '');
-    if (!m) return false;
-    const [, y, mo, d] = m;
-    return [`${d}.${mo}.${y}`, `${d}.${mo}.${y.slice(2)}`, `${y}-${mo}-${d}`].some((v) => row.includes(v));
+    const want = (iso) => (/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '') || []).slice(1).join('');
+    const wantFrom = want(fromIso);
+    const wantTo = want(toIso);
+    if (!wantFrom || !wantTo) return false;
+    const period = /(\d{2})\.(\d{2})\.(\d{4})\s*[-–—]\s*(\d{2})\.(\d{2})\.(\d{4})/.exec(row);
+    if (period) {
+      const rowFrom = period[3] + period[2] + period[1];
+      const rowTo = period[6] + period[5] + period[4];
+      return rowFrom <= wantFrom && rowTo >= wantTo;
+    }
+    // Одна дата в строке (на всякий случай: dd.mm.yyyy, dd.mm.yy, yyyy-mm-dd)
+    const [y, mo, d] = [wantFrom.slice(0, 4), wantFrom.slice(4, 6), wantFrom.slice(6, 8)];
+    return wantFrom === wantTo && [`${d}.${mo}.${y}`, `${d}.${mo}.${y.slice(2)}`, `${y}-${mo}-${d}`].some((v) => row.includes(v));
   }
 
   if (typeof module !== 'undefined' && module.exports) {
@@ -338,9 +350,20 @@
       .map(textOf).filter(Boolean)[0] || null;
   }
 
-  /** Уже есть в таблице посетителей на эту дату? (по тексту строк; если формат дат другой — просто не находит) */
-  function alreadyListed(name, from) {
-    return [...document.querySelectorAll('tr, [role="row"]')].some((row) => rowMatches(textOf(row), name, from));
+  /** Фильтры списка над таблицей (вне окна «Новый посетитель») */
+  function listControls() {
+    const dates = [...document.querySelectorAll('input[type="date"]')].filter((i) => visible(i) && !i.closest('[role="dialog"], .s1826p'));
+    const search = [...document.querySelectorAll('input')].find((i) => visible(i) && /Поиск по посетителям/i.test(i.placeholder || ''));
+    return { from: dates[0] || null, to: dates[1] || null, search: search || null };
+  }
+
+  /** Уже есть пропуск на этого человека на весь период? Смотрим таблицу с фильтром на нужные даты и поиском по имени. */
+  async function alreadyListed(name, from, to) {
+    const { from: f, to: t, search } = listControls();
+    if (f && t) { setValue(f, from); setValue(t, to); }
+    if (search) setValue(search, name);
+    if (f || search) await sleep(1100); // список перезапрашивается с сервера
+    return [...document.querySelectorAll('tr, [role="row"]')].some((row) => rowMatches(textOf(row), name, from, to));
   }
 
   /** Один пропуск. null — оформлен, иначе текст ошибки. */
@@ -388,7 +411,7 @@
     const results = {};
     for (const name of names) {
       if (shouldStop()) break;
-      if (alreadyListed(name, from)) { results[name] = 'skip'; await report(results); continue; }
+      if (await alreadyListed(name, from, to)) { results[name] = 'skip'; await report(results); continue; }
       results[name] = 'work';
       await report(results);
       const error = await createPass(name, from, to);
