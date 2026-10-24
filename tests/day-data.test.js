@@ -195,3 +195,17 @@ test('planTomorrowTiles: оборудование не к первой брон�
 
     assert.deepEqual(plan, { tiles: [], links: [] });
 });
+
+test('calendarDayIso: «ДД.ММ» из календаря → дата с ближайшим годом; shiftDay', () => {
+    const now = new Date('2026-10-24T10:00:00Z');
+
+    assert.equal(m.calendarDayIso('27.10', now), '2026-10-27');
+    assert.equal(m.calendarDayIso('24.10', now), '2026-10-24');
+    assert.equal(m.calendarDayIso('', now), '2026-10-24');
+    assert.equal(m.calendarDayIso('31.02', now), '2026-10-24');
+    /* стык лет: в конце декабря «03.01» — это следующий год, в начале января «30.12» — прошлый */
+    assert.equal(m.calendarDayIso('03.01', new Date('2026-12-30T10:00:00Z')), '2027-01-03');
+    assert.equal(m.calendarDayIso('30.12', new Date('2027-01-02T10:00:00Z')), '2026-12-30');
+    assert.equal(m.shiftDay('2026-10-27', 1), '2026-10-28');
+    assert.equal(m.shiftDay('2026-12-31', 1), '2027-01-01');
+});
