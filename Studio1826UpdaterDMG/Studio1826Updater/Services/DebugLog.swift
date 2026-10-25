@@ -5,9 +5,11 @@ import AppKit
 /// (не чаще раза в 30 минут на одну и ту же ошибку) и отправляет его в приватный репозиторий
 /// дебага. Кнопка в «Если что-то не работает» кладёт свежий отчёт в «Загрузки» и тоже отправляет.
 ///
-/// Ключ для отправки не хранится в git: build.sh вписывает его в Info.plist собранного приложения
-/// из файла ~/.studio1826/debug-token. Ключ должен уметь писать только в репозиторий дебага —
-/// из DMG его можно достать. Нет ключа — отчёты просто остаются на Mac.
+/// Ключа нет ни в git, ни в DMG (репозиторий публичный — из DMG его достал бы любой).
+/// Ключ вставляется один раз на каждом Mac в «Если что-то не работает» и лежит в
+/// ~/.studio1826/debug-token (доступ только у владельца). Не в Связке ключей: сборка подписана
+/// ad-hoc, и после каждого обновления macOS спрашивала бы пароль к записи.
+/// Нет ключа — отчёты просто остаются на Mac.
 @MainActor
 final class DebugLog {
     static let shared = DebugLog()
@@ -96,13 +98,32 @@ final class DebugLog {
 
     static let debugRepo = "zinovievilia/studio-1826-debug"
 
+    static var tokenFile: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".studio1826/debug-token")
+    }
+
     private static var uploadToken: String? {
-        let token = (Bundle.main.object(forInfoDictionaryKey: "S1826DebugToken") as? String)?
+        let token = (try? String(contentsOf: tokenFile, encoding: .utf8))?
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return token?.isEmpty == false ? token : nil
     }
 
     var canUpload: Bool { Self.uploadToken != nil }
+
+    /// Сохранить ключ (пустая строка — удалить).
+    func setUploadToken(_ token: String) throws {
+        let fm = FileManager.default
+        let value = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else {
+            try? fm.removeItem(at: Self.tokenFile)
+            return
+        }
+        let dir = Self.tokenFile.deletingLastPathComponent()
+        try fm.createDirectory(at: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        try value.write(to: Self.tokenFile, atomically: true, encoding: .utf8)
+        try fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: Self.tokenFile.path)
+    }
 
     /// reports/<пользователь Mac>/<файл>. Ошибки отправки — только в системный лог,
     /// иначе неудачная отправка сама порождала бы новые отчёты.
