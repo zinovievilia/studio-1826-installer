@@ -457,3 +457,36 @@ test('decodeRequest: строка и объект (совместимость), 
     assert.equal(m.decodeRequest(42), null);
     assert.equal(m.decodeRequest('{"type":"STUDIO1826_V3_REQUEST","x":"' + 'a'.repeat(600 * 1024) + '"}'), null);
 });
+
+/* =========================================================
+ * 5.6.5: кнопки составляющих выплаты и новое оборудование
+ * ========================================================= */
+
+test('computePayout: off убирает составляющие из итога, суммы для кнопок остаются', () => {
+    const records = [{ items: [
+        'Установка схемы света - 1 шт.', 'Использование фона - 2 шт.', 'Уборка - 1 шт.',
+        'Зал 100 (С) - 54 шт.', 'Aputure 600d Pro - 1 шт.'
+    ] }];
+    const all = m.computePayout(records, { category: 'C', admins: 1 });
+
+    assert.equal(all.payout, 1000 + 600 + 1000 + 500 + 350);
+
+    const off = m.computePayout(records, { category: 'C', admins: 1, off: ['light', 'bg', 'hours', 'equipment'] });
+
+    assert.equal(off.payout, 1000);
+    assert.equal(off.hoursBonus, 0);
+    assert.equal(off.hoursBonusValue, 500);
+    assert.equal(off.equipmentPer, 0);
+    assert.equal(off.equipmentValue, 350);
+    assert.equal(off.servicesPer.find(s => s.id === 'bg').value, 600);
+    assert.equal(off.servicesPer.find(s => s.id === 'bg').perAdmin, 0);
+
+    /* прежний флаг lightSetupEnabled=false по-прежнему выключает схему света */
+    assert.equal(m.computePayout(records, { category: 'C', admins: 1, lightSetupEnabled: false }).payout, all.payout - 1000);
+});
+
+test('findEquipment: Lark M2, софтбокс Profoto 60х90, соты 90 (5.6.5)', () => {
+    assert.equal(m.findEquipment('Радиосистема HollyLand Lark M2 - 1 шт.').price, 600);
+    assert.equal(m.findEquipment('Софтбокс 60х90см - Profoto 2x3ft RFI - 1 шт.').name, 'Софтбокс 60х90см - Profoto 2x3ft RFI');
+    assert.equal(m.findEquipment('Соты 90 см - 2 шт.').price, 0);
+});

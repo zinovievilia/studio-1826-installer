@@ -82,6 +82,26 @@ const HEADER = `<header id="app-header"><div id="header" class="air-header" styl
     await page.evaluate(() => document.querySelector('#header .air-header__personal-info').remove());
     await page.waitForTimeout(1800);
     r.blockerGone = await st();
+    /* 5.6.4: места чуть меньше полной кнопки (Яндекс Браузер, узкое окно) — короткая кнопка в шапке, не плашка. */
+    const fitState = () => page.evaluate(() => {
+        const slot = document.getElementById('studio1826-chip-slot');
+        return { mode: document.getElementById('studio1826-widget-v3').dataset.mode, fit: slot.dataset.fit, hidden: slot.hidden,
+            label: getComputedStyle(slot.querySelector('.s-chip-label')).display, headToggle: getComputedStyle(document.querySelector('.s-head-toggle')).display };
+    });
+    await page.evaluate(gap => {
+        const slot = document.getElementById('studio1826-chip-slot');
+        const box = document.createElement('div');
+        box.className = 'air-header__personal-info';
+        box.innerHTML = '<div style="width:40px;height:30px">x</div>';
+        const menuRight = Math.max(...[...document.querySelectorAll('#air-header-menu .main-buttons-item')].map(i => i.getBoundingClientRect().right));
+        box.style.cssText = `position:absolute;left:${Math.round(menuRight + 16 + slot.getBoundingClientRect().width + 5)}px;top:10px`;
+        document.getElementById('header').appendChild(box);
+    });
+    await page.waitForTimeout(1800);
+    r.tight = await fitState();
+    await page.evaluate(() => document.querySelector('#header .air-header__personal-info').remove());
+    await page.waitForTimeout(1800);
+    r.tightGone = await fitState();
     await page.evaluate(() => document.documentElement.classList.add('s26-overlay-open'));
     await page.waitForTimeout(1800);
     r.modeWhileOverlay = (await st()).mode;
@@ -103,6 +123,8 @@ const HEADER = `<header id="app-header"><div id="header" class="air-header" styl
         r.afterOutsideClick.collapsed && !r.afterIframeClick.collapsed && r.afterEsc.collapsed && r.stillOpenAfterInsideClicks && r.closedByButton &&
         r.narrow.mode === 'float' && r.narrow.chipHidden === true && r.wideAgain.mode === 'header' &&
         r.withBlocker.mode === 'float' && r.blockerGone.mode === 'header' &&
+        r.tight.mode === 'header' && !r.tight.hidden && r.tight.fit !== 'full' && r.tight.label === 'none' &&
+        r.tightGone.mode === 'header' && r.tightGone.fit === 'full' && r.tightGone.label !== 'none' && r.tightGone.headToggle === 'none' &&
         r.modeWhileOverlay === 'header' &&
         r.headerRemoved.mode === 'float' && r.headerRemoved.chips === 0 && r.headerBack.mode === 'header' && r.headerBack.chips === 1 &&
         errors.length === 0;

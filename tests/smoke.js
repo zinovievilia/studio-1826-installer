@@ -141,7 +141,7 @@ const { chromium } = require('playwright');
         result.first === 'home' &&
         result.settings === 'settings' &&
         result.payout === 'home' &&
-        result.features === 11 &&
+        result.features === 12 && /* 5.6.5: + «Заметки» */
         /₽/.test(result.collapsedTitle) &&
         errors.length === 0 &&
         errors2.length === 0 &&

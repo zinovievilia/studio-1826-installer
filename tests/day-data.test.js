@@ -222,13 +222,13 @@ test('цвета стадий по умолчанию (5.5.2) и перенос 
 
     assert.deepEqual(
         ['multi', 'done', 'prepaid', 'checked'].map(id => fresh.colors[id]),
-        ['#fff893', '#cce8b5', '#94e3fe', '#a3d49b']
+        ['#fff893', '#e0edd4', '#94e3fe', '#a3d49b']
     );
 
     /* сохранённый старый цвет по умолчанию (= исходный Bitrix) заменяется новым, свой цвет пользователя остаётся */
     const migrated = m.sanitizeFeatures({ colors: { done: '#7bd500', prepaid: '#123456' } });
 
-    assert.equal(migrated.colors.done, '#cce8b5');
+    assert.equal(migrated.colors.done, '#e0edd4');
     assert.equal(migrated.colors.prepaid, '#123456');
 });
 
@@ -245,7 +245,7 @@ test('sanitizeFeatures 5.6.3: новый пользователь — набор
     assert.equal(legacy.borders, true);
 
     assert.deepEqual(fresh.colors, {
-        multi: '#fff893', done: '#cce8b5', prepaid: '#94e3fe', checked: '#a3d49b',
+        multi: '#fff893', done: '#e0edd4', prepaid: '#94e3fe', checked: '#a3d49b',
         kEq: '#e32400', kFrame: '#e32400', kBg: '#dc2626', handoff: '#800020', last: '#2563eb',
         arrow: '#e11d48', moveArrow: '#2563eb', tile: '#7c3aed'
     });
