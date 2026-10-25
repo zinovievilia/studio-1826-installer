@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v5.6.1 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v5.6.2 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      5.6.1
+// @version      5.6.2
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '5.6.1';
+    const VERSION = '5.6.2';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -24,11 +24,28 @@
     const MESSAGE_TYPE = 'STUDIO1826_V3_DATA';
     const REQUEST_TYPE = 'STUDIO1826_V3_REQUEST';
     const DIAG_TYPE = 'STUDIO1826_V3_DIAG';
+    const PULSE_TYPE = 'STUDIO1826_V3_PULSE';
+    /* Сколько ждать ответа сборщика, прежде чем сказать «Календарь не отвечает» (запросы идут раз в 3 с). */
+    const COLLECTOR_TIMEOUT_MS = 12000;
     const MAX_DIAG_SIZE = 200000;
 
     /* Журнал последних ошибок JS для отчёта диагностики (без персональных данных). */
     const ERROR_LOG = [];
+    let foreignErrors = 0;
     let errorTrackingStarted = false;
+
+    function pushError(text) {
+        ERROR_LOG.push(String(text).slice(0, 300));
+        if (ERROR_LOG.length > 10) ERROR_LOG.shift();
+    }
+
+    /* Собственная перехваченная ошибка: место, сообщение и две строки стека. */
+    function logOwnError(where, error) {
+        const message = String((error && error.message) || error || 'error').slice(0, 160);
+        const stack = String((error && error.stack) || '').split('\n').slice(1, 3).map(line => line.trim()).filter(Boolean).join(' | ');
+
+        pushError(`[${where}] ${message}${stack ? ' @ ' + stack : ''}`);
+    }
 
     function trackErrors() {
         if (errorTrackingStarted) return;
@@ -36,8 +53,15 @@
         errorTrackingStarted = true;
 
         window.addEventListener('error', event => {
-            ERROR_LOG.push(String(event.message || 'error').slice(0, 200));
-            if (ERROR_LOG.length > 10) ERROR_LOG.shift();
+            const message = String(event.message || 'error');
+
+            /* «Script error.» — чужие скрипты с другого домена, по ним ничего не понять: только считаем. */
+            if (/^Script error\.?$/.test(message)) {
+                foreignErrors += 1;
+                return;
+            }
+
+            pushError(message);
         });
     }
 
@@ -5006,6 +5030,7 @@
                 features,
                 sampleCardStructure: describeStructure(cards[0], 0, 4),
                 errors: ERROR_LOG.slice(),
+                foreignErrors,
                 collectMs: Math.round(performance.now() - started)
             };
 
@@ -5034,8 +5059,12 @@
             clearTimeout(workTimer);
 
             workTimer = setTimeout(() => {
-                const cards = processCards();
-                send(false, cards);
+                try {
+                    const cards = processCards();
+                    send(false, cards);
+                } catch (error) {
+                    logOwnError('processCards', error);
+                }
             }, 300);
         });
 
@@ -5053,100 +5082,124 @@
         setInterval(() => {
             if (document.hidden) return;
 
-            applyStages();
-            send();
+            try {
+                applyStages();
+                send();
+            } catch (error) {
+                logOwnError('collector-tick', error);
+            }
         }, 3000);
+
+        /* «Пульс»: страница по нему понимает, что сборщик жив, даже когда данные не менялись и send() промолчал. */
+        function sendPulse() {
+            try {
+                window.top.postMessage({ type: PULSE_TYPE, source: 'studio1826-collector', version: VERSION, errors: ERROR_LOG.length }, MAIN_ORIGIN);
+            } catch (_) {}
+        }
 
         window.addEventListener('message', event => {
             if (event.origin !== MAIN_ORIGIN) return;
 
             const request = decodeRequest(event.data);
 
-            if (request) {
-                let marksChanged = false;
-                let settingsChanged = false;
+            if (!request) return;
 
-                if (request.diag === true) sendDiagnostics();
+            /* Этап 10, P1: ошибка в обработке не должна глушить сборщик — всё равно отвечаем и шлём «пульс». */
+            try {
+                handleRequest(request);
+            } catch (error) {
+                logOwnError('collector', error);
 
-                if (request.settings) {
-                    const next = sanitizeFeatures(request.settings);
-
-                    if (JSON.stringify(next) !== JSON.stringify(features)) {
-                        features = next;
-                        settingsChanged = true;
-                        saveFeatures(features);
-                        applyFeatures();
-                    }
-                }
-
-                if (Array.isArray(request.mark)) {
-                    const next = new Set(request.mark
-                        .slice(0, 500)
-                        .filter(key => typeof key === 'string' && key.length <= 200));
-                    const same = next.size === markKeys.size &&
-                        [...next].every(key => markKeys.has(key));
-
-                    if (!same) {
-                        markKeys = next;
-                        marksChanged = true;
-                    }
-                }
-
-                if (Array.isArray(request.moves)) {
-                    const next = request.moves
-                        .slice(0, 200)
-                        .filter(link => link && typeof link.from === 'string' && typeof link.to === 'string' &&
-                            link.from.length <= 200 && link.to.length <= 200)
-                        .map(link => ({ from: link.from, to: link.to }));
-
-                    if (JSON.stringify(next) !== JSON.stringify(moveLinks)) {
-                        moveLinks = next;
-                        marksChanged = true;
-                    }
-                }
-
-                if (typeof request.off === 'boolean' && request.off !== scriptOff) {
-                    scriptOff = request.off;
-                    applyOff();
-                }
-
-                /* 5.3.0: плашки «на утро» (санитизация: длины и количество ограничены). */
-                if (Array.isArray(request.tiles)) {
-                    const KINDS = ['keep', 'move', 'missing', 'later'];
-                    const str = (value, max) => typeof value === 'string' && value.length <= max;
-                    const nextTiles = request.tiles
-                        .slice(0, 40)
-                        .filter(tile => tile && str(tile.hall, 60) && Array.isArray(tile.items))
-                        .map(tile => ({
-                            hall: tile.hall,
-                            date: str(tile.date, 10) ? tile.date : '',
-                            start: Number.isFinite(tile.start) ? tile.start : null,
-                            items: tile.items
-                                .slice(0, 30)
-                                .filter(item => item && str(item.name, 160) && KINDS.includes(item.kind) && Number.isFinite(item.qty) && (item.from === '' || str(item.from, 60)))
-                                .map(item => ({ name: item.name, qty: item.qty, kind: item.kind, from: item.from, at: Number.isFinite(item.at) ? item.at : null }))
-                        }))
-                        .filter(tile => tile.items.length);
-                    const nextLinks = (Array.isArray(request.tileLinks) ? request.tileLinks : [])
-                        .slice(0, 120)
-                        .filter(item => item && str(item.from, 200) && str(item.to, 60) && KINDS.includes(item.kind))
-                        .map(item => ({ from: item.from, to: item.to, kind: item.kind }));
-
-                    if (JSON.stringify([nextTiles, nextLinks]) !== JSON.stringify([tomorrowTiles, tileLinks])) {
-                        tomorrowTiles = nextTiles;
-                        tileLinks = nextLinks;
-                        marksChanged = true;
-                    }
-                }
-
-                if (marksChanged) processCards();
-
-                /* Принудительная отправка — только если страница просит «полные» данные
-                 * (первый запрос после загрузки/возврата на вкладку) или что-то изменилось;
-                 * иначе обычная отправка с дедупликацией. */
-                send(request.full === true || settingsChanged || marksChanged);
+                try { send(true); } catch (_) {}
+            } finally {
+                sendPulse();
             }
         });
+
+        function handleRequest(request) {
+            let marksChanged = false;
+            let settingsChanged = false;
+
+            if (request.diag === true) sendDiagnostics();
+
+            if (request.settings) {
+                const next = sanitizeFeatures(request.settings);
+
+                if (JSON.stringify(next) !== JSON.stringify(features)) {
+                    features = next;
+                    settingsChanged = true;
+                    saveFeatures(features);
+                    applyFeatures();
+                }
+            }
+
+            if (Array.isArray(request.mark)) {
+                const next = new Set(request.mark
+                    .slice(0, 500)
+                    .filter(key => typeof key === 'string' && key.length <= 200));
+                const same = next.size === markKeys.size &&
+                    [...next].every(key => markKeys.has(key));
+
+                if (!same) {
+                    markKeys = next;
+                    marksChanged = true;
+                }
+            }
+
+            if (Array.isArray(request.moves)) {
+                const next = request.moves
+                    .slice(0, 200)
+                    .filter(link => link && typeof link.from === 'string' && typeof link.to === 'string' &&
+                        link.from.length <= 200 && link.to.length <= 200)
+                    .map(link => ({ from: link.from, to: link.to }));
+
+                if (JSON.stringify(next) !== JSON.stringify(moveLinks)) {
+                    moveLinks = next;
+                    marksChanged = true;
+                }
+            }
+
+            if (typeof request.off === 'boolean' && request.off !== scriptOff) {
+                scriptOff = request.off;
+                applyOff();
+            }
+
+            /* 5.3.0: плашки «на утро» (санитизация: длины и количество ограничены). */
+            if (Array.isArray(request.tiles)) {
+                const KINDS = ['keep', 'move', 'missing', 'later'];
+                const str = (value, max) => typeof value === 'string' && value.length <= max;
+                const nextTiles = request.tiles
+                    .slice(0, 40)
+                    .filter(tile => tile && str(tile.hall, 60) && Array.isArray(tile.items))
+                    .map(tile => ({
+                        hall: tile.hall,
+                        date: str(tile.date, 10) ? tile.date : '',
+                        start: Number.isFinite(tile.start) ? tile.start : null,
+                        items: tile.items
+                            .slice(0, 30)
+                            .filter(item => item && str(item.name, 160) && KINDS.includes(item.kind) && Number.isFinite(item.qty) && (item.from === '' || str(item.from, 60)))
+                            .map(item => ({ name: item.name, qty: item.qty, kind: item.kind, from: item.from, at: Number.isFinite(item.at) ? item.at : null }))
+                    }))
+                    .filter(tile => tile.items.length);
+                const nextLinks = (Array.isArray(request.tileLinks) ? request.tileLinks : [])
+                    .slice(0, 120)
+                    .filter(item => item && str(item.from, 200) && str(item.to, 60) && KINDS.includes(item.kind))
+                    .map(item => ({ from: item.from, to: item.to, kind: item.kind }));
+
+                if (JSON.stringify([nextTiles, nextLinks]) !== JSON.stringify([tomorrowTiles, tileLinks])) {
+                    tomorrowTiles = nextTiles;
+                    tileLinks = nextLinks;
+                    marksChanged = true;
+                }
+            }
+
+            if (marksChanged) processCards();
+
+            /* Принудительная отправка — только если страница просит «полные» данные
+             * (первый запрос после загрузки/возврата на вкладку) или что-то изменилось;
+             * иначе обычная отправка с дедупликацией. */
+            send(request.full === true || settingsChanged || marksChanged);
+        }
     }
 
     /* =========================================================
@@ -5166,6 +5219,9 @@
         let categorySource = 'default'; // branch | halls | default
         let selectedDate = '';
         let healthNote = ''; // сообщение о проблеме (например, разные версии скрипта)
+        let lastPulseAt = 0; // последнее сообщение от сборщика календаря
+        let pulseWaitFrom = Date.now(); // с какого момента ждём ответа (загрузка, возврат на вкладку)
+        let collectorSilent = false;
         let admins = 2;
         let rateEnabled = false;
         let rateValue = DEFAULT_RATE;
@@ -7277,7 +7333,9 @@
                 ])
             ];
 
-            if (healthNote) {
+            if (collectorSilent) {
+                lines.push(el('div', { className: 's-overview-warn' }, ['Календарь не отвечает — обновите страницу.']));
+            } else if (healthNote) {
                 lines.push(el('div', { className: 's-overview-warn' }, [healthNote]));
             } else if (records.length === 0) {
                 lines.push(el('div', { className: 's-muted' }, ['Откройте день с бронями — данные появятся автоматически.']));
@@ -7313,6 +7371,15 @@
             const fromPageFrame = [...document.querySelectorAll('iframe')].some(frame => frame.contentWindow === event.source);
 
             if (!fromPageFrame) return;
+
+            lastPulseAt = Date.now();
+
+            if (collectorSilent) {
+                collectorSilent = false;
+                update();
+            }
+
+            if (event.data && event.data.type === PULSE_TYPE) return;
 
             const validated = validateCollectorPayload(event.data, VERSION);
 
@@ -7428,6 +7495,16 @@
                     selectedDate,
                     healthNote,
                     collapsed,
+                    overlay: {
+                        hidden: document.documentElement.classList.contains('s26-overlay-open'),
+                        cardsMissing,
+                        sidePanel: sidePanelOpen(),
+                        chat: chatOpen()
+                    },
+                    collectorPulse: {
+                        silent: collectorSilent,
+                        lastAgoMs: lastPulseAt ? Date.now() - lastPulseAt : null
+                    },
                     iframes: [...document.querySelectorAll('iframe')].slice(0, 10).map(frame => {
                         try {
                             const url = new URL(frame.src, location.href);
@@ -7438,7 +7515,8 @@
                         }
                     }),
                     branchDetected: getCategoryFromBranch(document),
-                    errors: ERROR_LOG.slice()
+                    errors: ERROR_LOG.slice(),
+                    foreignErrors
                 },
                 collector: collectorReports.length ? collectorReports : 'нет ответа от календаря (iframe не отвечает или версии скриптов разные)'
             };
@@ -7509,13 +7587,43 @@
         setInterval(() => {
             if (!document.hidden) loadDay(dayIso('tomorrow'));
         }, 300000);
-        setInterval(() => requestData(records.length === 0 || cardsMissing), 3000);
+        setInterval(() => {
+            requestData(records.length === 0 || cardsMissing);
+            checkCollectorPulse();
+        }, 3000);
+
+        /*
+         * Этап 10, P1: сборщик молчит дольше COLLECTOR_TIMEOUT_MS — пишем «Календарь не отвечает» и не держим
+         * интерфейс скрытым из-за «карточек нет» (раньше панель пропадала до перезагрузки страницы).
+         */
+        function checkCollectorPulse() {
+            if (document.hidden) {
+                pulseWaitFrom = Date.now();
+                return;
+            }
+
+            const silent = Date.now() - Math.max(lastPulseAt, pulseWaitFrom) > COLLECTOR_TIMEOUT_MS;
+
+            if (silent === collectorSilent) return;
+
+            collectorSilent = silent;
+
+            if (silent && cardsMissing) {
+                cardsMissing = false;
+                updateOverlayVisibility();
+            }
+
+            update();
+        }
 
         /* Р-6: при возврате на вкладку iframe мог работать со старыми
          * settings до следующего тика setInterval(3000). Немедленно
          * запрашиваем свежие данные. */
         document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) requestData(true);
+            if (!document.hidden) {
+                pulseWaitFrom = Date.now();
+                requestData(true);
+            }
         });
 
         /* Видимость окон: наблюдатель вместо опроса каждые 250 мс; редкий опрос — страховка. */
