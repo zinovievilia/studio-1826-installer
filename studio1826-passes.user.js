@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v1.2.4 Studio 1826 — Пропуска списком (Авангард)
+// @name         v1.2.5 Studio 1826 — Пропуска списком (Авангард)
 // @namespace    studio1826
-// @version      1.2.4
+// @version      1.2.5
 // @description  Кнопка «Оформить пропуск» в окне ввода открытых линий Bitrix24: список ФИО + дата → пропуска в Авангарде оформляются по очереди
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
@@ -26,7 +26,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.2.4';
+  const VERSION = '1.2.5';
   const DEFAULT_GUESTS_URL = 'https://my.avanguard.pro/account/354/guests';
 
   // ── Чистые функции (тесты: tests/passes.test.js) ───────────────────────────
@@ -441,6 +441,11 @@
     return results;
   }
 
+  const JOB_KEY = 's1826-job-id';
+  const JUMP_KEY = 's1826-job-jumped';
+  function readSession(key) { try { return sessionStorage.getItem(key); } catch (e) { return null; } }
+  function writeSession(key, value) { try { sessionStorage.setItem(key, value); } catch (e) { /* без него вкладка просто не продолжит после перезагрузки */ } }
+
   const onGuestsPage = () => /\/account\/\d+\/guests/.test(location.pathname);
 
   async function avanguardMain() {
@@ -455,9 +460,15 @@
       const job = await store.get('job', null);
       // Адрес с #s1826-job мог потеряться при загрузке: тогда берём свежее ничьё задание, если вкладка фоновая
       const fresh = job && !job.taken && Date.now() - (job.createdAt || 0) < 45000 && document.hidden;
-      if (job && !job.taken && ((jobMatch && job.id === jobMatch[1]) || fresh)) {
-        await store.set('job', { ...job, taken: true });
-        await store.set(`result:${job.id}`, { done: false, started: true, results: {} });
+      // Сайт на секунду уходит на /login и теряет хвост адреса; если мы сами перезагрузили вкладку — продолжаем своё задание
+      const resumed = job && job.taken && readSession(JOB_KEY) === job.id &&
+        !(await store.get(`result:${job.id}`, {})).done;
+      if (job && ((!job.taken && ((jobMatch && job.id === jobMatch[1]) || fresh)) || resumed)) {
+        if (!resumed) {
+          await store.set('job', { ...job, taken: true });
+          await store.set(`result:${job.id}`, { done: false, started: true, results: {} });
+          writeSession(JOB_KEY, job.id);
+        }
         // Вкладка в фоне: Chrome не вызывает requestAnimationFrame, а окна сайта открываются с анимацией.
         // Подменяем на таймер, чтобы окно «Новый посетитель» появлялось и в фоновой вкладке.
         try {
@@ -465,10 +476,23 @@
           page.requestAnimationFrame = (cb) => page.setTimeout(() => cb(page.performance.now()), 16);
           page.cancelAnimationFrame = (id) => page.clearTimeout(id);
         } catch (e) { /* не вышло — сработает, когда вкладку откроют */ }
-        history.replaceState(null, '', location.pathname + location.search);
-        const ready = await waitFor(() => onGuestsPage() && buttonByText(document, 'Новый посетитель'), 30000, 300);
+        // Хвост адреса с заданием убираем только на странице посетителей: на /login это ломает возврат роутера сайта
+        const cleanHash = () => { if (onGuestsPage() && location.hash) history.replaceState(history.state, '', location.pathname + location.search); };
+        const guestsUrl = await store.get('guestsUrl', DEFAULT_GUESTS_URL);
+        const started = Date.now();
+        let jumped = readSession(JUMP_KEY) === job.id;
+        const ready = await waitFor(() => {
+          cleanHash();
+          // Прошло 10 с, а страницы посетителей нет (фоновая вкладка застряла после /login) — идём на неё сами, один раз
+          if (!onGuestsPage() && !jumped && Date.now() - started > 10000) {
+            jumped = true;
+            writeSession(JUMP_KEY, job.id);
+            location.href = guestsUrl;
+          }
+          return onGuestsPage() && buttonByText(document, 'Новый посетитель');
+        }, 30000, 300);
         if (!ready) {
-          await store.set(`result:${job.id}`, { done: true, error: 'Страница посетителей не открылась — войдите в Авангард и попробуйте снова', results: {} });
+          await store.set(`result:${job.id}`, { done: true, error: `Страница посетителей не открылась (вкладка Авангарда на ${location.pathname}) — войдите в Авангард и попробуйте снова`, results: {} });
           return;
         }
         rememberUrl();
