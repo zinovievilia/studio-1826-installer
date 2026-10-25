@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v5.6.5 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v5.6.6 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      5.6.5
+// @version      5.6.6
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '5.6.5';
+    const VERSION = '5.6.6';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -7484,7 +7484,7 @@
             const bonusRows = [
                 ...s.servicesPer.map(service => [service.id, `${formatQuantity(service.count)}×`, service.value, service.excluded]),
                 ['hours', `${s.hours} ч`, s.hoursBonusValue, s.hoursExcluded],
-                ['equipment', `${formatAmount(s.eq)} ₽`, s.equipmentValue, s.equipmentExcluded],
+                ['equipment', money(s.eq), s.equipmentValue, s.equipmentExcluded],
                 ['rate', 'без деления', rateValue, !rateEnabled]
             ];
 
@@ -7728,9 +7728,16 @@
                         silent: collectorSilent,
                         lastAgoMs: lastPulseAt ? Date.now() - lastPulseAt : null
                     },
+                    /* 5.6.6 (P3): у iframe календаря src пустой — Bitrix грузит его формой (POST), и new URL('')
+                     * давал адрес самой страницы. Тогда показываем, куда отправлена форма с target = имя iframe. */
                     iframes: [...document.querySelectorAll('iframe')].slice(0, 10).map(frame => {
                         try {
-                            const url = new URL(frame.src, location.href);
+                            const form = !frame.getAttribute('src') && frame.name
+                                ? [...document.forms].find(f => f.target === frame.name)
+                                : null;
+                            const url = new URL(form ? form.action : frame.src, location.href);
+
+                            if (form) return 'form→' + url.origin + url.pathname;
 
                             return url.origin + url.pathname;
                         } catch (_) {
