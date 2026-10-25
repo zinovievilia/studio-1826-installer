@@ -15,6 +15,8 @@ struct SetupView: View {
     @State private var autoPaste = QuickReplySettings.autoPaste
     @State private var launchState = LaunchAtLogin.state
     @State private var launchError: String?
+    @State private var debugToken = ""
+    @State private var canUploadDebug = DebugLog.shared.canUpload
 
     var body: some View {
         ScrollView {
@@ -538,14 +540,42 @@ struct SetupView: View {
             } label: {
                 Label("Сохранить дебаг в «Загрузки»", systemImage: "ladybug")
             }
-            Text(DebugLog.shared.canUpload
+            Text(canUploadDebug
                  ? "Файл с состоянием приложения и последними ошибками — его можно переслать. Копия уходит в студию; при ошибках дебаг отправляется сам."
                  : "Файл с состоянием приложения и последними ошибками — его можно переслать. При ошибках дебаг сохраняется сам.")
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            if canUploadDebug {
+                HStack(spacing: 8) {
+                    Label("Ключ для отчётов сохранён", systemImage: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundColor(.green)
+                    Button("Удалить ключ") { saveDebugToken("") }
+                        .font(.caption)
+                }
+            } else {
+                HStack(spacing: 6) {
+                    SecureField("Ключ для отчётов (выдаёт студия)", text: $debugToken)
+                        .textFieldStyle(.roundedBorder)
+                    Button("Сохранить") { saveDebugToken(debugToken) }
+                        .disabled(debugToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
         }
         .padding(.bottom, 4)
+    }
+
+    private func saveDebugToken(_ token: String) {
+        do {
+            try DebugLog.shared.setUploadToken(token)
+            debugToken = ""
+            canUploadDebug = DebugLog.shared.canUpload
+            toaster.show(canUploadDebug ? "Ключ сохранён — отчёты будут уходить в студию" : "Ключ удалён")
+        } catch {
+            toaster.show("Не удалось сохранить ключ: \(error.localizedDescription)")
+        }
     }
 
     private struct HelpItem: Identifiable {
