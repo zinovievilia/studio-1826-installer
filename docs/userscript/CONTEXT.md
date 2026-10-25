@@ -418,3 +418,9 @@ claude.ai-проекте "1826Studio", документ `Studio1826Updater.md`):
 - Ставка: кнопка `[data-bonus="rate"]` в `#s3-bonuses` переключает `rateEnabled`; `rateValue` = `DEFAULT_RATE` (3000), сохранённая сумма не читается; поле `#s3-rate` и `#s3-rate-on` удалены.
 
 - Отчёт из Яндекса (Windows, масштаб 200%, окно 1440×772, 5.6.3) и та же проблема у пользователя Яндекса на Mac: ширины хватает, значит причина не в ней. Догадка: у этих пользователей другая (старая) шапка Bitrix без `#header.air-header` → `float`. В 5.6.5 `main.chip.anyHeader {id, cls, children, width}`, `menuItems`, `devicePixelRatio` — ждём отчёт после обновления.
+
+## 5.6.6
+
+- Кнопка оборудования: сумма через `money()` («21 400 ₽», было `formatAmount` без пробелов). Живьём 5.6.5 проверена: бонусы 500+500+713,33 = 1 713,33 ₽ (3 админа), заметки под «Помещениями», «?» мигает.
+- «Этап 10» закрыт: P0 ветка `wip/overlay-robustness` не вливается (архив), P2 — задача `browser` в `.github/workflows/test.yml` (`npm install --no-save playwright@1.64.1`, `npx playwright install --with-deps chromium`, `CHROMIUM_PATH` из `chromium.executablePath()`), P3 — `main.iframes` для iframe без `src` берёт `action` формы с `target` = `frame.name` (префикс `form→`).
+
