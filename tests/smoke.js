@@ -62,6 +62,14 @@ const { chromium } = require('playwright');
         JSON.stringify({ arrows: false, colors: { done: '#123456' } })));
     await page2.addScriptTag({ content: fs.readFileSync(path.join(__dirname, '..', 'studio1826.user.js'), 'utf8') });
     const frame = page2.frames().find(f => f.url().startsWith('https://app.bitrix24.ru'));
+    /* Крючок для проверки «пульса»: по сообщению '__s26_break__' JSON.stringify в iframe начинает падать. */
+    await frame.evaluate(() => {
+        const original = JSON.stringify;
+        window.addEventListener('message', e => {
+            if (e.data === '__s26_break__') JSON.stringify = () => { throw new Error('boom'); };
+        });
+        window.__s26_restore = () => { JSON.stringify = original; };
+    });
     await frame.addScriptTag({ content: fs.readFileSync(path.join(__dirname, '..', 'studio1826.user.js'), 'utf8') });
     await page2.waitForTimeout(800);
     await page2.evaluate(() => document.querySelector('.s-debug-button').click());
@@ -90,6 +98,41 @@ const { chromium } = require('playwright');
     });
     const settingsResult = { replies, styled };
     const newErrors = errors2.slice(errorsBefore);
+
+    /* 5.6.2 (Этап 10, P1): ошибка внутри обработчика сборщика не глушит его — «пульс» приходит,
+     * ошибка попадает в журнал, а не в pageerror. Ошибку вызываем подменой JSON.stringify в iframe. */
+    const pulseBefore = errors2.length;
+    const pulse = await page2.evaluate(() => new Promise(resolve => {
+        const iframe = document.querySelector('iframe');
+        let pulses = 0;
+        window.addEventListener('message', e => {
+            if (e.data && e.data.type === 'STUDIO1826_V3_PULSE') pulses++;
+        });
+        iframe.contentWindow.postMessage('__s26_break__', '*');
+        setTimeout(() => {
+            iframe.contentWindow.postMessage(JSON.stringify({
+                type: 'STUDIO1826_V3_REQUEST', settings: { arrows: true, colors: { done: '#654321' } }
+            }), '*');
+        }, 50);
+        setTimeout(() => resolve(pulses), 1200);
+    }));
+    await frame.evaluate(() => window.__s26_restore());
+    const collectorLog = await page2.evaluate(() => new Promise(resolve => {
+        window.addEventListener('message', e => {
+            if (e.data && e.data.type === 'STUDIO1826_V3_DIAG') resolve(e.data.diag.errors.join('\n'));
+        });
+        document.querySelector('iframe').contentWindow.postMessage(JSON.stringify({ type: 'STUDIO1826_V3_REQUEST', diag: true }), '*');
+        setTimeout(() => resolve(''), 1500);
+    }));
+    const pulseResult = { pulses: pulse, logged: /\[collector\] boom/.test(collectorLog || ''), pageErrors: errors2.slice(pulseBefore) };
+
+    /* Календарь пропал (iframe удалён) — через ~12 с «Обзор» пишет «Календарь не отвечает», панель не скрыта. */
+    await page2.evaluate(() => document.querySelector('iframe').remove());
+    await page2.waitForTimeout(16000);
+    const silence = await page2.evaluate(() => ({
+        warn: (document.querySelector('#s-branch-status') || {}).textContent || '',
+        hidden: document.documentElement.classList.contains('s26-overlay-open')
+    }));
     await browser.close();
 
     const ok = settingsResult.replies > 0 && newErrors.length === 0 &&
@@ -102,9 +145,11 @@ const { chromium } = require('playwright');
         /₽/.test(result.collapsedTitle) &&
         errors.length === 0 &&
         errors2.length === 0 &&
-        /Готово/.test(debugStatus) && !/не ответил/.test(debugStatus);
+        /Готово/.test(debugStatus) && !/не ответил/.test(debugStatus) &&
+        pulseResult.pulses > 0 && pulseResult.logged && pulseResult.pageErrors.length === 0 &&
+        /Календарь не отвечает/.test(silence.warn) && !silence.hidden;
 
-    console.log(JSON.stringify({ result, errors, errors2, debugStatus, settingsResult, newErrors }, null, 1));
+    console.log(JSON.stringify({ result, errors, errors2, debugStatus, settingsResult, newErrors, pulseResult, silence }, null, 1));
     if (!ok) { console.error('SMOKE FAILED'); process.exit(1); }
     console.log('SMOKE OK');
 })().catch(e => { console.error(e); process.exit(1); });
