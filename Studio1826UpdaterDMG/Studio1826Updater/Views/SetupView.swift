@@ -84,7 +84,7 @@ struct SetupView: View {
 
                 switch launchState {
                 case .notInstalled:
-                    Hint(text: "Приложение запущено из образа. Перетащите **Studio 1826** в «Программы», откройте оттуда — и автозапуск включится сам.",
+                    Hint(text: "Приложение запущено не из «Программ». Перетащите **Studio 1826** в «Программы», откройте оттуда — и автозапуск включится сам.",
                          systemImage: "exclamationmark.triangle")
                 case .needsApproval:
                     HStack {

@@ -86,7 +86,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusMenu = buildStatusMenu()
 
         ensureEditMenu()
-        LaunchAtLogin.enableOnFirstRun()
+        LaunchAtLogin.enableUnlessDisabled()
         updater.start()
 
         quickReplies = QuickReplyPanelController(store: replies)
