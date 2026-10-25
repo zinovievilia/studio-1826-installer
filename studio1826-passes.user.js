@@ -7,7 +7,7 @@
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
 // @match        https://1826studio.bitrix24.ru/*
 // @match        https://my.avanguard.pro/*
-// @run-at       document-idle
+// @run-at       document-start
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_openInTab
@@ -642,13 +642,6 @@
           await store.set(`result:${job.id}`, { done: false, started: true, results: {} });
           writeSession(JOB_KEY, job.id);
         }
-        // Вкладка в фоне: Chrome не вызывает requestAnimationFrame, а окна сайта открываются с анимацией.
-        // Подменяем на таймер, чтобы окно «Новый посетитель» появлялось и в фоновой вкладке.
-        try {
-          const page = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-          page.requestAnimationFrame = (cb) => page.setTimeout(() => cb(page.performance.now()), 16);
-          page.cancelAnimationFrame = (id) => page.clearTimeout(id);
-        } catch (e) { /* не вышло — сработает, когда вкладку откроют */ }
         // Хвост адреса с заданием убираем только на странице посетителей: на /login это ломает возврат роутера сайта
         const cleanHash = () => { if (onGuestsPage() && location.hash) history.replaceState(history.state, '', location.pathname + location.search); };
         const guestsUrl = await store.get('guestsUrl', DEFAULT_GUESTS_URL);
@@ -816,6 +809,40 @@
     });
   }
 
-  if (location.hostname === 'my.avanguard.pro') avanguardMain();
-  else bitrixMain();
+  /**
+   * Фоновая вкладка: Chrome не вызывает requestAnimationFrame, и сайт (React) не перерисовывает таблицу и окна.
+   * Подмена через unsafeWindow до страницы не доходит (скрипт в своём мире), поэтому вставляем её тегом <script>
+   * в мир страницы — как можно раньше, до старта сайта. CSP у Авангарда нет.
+   */
+  function patchAnimationFrameInPage() {
+    const code = `(function () {
+      var raf = window.requestAnimationFrame.bind(window), caf = window.cancelAnimationFrame.bind(window);
+      var timers = new Set();
+      window.requestAnimationFrame = function (cb) {
+        if (!document.hidden) return raf(cb);
+        var id = setTimeout(function () { timers.delete(id); cb(performance.now()); }, 16);
+        timers.add(id);
+        return id;
+      };
+      window.cancelAnimationFrame = function (id) {
+        if (timers.has(id)) { timers.delete(id); clearTimeout(id); } else caf(id);
+      };
+    })();`;
+    try {
+      const tag = document.createElement('script');
+      tag.textContent = code;
+      (document.head || document.documentElement).appendChild(tag);
+      tag.remove();
+    } catch (e) { /* без подмены фоновая вкладка просто медленнее */ }
+  }
+
+  const whenReady = (fn) => (document.readyState === 'loading'
+    ? document.addEventListener('DOMContentLoaded', fn, { once: true }) : fn());
+
+  if (location.hostname === 'my.avanguard.pro') {
+    patchAnimationFrameInPage();
+    whenReady(avanguardMain);
+  } else {
+    whenReady(bitrixMain);
+  }
 })();
