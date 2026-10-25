@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v1.3.1 Studio 1826 — Пропуска списком (Авангард)
+// @name         v1.3.2 Studio 1826 — Пропуска списком (Авангард)
 // @namespace    studio1826
-// @version      1.3.1
+// @version      1.3.2
 // @description  Кнопка «Оформить пропуск» в окне ввода открытых линий Bitrix24: список ФИО + дата → пропуска в Авангарде оформляются по очереди
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
@@ -26,7 +26,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.3.1';
+  const VERSION = '1.3.2';
   const DEFAULT_GUESTS_URL = 'https://my.avanguard.pro/account/354/guests';
 
   // ── Чистые функции (тесты: tests/passes.test.js) ───────────────────────────
@@ -34,7 +34,9 @@
   // Госномер: буква, 3 цифры, 2 буквы, регион 2–3 цифры. Латиницу клиентов (A123BC) переводим в кириллицу.
   const PLATE_LETTERS = 'АВЕКМНОРСТУХ';
   const LATIN_TO_CYR = { A: 'А', B: 'В', E: 'Е', K: 'К', M: 'М', H: 'Н', O: 'О', P: 'Р', C: 'С', T: 'Т', Y: 'У', X: 'Х' };
-  const PLATE_IN_TEXT = /(^|[^0-9A-Za-zА-Яа-яЁё])([АВЕКМНОРСТУХABEKMHOPCTYX])[\s-]*(\d{3})[\s-]*([АВЕКМНОРСТУХABEKMHOPCTYX]{2})[\s-]*(\d{2,3})(?:\s*RUS)?(?=$|[^0-9A-Za-zА-Яа-яЁё])/i;
+  // Буквы берём любые: клиенты пишут и «Е334аб34». Номер не из 12 «номерных» букв Авангард примет только
+  // как «специальный номер» (отдельная галочка в окне) — это решает `plateIsSpecial`.
+  const PLATE_IN_TEXT = /(^|[^0-9A-Za-zА-Яа-яЁё])([A-Za-zА-Яа-яЁё])[\s-]*(\d{3})[\s-]*([A-Za-zА-Яа-яЁё]{2})[\s-]*(\d{2,3})(?:\s*RUS)?(?=$|[^0-9A-Za-zА-Яа-яЁё])/i;
 
   /** «е334ав34», «A 123 BC 777 RUS» → { number: 'Е334АВ', region: '34' }; не номер — null. */
   function parsePlate(text) {
@@ -44,6 +46,11 @@
     return { number: cyr(m[2]) + m[3] + cyr(m[4]), region: m[5] };
   }
 
+  /** В номере есть буквы, которых нет на обычных номерах (Б, Д, латинская D…) — вводим как специальный. */
+  function plateIsSpecial(plate) {
+    return Boolean(plate) && !new RegExp(`^[${PLATE_LETTERS}]\\d{3}[${PLATE_LETTERS}]{2}$`).test(plate.number);
+  }
+
   /** Подпись строки списка: «Иванов Иван · Е334АВ 34». По ней же скрипт в Авангарде восстанавливает ФИО и номер. */
   function passLabel(name, plate) {
     return plate ? `${name} · ${plate.number} ${plate.region}` : name;
@@ -51,7 +58,7 @@
 
   /** «Иванов Иван · Е334АВ 34» → { name, plate } */
   function splitLabel(label) {
-    const m = new RegExp(`^(.*?)\\s*·\\s*([${PLATE_LETTERS}]\\d{3}[${PLATE_LETTERS}]{2})\\s+(\\d{2,3})$`).exec(String(label || '').trim());
+    const m = /^(.*?)\s*·\s*([A-ZА-ЯЁ]\d{3}[A-ZА-ЯЁ]{2})\s+(\d{2,3})$/.exec(String(label || '').trim());
     return m ? { name: m[1], plate: { number: m[2], region: m[3] } } : { name: String(label || '').trim(), plate: null };
   }
 
@@ -125,7 +132,7 @@
   }
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { parseNames, isoDate, addDays, humanDate, periodText, parsePlate, passLabel, splitLabel, VERSION };
+    module.exports = { parseNames, isoDate, addDays, humanDate, periodText, parsePlate, plateIsSpecial, passLabel, splitLabel, VERSION };
     return;
   }
 
@@ -421,7 +428,17 @@
     setValue(dates[1], to);
     setValue(fio, name);
     if (plate) {
-      const number = [...modal.querySelectorAll('input')].find((i) => visible(i) && /999/.test(i.placeholder || '') && !/\+7/.test(i.placeholder || ''));
+      if (plateIsSpecial(plate)) {
+        // Обычная маска X999XX выбросит букву «Б» и сдвинет номер — включаем «Использовать специальный номер»
+        const special = [...modal.querySelectorAll('label')].find((l) => /специальный номер/i.test(textOf(l)));
+        const box = special && (special.querySelector('input[type="checkbox"]') ||
+          (special.htmlFor && modal.querySelector(`#${CSS.escape(special.htmlFor)}`)));
+        if (!box) return 'не нашёл галочку «Использовать специальный номер»';
+        if (!box.checked) box.click();
+        await sleep(100);
+      }
+      const number = [...modal.querySelectorAll('input')].find((i) => visible(i) &&
+        (/999/.test(i.placeholder || '') || /^Номер$/i.test((i.placeholder || '').trim())) && !/\+7/.test(i.placeholder || ''));
       const region = [...modal.querySelectorAll('input')].find((i) => visible(i) && (i.placeholder || '') === '000');
       if (!number || !region) return 'не нашёл поля номера машины';
       setValue(number, plate.number);

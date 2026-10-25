@@ -56,6 +56,10 @@ struct SetupView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             refreshAll()
         }
+        // Разрешение включают в Системных настройках, а приложение при этом не активируется — проверяем раз в секунду
+        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
+            if !canPaste { canPaste = QuickReplySettings.canPaste }
+        }
     }
 
     private func refreshAll() {
@@ -138,8 +142,11 @@ struct SetupView: View {
                             .buttonStyle(.borderedProminent)
                             Button("Проверить снова") { canPaste = QuickReplySettings.canPaste }
                         }
-                        Hint(text: "После каждого обновления приложения macOS может попросить разрешение заново: выключите и снова включите Studio1826Updater в списке.",
+                        Hint(text: "Studio1826Updater в списке уже включён, а здесь всё равно «нет разрешения»? Это запись от прошлой версии приложения — выключить и включить не поможет. Нажмите **Сбросить и разрешить заново**, затем снова включите Studio1826Updater в списке.",
                              systemImage: "exclamationmark.triangle")
+                        Button("Сбросить и разрешить заново") {
+                            QuickReplySettings.resetPastePermission()
+                        }
                     }
                 }
             }

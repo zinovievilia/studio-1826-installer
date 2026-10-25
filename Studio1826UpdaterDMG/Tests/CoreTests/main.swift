@@ -70,6 +70,8 @@ let expected = """
 Касса: 102.730
 """
 expect(report.text(calendar: cal) == expected, "текст отчёта как в примере")
+expect(report.telegramText(calendar: cal) == "```\n" + expected + "\n```", "отчёт для Telegram — моноширинный блок")
+expect(CashReport(date: date, branch: .paveletskaya, values: [:]).text(calendar: cal).contains("Касса: 0"), "пустые поля — 0")
 expect(CashReport.dateString(cal.date(from: DateComponents(year: 2026, month: 3, day: 5))!, calendar: cal) == "05.03", "дата с нулями")
 
 // MARK: Версии
@@ -172,6 +174,10 @@ expect(ReplySuggest.rank(clientText: "Здравствуйте, а где мож
 expect(ReplySuggest.rank(clientText: "Хотим отменить бронь, вернёте деньги?", items: [parking, cancel]).first?.id == "c",
        "подбор: отменить → отмена")
 expect(ReplySuggest.rank(clientText: "Спасибо!", items: [parking, cancel]).isEmpty, "подбор: нет совпадений")
+let textOnly = ReplyItem(script: ReplyScript(id: "m", title: "Мой скрипт", category: "", text: "Курьер может оставить посылку на ресепшене"),
+                     origin: .studio)
+expect(ReplySuggest.rank(clientText: "Курьер привезёт посылку, где её оставить?", items: [parking, cancel, textOnly]).first?.id == "m",
+       "подбор: скрипт без ключевых слов находится по тексту")
 expect(StudioPhone.all.first { $0.id == "serp" }?.formatted == "+7 916 520-18-26", "формат телефона")
 
 // MARK: Настраиваемые ссылки

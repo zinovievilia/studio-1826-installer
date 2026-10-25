@@ -27,6 +27,22 @@ enum QuickReplySettings {
         }
     }
 
+    /// Переключатель в «Универсальном доступе» включён, а разрешения нет: это запись от прошлой сборки.
+    /// Сборка подписана ad-hoc, у каждой версии своя подпись, и macOS старую запись к новой не относит —
+    /// выключить-включить не помогает. Удаляем запись (tccutil) и просим разрешение заново.
+    static func resetPastePermission() {
+        let tccutil = Process()
+        tccutil.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+        tccutil.arguments = ["reset", "Accessibility", Bundle.main.bundleIdentifier ?? "studio1826.updater"]
+        do {
+            try tccutil.run()
+            tccutil.waitUntilExit()
+        } catch {
+            NSLog("Studio1826: tccutil reset не запустился: \(error)")
+        }
+        requestPastePermission()
+    }
+
     /// ⌘V в активное приложение.
     static func pasteToFrontApp() {
         let source = CGEventSource(stateID: .combinedSessionState)
@@ -357,6 +373,9 @@ struct QuickReplyView: View {
                     Spacer()
                     Button("Разрешить") { QuickReplySettings.requestPastePermission() }
                         .controlSize(.small)
+                    Button("Сбросить") { QuickReplySettings.resetPastePermission() }
+                        .controlSize(.small)
+                        .help("Studio1826Updater в списке уже включён, а вставка не работает — сбросить запись прошлой версии и разрешить заново")
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 6)

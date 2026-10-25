@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// «Отчёт по кассе»: дата, филиал, пять сумм (можно с подсчётами) → готовый текст в буфер обмена.
+/// «Отчёт по кассе»: дата, филиал, пять сумм (можно с подсчётами, пустое — 0) → текст для Telegram в буфер обмена.
 struct CashReportView: View {
     @EnvironmentObject var model: CashReportModel
     @EnvironmentObject var toaster: Toaster
@@ -8,58 +8,41 @@ struct CashReportView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                Hint(text: "В полях можно считать: «100+500» станет 600. Enter — следующее поле.")
-
+            VStack(alignment: .leading, spacing: 10) {
                 Card {
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack(spacing: 10) {
-                            Text("Дата").frame(width: 110, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 8) {
                             DatePicker("", selection: $model.date, displayedComponents: .date)
                                 .labelsHidden()
                                 .datePickerStyle(.field)
-                                .frame(width: 120)
+                                .frame(width: 110)
                             if !Calendar.current.isDateInToday(model.date) {
                                 Button("Сегодня") { model.date = Date() }
                                     .controlSize(.small)
                             }
-                            Spacer()
-                        }
-                        HStack(spacing: 10) {
-                            Text("Филиал").frame(width: 110, alignment: .leading)
                             Picker("", selection: $model.branch) {
                                 ForEach(StudioBranch.allCases) { b in Text(b.title).tag(b) }
                             }
                             .labelsHidden()
                             .pickerStyle(.segmented)
                         }
-                    }
-                }
-
-                Card {
-                    VStack(alignment: .leading, spacing: 8) {
+                        Divider()
                         ForEach(CashField.allCases) { field in
                             fieldRow(field)
                         }
                     }
                 }
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Так будет скопировано").font(.caption).foregroundColor(.secondary)
-                    Text(previewText)
-                        .font(.system(.callout, design: .monospaced))
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(10)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .textBackgroundColor)))
-                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color(nsColor: .separatorColor).opacity(0.6)))
-                }
+                Text("Пустое поле — 0. В полях можно считать: «100+500» станет 600. Enter — следующее поле.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 HStack(spacing: 10) {
                     Button {
                         copy()
                     } label: {
-                        Label("Скопировать отчёт", systemImage: "doc.on.doc")
+                        Label("Скопировать для Telegram", systemImage: "doc.on.doc")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
@@ -75,11 +58,16 @@ struct CashReportView: View {
                 }
 
                 if !model.problems.isEmpty {
-                    Text("Заполните: " + model.problems.map(\.title).joined(separator: ", "))
+                    Text("Исправьте: " + model.problems.map(\.title).joined(separator: ", "))
                         .font(.caption)
                         .foregroundColor(.orange)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+
+                Text("Отчёт копируется блоком в ``` — в Telegram после отправки он будет моноширинным.")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(14)
         }
@@ -89,12 +77,12 @@ struct CashReportView: View {
     }
 
     private func fieldRow(_ field: CashField) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             Text(field.title).frame(width: 110, alignment: .leading)
             TextField("0", text: binding(field))
                 .textFieldStyle(.roundedBorder)
                 .font(.body.monospacedDigit())
-                .frame(width: 150)
+                .frame(width: 140)
                 .focused($focused, equals: field)
                 .onSubmit { focusNext(after: field) }
             resultLabel(field)
@@ -134,23 +122,9 @@ struct CashReportView: View {
         }
     }
 
-    private var previewText: String {
-        var lines = [CashReport.dateString(model.date), model.branch.title, ""]
-        for field in CashField.allCases {
-            let value: String
-            if case .success(let v) = model.result(field) {
-                value = MoneyFormat.string(v)
-            } else {
-                value = "—"
-            }
-            lines.append("\(field.title): \(value)")
-        }
-        return lines.joined(separator: "\n")
-    }
-
     private func copy() {
         guard model.problems.isEmpty else { return }
-        Clipboard.copy(model.report.text())
-        toaster.show("Отчёт скопирован")
+        Clipboard.copy(model.report.telegramText())
+        toaster.show("Отчёт скопирован для Telegram")
     }
 }

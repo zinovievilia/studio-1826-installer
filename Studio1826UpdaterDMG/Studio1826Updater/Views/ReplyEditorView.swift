@@ -11,7 +11,6 @@ struct ReplyEditorView: View {
     @State private var title: String
     @State private var category: String
     @State private var text: String
-    @State private var keywords: String
 
     init(script: ReplyScript, isNew: Bool, categories: [String],
          onCancel: @escaping () -> Void, onSave: @escaping (ReplyScript) -> Void) {
@@ -23,7 +22,6 @@ struct ReplyEditorView: View {
         _title = State(initialValue: script.title)
         _category = State(initialValue: script.category)
         _text = State(initialValue: script.text)
-        _keywords = State(initialValue: script.keywords.joined(separator: ", "))
     }
 
     private var canSave: Bool {
@@ -78,10 +76,9 @@ struct ReplyEditorView: View {
                             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color(nsColor: .separatorColor)))
                     }
 
-                    labeled("Ключевые слова для поиска, через запятую") {
-                        TextField("парковка, курьер, доставка", text: $keywords)
-                            .textFieldStyle(.roundedBorder)
-                    }
+                    Text("Искать скрипт можно по любым словам из названия и текста — ключевые слова отдельно не нужны.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
                 .padding(14)
             }
@@ -97,7 +94,6 @@ struct ReplyEditorView: View {
                     result.title = title
                     result.category = category
                     result.text = text
-                    result.keywords = keywords.split(separator: ",").map { String($0) }
                     onSave(result)
                 }
                 .keyboardShortcut("s", modifiers: .command)
