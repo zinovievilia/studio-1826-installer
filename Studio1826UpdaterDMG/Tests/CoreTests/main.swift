@@ -174,9 +174,9 @@ expect(ReplySuggest.rank(clientText: "Здравствуйте, а где мож
 expect(ReplySuggest.rank(clientText: "Хотим отменить бронь, вернёте деньги?", items: [parking, cancel]).first?.id == "c",
        "подбор: отменить → отмена")
 expect(ReplySuggest.rank(clientText: "Спасибо!", items: [parking, cancel]).isEmpty, "подбор: нет совпадений")
-let mine = ReplyItem(script: ReplyScript(id: "m", title: "Мой скрипт", category: "", text: "Курьер может оставить посылку на ресепшене"),
+let textOnly = ReplyItem(script: ReplyScript(id: "m", title: "Мой скрипт", category: "", text: "Курьер может оставить посылку на ресепшене"),
                      origin: .studio)
-expect(ReplySuggest.rank(clientText: "Курьер привезёт посылку, где её оставить?", items: [parking, cancel, mine]).first?.id == "m",
+expect(ReplySuggest.rank(clientText: "Курьер привезёт посылку, где её оставить?", items: [parking, cancel, textOnly]).first?.id == "m",
        "подбор: скрипт без ключевых слов находится по тексту")
 expect(StudioPhone.all.first { $0.id == "serp" }?.formatted == "+7 916 520-18-26", "формат телефона")
 
