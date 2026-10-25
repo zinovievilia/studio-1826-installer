@@ -255,3 +255,22 @@ test('ФИО с заглавной: строчные и КАПС исправл�
   assert.strictEqual(properName('Машина'), 'Машина');
   assert.deepStrictEqual(parseNames('прокопчук   юлия\nЕ334ав34').names, ['Прокопчук Юлия · Е334АВ 34']);
 });
+
+test('вставка из выделения/буфера: только строки с ФИО и номерами', () => {
+  const { prefillText } = require('../studio1826-passes.user.js');
+  const message = 'Здравствуйте! Вот список на завтра:\n1. Воронцова Лилия Эдуардовна\n2. Хван Валерия Алексеевна\nмашина Е334ав34\nСпасибо!\n12:30';
+  assert.strictEqual(prefillText(message, ''), '1. Воронцова Лилия Эдуардовна\n2. Хван Валерия Алексеевна\nмашина Е334ав34');
+  assert.strictEqual(prefillText('', 'Прокопчук Юлия'), 'Прокопчук Юлия');
+  assert.strictEqual(prefillText('Иванов Иван', 'Прокопчук Юлия'), 'Иванов Иван');
+  assert.strictEqual(prefillText('https://my.avanguard.pro/account/354/guests', ''), '');
+  assert.strictEqual(prefillText('', 'Как добраться до студии? Подскажите пожалуйста парковку'), '');
+  assert.strictEqual(prefillText('Е334ав34', ''), 'Е334ав34');
+  assert.strictEqual(prefillText('', ''), '');
+});
+
+test('вставка: выделение строк таблицы Авангарда (ячейки через табуляцию)', () => {
+  const { prefillText } = require('../studio1826-passes.user.js');
+  const sel = 'Погоря Виктория Сергеевна\t—\t02.09.2026 - 31.12.2026\t\tушел\nГуревич Евгений Михайлович ИП\tПолина Андронова';
+  assert.strictEqual(prefillText(sel, ''), 'Погоря Виктория Сергеевна\nПолина Андронова');
+  assert.strictEqual(prefillText('ООО Ромашка\tИванов Иван\tА439ТУ 797', ''), 'Иванов Иван\nА439ТУ 797');
+});
