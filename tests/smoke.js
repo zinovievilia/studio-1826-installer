@@ -56,6 +56,10 @@ const { chromium } = require('playwright');
             '<div class="deal-item-contaner"><div class="reserve-title-label">Зал 100 (С)</div><div class="reserve-phone-label">Бум, Фон</div></div></body></html>'
     }));
     await page2.goto('https://1826studio.bitrix24.ru/marketplace/app/129/');
+    /* Настройки хранит основное окно и каждые несколько секунд отправляет их сборщику:
+     * цвет задаём там же, иначе следующий запрос основного окна его перезапишет. */
+    await page2.evaluate(() => localStorage.setItem('studio1826.v32.features',
+        JSON.stringify({ arrows: false, colors: { done: '#123456' } })));
     await page2.addScriptTag({ content: fs.readFileSync(path.join(__dirname, '..', 'studio1826.user.js'), 'utf8') });
     const frame = page2.frames().find(f => f.url().startsWith('https://app.bitrix24.ru'));
     await frame.addScriptTag({ content: fs.readFileSync(path.join(__dirname, '..', 'studio1826.user.js'), 'utf8') });
