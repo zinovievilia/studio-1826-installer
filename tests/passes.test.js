@@ -24,7 +24,7 @@ test('через запятую и точку с запятой', () => {
 test('повторы убираются без учёта регистра и ё', () => {
   const { names, duplicates } = parseNames('Фёдоров Иван\nфедоров иван\nПетров Пётр');
   assert.deepStrictEqual(names, ['Фёдоров Иван', 'Петров Пётр']);
-  assert.deepStrictEqual(duplicates, ['федоров иван']);
+  assert.deepStrictEqual(duplicates, ['Федоров Иван']);
 });
 
 test('пустой ввод', () => {
@@ -82,4 +82,176 @@ test('номер с «необычными» буквами — специаль
   assert.ok(plateIsSpecial(parsePlate('D123ab77')));
   assert.deepStrictEqual(parseNames('Иванов Иван Е334аб34').names, ['Иванов Иван · Е334АБ 34']);
   assert.deepStrictEqual(splitLabel('Иванов Иван · Е334АБ 34'), { name: 'Иванов Иван', plate: { number: 'Е334АБ', region: '34' } });
+});
+
+// ── 1.4.0: данные Авангарда ────────────────────────────────────────────────
+
+const { apiPeriod, parseApiTime, dayBounds, guestCoversDay, matchingPasses, eventKind, parkedTime, formatDuration } =
+  require('../studio1826-passes.user.js');
+
+test('время API без «Z» — это UTC', () => {
+  assert.strictEqual(parseApiTime('2026-10-25T12:04:30'), Date.UTC(2026, 9, 25, 12, 4, 30));
+  assert.strictEqual(parseApiTime('2026-10-25T12:04:30Z'), Date.UTC(2026, 9, 25, 12, 4, 30));
+  assert.ok(Number.isNaN(parseApiTime('')));
+  assert.ok(Number.isNaN(parseApiTime(null)));
+});
+
+test('период дня для фильтра списка', () => {
+  assert.deepStrictEqual(apiPeriod('2026-11-05'), { dateStart: '2026-11-05T00:00:00', dateFinish: '2026-11-05T23:59:59' });
+});
+
+// Пропуск на день, как его отдаёт сайт: местные сутки в UTC
+const passFor = (iso, extra = {}) => {
+  const { start, end } = dayBounds(iso);
+  const utc = (ms) => new Date(ms).toISOString().slice(0, 19);
+  return { id: 1, name: 'Воронцова Лилия Эдуардовна', isArchived: false, dateStart: utc(start), dateFinish: utc(end - 999), ...extra };
+};
+
+test('пропуск действует в свой день и не действует в соседние', () => {
+  const g = passFor('2026-10-29');
+  assert.ok(guestCoversDay(g, '2026-10-29'));
+  assert.ok(!guestCoversDay(g, '2026-10-28'));
+  assert.ok(!guestCoversDay(g, '2026-10-30'));
+});
+
+test('пропуск на неделю покрывает день внутри', () => {
+  const week = { ...passFor('2026-10-24'), dateFinish: passFor('2026-10-31').dateFinish };
+  assert.ok(guestCoversDay(week, '2026-10-29'));
+});
+
+test('«был ли пропуск»: то же ФИО без учёта регистра, ё и пробелов; архивные и чужие не в счёт', () => {
+  const list = [
+    passFor('2026-10-29', { id: 1 }),
+    passFor('2026-10-29', { id: 2, name: 'ВОРОНЦОВА  лилия эдуардовна' }),
+    passFor('2026-10-29', { id: 3, isArchived: true }),
+    passFor('2026-10-29', { id: 4, name: 'Воронцова Лилия' }),
+    passFor('2026-10-30', { id: 5 }),
+  ];
+  assert.deepStrictEqual(matchingPasses(list, 'Воронцова Лилия Эдуардовна', '2026-10-29').map((g) => g.id), [1, 2]);
+  const yo = [passFor('2026-10-29', { name: 'Фёдоров Иван' })];
+  assert.strictEqual(matchingPasses(yo, 'федоров иван', '2026-10-29').length, 1);
+});
+
+test('«был ли пропуск» с машиной: сверяется и номер', () => {
+  const list = [
+    passFor('2026-10-29', { id: 1, name: 'Машина', carNumber: 'Е334АВ', carRegion: '34' }),
+    passFor('2026-10-29', { id: 2, name: 'Машина', carNumber: 'А439ТУ', carRegion: '797' }),
+  ];
+  assert.deepStrictEqual(matchingPasses(list, 'Машина', '2026-10-29', { number: 'Е334АВ', region: '34' }).map((g) => g.id), [1]);
+  assert.strictEqual(matchingPasses(list, 'Машина', '2026-10-29').length, 2);
+});
+
+test('события: въезд/выезд машины, пешие «Вход/Выход» не в счёт', () => {
+  assert.strictEqual(eventKind({ event: 33, eventName: 'Въезд по распознаванию' }), 'in');
+  assert.strictEqual(eventKind({ event: 34, eventName: 'Выезд по распознаванию' }), 'out');
+  assert.strictEqual(eventKind({ event: 35, eventName: 'Въезд по заявке' }), 'in');
+  assert.strictEqual(eventKind({ event: 37, eventName: 'Въезд спецтранспорта по распознаванию' }), 'in');
+  assert.strictEqual(eventKind({ event: 1, eventName: 'Вход' }), null);
+  assert.strictEqual(eventKind({ event: 2, eventName: 'Выход' }), null);
+  assert.strictEqual(eventKind({ event: 36 }), 'out');
+  assert.strictEqual(eventKind({ event: 21 }), 'in');
+  assert.strictEqual(eventKind({ event: 2 }), null);
+});
+
+const T = (h, m = 0) => new Date(Date.UTC(2026, 9, 25, h, m)).toISOString().slice(0, 19); // UTC без Z, как у сайта
+const DAY0 = Date.UTC(2026, 9, 24, 21, 0); // полночь по Москве
+const ev = (time, event, eventName) => ({ time, event, eventName });
+
+test('часы: въезд 12:04 — выезд 15:10 (как А439ТУ) = 3 ч 6 мин', () => {
+  const events = [ev('2026-10-25T15:10:46', 34, 'Выезд по распознаванию'), ev('2026-10-25T12:04:30', 33, 'Въезд по распознаванию')];
+  const r = parkedTime(events, DAY0, Date.UTC(2026, 9, 25, 18, 0));
+  assert.strictEqual(formatDuration(r.ms), '3 ч 6 мин');
+  assert.strictEqual(r.inside, false);
+  assert.strictEqual(r.seen, true);
+});
+
+test('часы: несколько заездов складываются, стоит сейчас — до текущего момента', () => {
+  const events = [
+    ev(T(6), 33, 'Въезд по распознаванию'), ev(T(7, 30), 34, 'Выезд по распознаванию'),
+    ev(T(10), 35, 'Въезд по заявке'), ev(T(10, 1), 1, 'Вход'),
+  ];
+  const r = parkedTime(events, DAY0, Date.UTC(2026, 9, 25, 12, 15));
+  assert.strictEqual(formatDuration(r.ms), '3 ч 45 мин');
+  assert.strictEqual(r.inside, true);
+});
+
+test('часы: выезд без въезда за день — стояла с полуночи; событие вчера задаёт состояние', () => {
+  const r1 = parkedTime([ev(T(2), 34, 'Выезд по распознаванию')], DAY0, Date.UTC(2026, 9, 25, 12));
+  assert.strictEqual(r1.ms, Date.UTC(2026, 9, 25, 2) - DAY0);
+  const r2 = parkedTime([ev('2026-10-24T18:00:00', 33, 'Въезд по распознаванию')], DAY0, Date.UTC(2026, 9, 25, 1));
+  assert.strictEqual(r2.ms, Date.UTC(2026, 9, 25, 1) - DAY0);
+  assert.strictEqual(r2.inside, true);
+});
+
+test('часы: двойной въезд не удваивает, событий нет — «не заезжала»', () => {
+  const r = parkedTime([ev(T(6), 33, 'Въезд'), ev(T(7), 33, 'Въезд'), ev(T(8), 34, 'Выезд')], DAY0, Date.UTC(2026, 9, 25, 12));
+  assert.strictEqual(formatDuration(r.ms), '2 ч');
+  const none = parkedTime([], DAY0, Date.UTC(2026, 9, 25, 12));
+  assert.deepStrictEqual(none, { ms: 0, inside: false, seen: false });
+});
+
+test('длительность', () => {
+  assert.strictEqual(formatDuration(45 * 60000), '45 мин');
+  assert.strictEqual(formatDuration(2 * 3600000), '2 ч');
+  assert.strictEqual(formatDuration(0), '0 мин');
+});
+
+test('разные написания списка: инициалы, только фамилия, табы, лишние пробелы, CAPS, ё', () => {
+  const { names, invalid } = parseNames('ВОРОНЦОВА   Лилия\tЭдуардовна\nХван В.А.\nПрокопчук\n  Фёдоров Иван  ');
+  assert.deepStrictEqual(names, ['Воронцова Лилия Эдуардовна', 'Хван В.А.', 'Прокопчук', 'Фёдоров Иван']);
+  assert.deepStrictEqual(invalid, []);
+});
+
+test('разные написания номеров рядом с ФИО', () => {
+  assert.deepStrictEqual(parseNames('Иванов Иван А 439 ТУ 797').names, ['Иванов Иван · А439ТУ 797']);
+  assert.deepStrictEqual(parseNames('Иванов Иван — a439ty797 RUS').names, ['Иванов Иван · А439ТУ 797']);
+  assert.deepStrictEqual(parseNames('Иванов Иван\nЕ334аб34').names, ['Иванов Иван · Е334АБ 34']);
+  assert.deepStrictEqual(parseNames('Иванов Иван 89161234567').invalid, ['Иванов Иван 89161234567']);
+});
+
+test('код для мира страницы разбирается и ловит ответ со списком посетителей', async () => {
+  const { pageWorldCode } = require('../studio1826-passes.user.js');
+  const code = pageWorldCode();
+  const events = [];
+  class FakeXHR { open() {} send() {} addEventListener() {} }
+  const win = {
+    requestAnimationFrame: () => 1, cancelAnimationFrame: () => {},
+    fetch: async (url) => ({ clone: () => ({ text: async () => `{"result":[{"id":1}],"url":"${url}"}` }) }),
+    dispatchEvent: (e) => events.push(JSON.parse(e.detail)),
+  };
+  // eslint-disable-next-line no-new-func
+  new Function('window', 'XMLHttpRequest', 'CustomEvent', 'document', 'performance', code)(
+    win, FakeXHR, class { constructor(type, init) { this.type = type; this.detail = init.detail; } }, { hidden: false }, { now: () => 0 });
+  await win.fetch('https://api.avanguard.pro/api/guests?accountId=354&search=439');
+  await win.fetch('https://api.avanguard.pro/api/guests/1267210');
+  await new Promise((r) => setTimeout(r, 10));
+  assert.strictEqual(events.length, 1);
+  assert.ok(events[0].url.includes('search=439'));
+});
+
+test('строка таблицы → пропуск: ФИО целиком и номер машины', () => {
+  const { guestsForRow } = require('../studio1826-passes.user.js');
+  const guests = [
+    { id: 1, name: 'Хван Валерия Алексеевна' },
+    { id: 2, name: 'Хван' },
+    { id: 3, name: 'Машина', carNumber: 'А439ТУ', carRegion: '797' },
+    { id: 4, name: 'Машина', carNumber: 'К013АК', carRegion: '15' },
+    { id: 5, name: 'Хван Валерия Алексеевна', carNumber: 'Е334АВ', carRegion: '34' },
+  ];
+  assert.deepStrictEqual(guestsForRow('Хван Валерия Алексеевна', '—', guests).map((g) => g.id), [1]);
+  assert.deepStrictEqual(guestsForRow('ХВАН', '', guests).map((g) => g.id), [2]);
+  assert.deepStrictEqual(guestsForRow('Машина', 'А439ТУ 797', guests).map((g) => g.id), [3]);
+  assert.deepStrictEqual(guestsForRow('Хван Валерия Алексеевна', 'Е334АВ 34', guests).map((g) => g.id), [5]);
+  assert.deepStrictEqual(guestsForRow('Петров', '', guests), []);
+});
+
+test('ФИО с заглавной: строчные и КАПС исправляются, инициалы и двойные фамилии — нет', () => {
+  const { properName } = require('../studio1826-passes.user.js');
+  assert.strictEqual(properName('прокопчук юлия станиславовна'), 'Прокопчук Юлия Станиславовна');
+  assert.strictEqual(properName('ХВАН валерия алексеевна'), 'Хван Валерия Алексеевна');
+  assert.strictEqual(properName('Хван В.А.'), 'Хван В.А.');
+  assert.strictEqual(properName('римский-корсаков николай'), 'Римский-Корсаков Николай');
+  assert.strictEqual(properName('Мак-Дональд'), 'Мак-Дональд');
+  assert.strictEqual(properName('Машина'), 'Машина');
+  assert.deepStrictEqual(parseNames('прокопчук   юлия\nЕ334ав34').names, ['Прокопчук Юлия · Е334АВ 34']);
 });
