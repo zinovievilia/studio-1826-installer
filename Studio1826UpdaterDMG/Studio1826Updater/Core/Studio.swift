@@ -112,6 +112,11 @@ struct CashReport {
         }
         return lines.joined(separator: "\n")
     }
+
+    /// Для Telegram: блок в ``` — после отправки показывается моноширинным шрифтом.
+    func telegramText(calendar: Calendar = .current) -> String {
+        "```\n" + text(calendar: calendar) + "\n```"
+    }
 }
 
 // MARK: - Скрипты студии для браузера (userscripts)

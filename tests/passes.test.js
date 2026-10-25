@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { parseNames, isoDate, addDays, humanDate, periodText, parsePlate, passLabel, splitLabel } = require('../studio1826-passes.user.js');
+const { parseNames, isoDate, addDays, humanDate, periodText, parsePlate, plateIsSpecial, passLabel, splitLabel } = require('../studio1826-passes.user.js');
 
 test('список ФИО: по строкам, без нумерации и пустых строк', () => {
   const { names } = parseNames(`
@@ -51,7 +51,6 @@ test('parsePlate: номер как присылают клиенты', () => {
   assert.deepStrictEqual(parsePlate('Е334ав34'), { number: 'Е334АВ', region: '34' });
   assert.deepStrictEqual(parsePlate('a123bc 777 RUS'), { number: 'А123ВС', region: '777' });
   assert.deepStrictEqual(parsePlate('М 593 УХ 790'), { number: 'М593УХ', region: '790' });
-  assert.strictEqual(parsePlate('Ж334ав34'), null);
   assert.strictEqual(parsePlate('Воронцова Лилия'), null);
 });
 
@@ -63,7 +62,7 @@ test('parseNames: номер с ФИО, отдельной строкой и б�
     ['Иванов Иван · Е334АВ 34', 'Петров Пётр · А123ВС 77']);
   assert.deepStrictEqual(parseNames('Е334ав34\nА123ВС77').names, ['Машина · Е334АВ 34', 'Машина · А123ВС 77']);
   assert.deepStrictEqual(parseNames('1. Хван Валерия').names, ['Хван Валерия']);
-  assert.deepStrictEqual(parseNames('Иванов Ж334ав34').invalid, ['Иванов Ж334ав34']);
+  assert.deepStrictEqual(parseNames('Иванов 12345').invalid, ['Иванов 12345']);
   // Оставшиеся в поле подписи разбираются так же
   assert.deepStrictEqual(parseNames('Иванов Иван · Е334АВ 34').names, ['Иванов Иван · Е334АВ 34']);
 });
@@ -72,4 +71,15 @@ test('splitLabel / passLabel', () => {
   assert.deepStrictEqual(splitLabel('Машина · Е334АВ 34'), { name: 'Машина', plate: { number: 'Е334АВ', region: '34' } });
   assert.deepStrictEqual(splitLabel('Хван Валерия'), { name: 'Хван Валерия', plate: null });
   assert.strictEqual(passLabel('Хван', null), 'Хван');
+});
+
+test('номер с «необычными» буквами — специальный', () => {
+  const plate = parsePlate('Е334аб34');
+  assert.deepStrictEqual(plate, { number: 'Е334АБ', region: '34' });
+  assert.ok(plateIsSpecial(plate));
+  assert.ok(!plateIsSpecial(parsePlate('Е334ав34')));
+  assert.ok(!plateIsSpecial(parsePlate('a123bc 777')));
+  assert.ok(plateIsSpecial(parsePlate('D123ab77')));
+  assert.deepStrictEqual(parseNames('Иванов Иван Е334аб34').names, ['Иванов Иван · Е334АБ 34']);
+  assert.deepStrictEqual(splitLabel('Иванов Иван · Е334АБ 34'), { name: 'Иванов Иван', plate: { number: 'Е334АБ', region: '34' } });
 });

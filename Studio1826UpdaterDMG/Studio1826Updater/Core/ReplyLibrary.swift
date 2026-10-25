@@ -339,7 +339,8 @@ enum ReplySuggest {
     }
 
     /// Скрипты, отсортированные по совпадению с текстом клиента (только с хотя бы одним совпадением).
-    /// Ключевые слова весят ×3, название ×2, текст скрипта ×1.
+    /// Ключевые слова (есть только у части скриптов студии) весят ×3, название и текст скрипта ×2:
+    /// свои скрипты сотрудники пишут без ключевых слов, их находим по словам из текста.
     static func rank(clientText: String, items: [ReplyItem], limit: Int = 8) -> [ReplyItem] {
         let client = stems(clientText)
         guard !client.isEmpty else { return [] }
@@ -347,7 +348,7 @@ enum ReplySuggest {
             let s = pair.element.script
             let score = 3 * client.intersection(stems(s.keywords.joined(separator: " "))).count
                 + 2 * client.intersection(stems(s.title)).count
-                + client.intersection(stems(s.text)).count
+                + 2 * client.intersection(stems(s.text)).count
             guard score >= 3 else { return nil }
             return (offset: pair.offset, item: pair.element, score: score)
         }

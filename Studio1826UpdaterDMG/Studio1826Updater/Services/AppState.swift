@@ -110,11 +110,11 @@ final class CashReportModel: ObservableObject {
         return Calculator.evaluate(raw)
     }
 
-    /// Поля, которые пусты или с ошибкой.
+    /// Поля с ошибкой в подсчёте. Пустое поле — не ошибка: в отчёт идёт 0.
     var problems: [CashField] {
         CashField.allCases.filter { field in
-            if case .success = result(field) { return false }
-            return true
+            if case .some(.failure) = result(field) { return true }
+            return false
         }
     }
 

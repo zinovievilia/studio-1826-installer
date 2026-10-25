@@ -10,7 +10,7 @@ private let appDMGURL     = URL(string: "\(repoRaw)/Studio1826Updater.dmg")!
 
 /// Текущая версия приложения — должна совпадать с содержимым app.version в репо.
 /// build.sh берёт версию отсюда: строка должна начинаться с `let APP_VERSION = "`.
-let APP_VERSION = "4.1.0"
+let APP_VERSION = "4.2.0"
 
 // MARK: - ScheduleMode
 
