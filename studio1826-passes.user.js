@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v1.2.5 Studio 1826 — Пропуска списком (Авангард)
+// @name         v1.2.6 Studio 1826 — Пропуска списком (Авангард)
 // @namespace    studio1826
-// @version      1.2.5
+// @version      1.2.6
 // @description  Кнопка «Оформить пропуск» в окне ввода открытых линий Bitrix24: список ФИО + дата → пропуска в Авангарде оформляются по очереди
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
@@ -26,7 +26,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.2.5';
+  const VERSION = '1.2.6';
   const DEFAULT_GUESTS_URL = 'https://my.avanguard.pro/account/354/guests';
 
   // ── Чистые функции (тесты: tests/passes.test.js) ───────────────────────────
@@ -360,6 +360,7 @@
   /** Уже есть пропуск на этого человека на весь период? Смотрим таблицу с фильтром на нужные даты и поиском по имени. */
   async function alreadyListed(name, from, to) {
     const { from: f, to: t, search } = listControls();
+    const doneBefore = net.done;
     if (f && t) { setValue(f, from); setValue(t, to); }
     if (search) setValue(search, name);
     const matches = () => [...document.querySelectorAll('tr, [role="row"]')].some((row) => rowMatches(textOf(row), name, from, to));
@@ -370,12 +371,15 @@
       const started = Date.now();
       let last = table();
       let stableSince = started;
-      await sleep(1100);
-      while (!matches() && Date.now() - started < 8000) {
+      // Главный признак — ответ сервера на запрос после фильтра (список с /api/ в фоне грузится до 6 с);
+      // «таблица не менялась» годится только если запрос так и не ушёл
+      while (Date.now() - started < 15000) {
+        await sleep(150);
+        const answered = Date.now() - started > 1200 && net.done > doneBefore && net.pending === 0 && Date.now() - net.lastDone > 400;
+        if (answered) break;
         const now = table();
         if (now !== last) { last = now; stableSince = Date.now(); }
-        else if (Date.now() - stableSince >= 1500) break;
-        await sleep(250);
+        if (net.done === doneBefore && net.pending === 0 && Date.now() - started > 4000 && Date.now() - stableSince >= 2000) break;
       }
     }
     return matches();
@@ -446,9 +450,32 @@
   function readSession(key) { try { return sessionStorage.getItem(key); } catch (e) { return null; } }
   function writeSession(key, value) { try { sessionStorage.setItem(key, value); } catch (e) { /* без него вкладка просто не продолжит после перезагрузки */ } }
 
+  /** Считаем запросы страницы к серверу: пропуск «уже есть» проверяем только по ответу на фильтр. */
+  const net = { pending: 0, done: 0, lastDone: 0 };
+  function watchNetwork() {
+    try {
+      const page = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
+      const finish = () => { net.pending = Math.max(0, net.pending - 1); net.done += 1; net.lastDone = Date.now(); };
+      const realFetch = page.fetch;
+      if (realFetch) {
+        page.fetch = function (...args) {
+          net.pending += 1;
+          return realFetch.apply(this, args).then((r) => { finish(); return r; }, (e) => { finish(); throw e; });
+        };
+      }
+      const realSend = page.XMLHttpRequest.prototype.send;
+      page.XMLHttpRequest.prototype.send = function (...args) {
+        net.pending += 1;
+        this.addEventListener('loadend', finish, { once: true });
+        return realSend.apply(this, args);
+      };
+    } catch (e) { /* без счётчика остаётся ожидание по стабильности таблицы */ }
+  }
+
   const onGuestsPage = () => /\/account\/\d+\/guests/.test(location.pathname);
 
   async function avanguardMain() {
+    watchNetwork();
     // Запоминаем адрес страницы посетителей — Bitrix откроет именно его
     const rememberUrl = () => {
       if (onGuestsPage()) store.set('guestsUrl', location.origin + location.pathname);
