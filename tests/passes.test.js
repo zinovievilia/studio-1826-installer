@@ -477,3 +477,18 @@ test('пропуск готов: в списках нет «ждём вас», �
     assert.ok(donePool(one, h).length >= 20 && donePool(many, h).length >= 8, `час ${h}`);
   }
 });
+
+test('пропуск готов: повторное нажатие меняет вариант, свой текст не трогает', () => {
+  const { placeDoneMessage } = require('../studio1826-passes.user.js');
+  assert.strictEqual(placeDoneMessage('', '', 'А'), 'А');
+  assert.strictEqual(placeDoneMessage('А', 'А', 'Б'), 'Б');
+  assert.strictEqual(placeDoneMessage('А\n\nИнформация как нас найти:\nhttps://x\n', 'А\n\nИнформация как нас найти:\nhttps://x', 'Б'), 'Б');
+  assert.strictEqual(placeDoneMessage('Мой текст\nА', 'А', 'Б'), 'Мой текст\nБ');
+  assert.strictEqual(placeDoneMessage('Мой текст', 'А', 'Б'), 'Мой текст\nБ');
+  assert.strictEqual(placeDoneMessage('А, и ещё моё', 'А', 'Б'), 'А, и ещё моё\nБ');
+});
+
+test('пропуск готов: подводка к ссылке — только формулировка Ильи', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'studio1826-passes.user.js'), 'utf8');
+  assert.match(src, /const DONE_LINK_INTROS = \['Информация как нас найти:'\];/);
+});

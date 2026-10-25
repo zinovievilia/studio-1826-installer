@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v1.6.0 Studio 1826 — Пропуска списком (Авангард)
+// @name         v1.6.1 Studio 1826 — Пропуска списком (Авангард)
 // @namespace    studio1826
-// @version      1.6.0
+// @version      1.6.1
 // @description  Кнопка «Оформить пропуск» в окне ввода открытых линий Bitrix24: список ФИО + дата → пропуска в Авангарде оформляются по очереди с проверкой; в Авангарде — кнопка «Пропуска списком» и часы машин за сегодня
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
@@ -27,7 +27,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.6.0';
+  const VERSION = '1.6.1';
   const DEFAULT_GUESTS_URL = 'https://my.avanguard.pro/account/354/guests';
 
   // ── Чистые функции (тесты: tests/passes.test.js) ───────────────────────────
@@ -502,6 +502,19 @@
   }
 
   /**
+   * Новое поле ввода после «✅ Пропуск готов»: если в конце стоит прошлый вставленный ответ — меняем его на новый,
+   * иначе дописываем с новой строки (набранное вручную не трогаем).
+   */
+  function placeDoneMessage(current, prev, text) {
+    const body = String(current || '').replace(/\s+$/, '');
+    if (prev && body.endsWith(prev)) {
+      const before = body.slice(0, body.length - prev.length).replace(/\s+$/, '');
+      return before ? `${before}\n${text}` : text;
+    }
+    return body ? `${body}\n${text}` : text;
+  }
+
+  /**
    * Случайный ответ «пропуск готов», не такой, как прошлый. Примерно в трети случаев (если `link` есть) — с адресом
    * и случайной подводкой к нему.
    */
@@ -517,7 +530,7 @@
 
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = { parseNames, cleanMessage, splitByPatronymics, properName, prefillText, isoDate, addDays, humanDate, periodText, parsePlate, plateIsSpecial, passLabel, splitLabel,
-      apiPeriod, parseApiTime, dayBounds, guestCoversDay, matchingPasses, eventKind, parkedTime, formatDuration, guestsForRow, pageWorldCode, pickDoneMessage, donePool, hallFromProducts, bxDateTime, dealSummary, dealLine, sortDeals, VERSION };
+      apiPeriod, parseApiTime, dayBounds, guestCoversDay, matchingPasses, eventKind, parkedTime, formatDuration, guestsForRow, pageWorldCode, pickDoneMessage, donePool, placeDoneMessage, hallFromProducts, bxDateTime, dealSummary, dealLine, sortDeals, VERSION };
     return;
   }
 
@@ -1351,15 +1364,7 @@
 
   // С адресом — для Павелецкой (ссылку на Серпуховскую Илья пока не дал). Добавляется к любому варианту выше.
   const DONE_LINK = 'https://1826.studio/pav/contacts';
-  const DONE_LINK_INTROS = [
-    'Информация, как нас найти:',
-    'Как нас найти:',
-    'Как добраться до студии:',
-    'Подробно, как нас найти:',
-    'На всякий случай, как нас найти:',
-    'Чтобы легко нас найти:',
-    'Как пройти в студию, описали здесь:',
-  ];
+  const DONE_LINK_INTROS = ['Информация как нас найти:']; // формулировка Ильи, своих не добавлять
 
   // ── Bitrix24: кнопка «Пропуск» ──────────────────────────────────────────────
 
@@ -1376,7 +1381,7 @@
       .s1826p-btn:hover { background: rgba(31,111,235,.16); }
     ` + DEALS_CSS);
     let ui = null;
-    const panel = () => ui || (ui = createBitrixPanel());
+    const panel = () => ui || ((ui = createBitrixPanel()) && shield(ui.panel), ui);
     let bk = null;
     const bookings = () => bk || (bk = createBookingsPanel());
 
@@ -1404,11 +1409,14 @@
         bookingsBtn.textContent = '📅 Брони клиента';
         bookingsBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); const p = bookings(); if (p) p.openAt(bookingsBtn); });
         wrap.append(icon, done, bookingsBtn);
+        shield(wrap);
         row.appendChild(wrap);
       }
       // Ушли из линий — панель закрываем (если она не работает)
       if (ui && !ui.running && !document.querySelector(LINES_BUTTONS)) ui.panel.classList.remove('open');
       if (bk && !document.querySelector(LINES_BUTTONS)) bk.panel.classList.remove('open');
+      // Сменился диалог — панель броней показывает уже нового клиента
+      if (bk && bk.panel.classList.contains('open') && bk.key !== dialogKey()) bk.load();
       annotateDealLinks();
     };
     inject();
@@ -1422,7 +1430,7 @@
 
   let lastDone = '';
   let lastRunCount = 1; // сколько человек было в последнем запуске из этой вкладки: «пропуск» или «пропуска»
-  /** Вставить ответ в поле ввода этого диалога (к уже набранному — с новой строки). Не отправляет. */
+  /** Вставить ответ в поле ввода этого диалога (повторное нажатие меняет вариант, свой текст не трогает). Не отправляет. */
   function insertDoneMessage(row, button) {
     let box = row;
     while (box && !box.querySelector('textarea')) box = box.parentElement;
@@ -1431,13 +1439,14 @@
     const title = textOf(document.querySelector('.bx-im-dialog-header, .bx-messenger-panel, .bx-im-chat-header, header') || document.body).slice(0, 2000);
     const withLink = !/серпух/i.test(title);
     const text = pickDoneMessage(donePool(lastRunCount > 1 ? DONE_MANY : DONE_ONE, new Date().getHours()), lastDone, withLink ? DONE_LINK : '', DONE_LINK_INTROS);
+    const prevDone = lastDone;
     lastDone = text;
     if (!area) {
       try { navigator.clipboard.writeText(text); } catch (e) { /* без буфера — только подсказка */ }
       button.title = 'Не нашёл поле ввода — ответ скопирован, вставьте ⌘V';
       return;
     }
-    const value = area.value.trim() ? `${area.value.replace(/\s+$/, '')}\n${text}` : text;
+    const value = placeDoneMessage(area.value, prevDone, text);
     const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
     setter.call(area, value);
     area.dispatchEvent(new Event('input', { bubbles: true }));
@@ -1557,21 +1566,44 @@
     return m && m[1] !== '0' ? m[1] : null;
   }
 
+  /**
+   * Bitrix ловит нажатия мыши вне окна мессенджера и переключает диалог на первый в списке.
+   * Наши панели и кнопки не отдают ему эти события.
+   */
+  const SHIELD_EVENTS = ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick', 'touchstart', 'touchend'];
+  function shield(el) {
+    for (const t of SHIELD_EVENTS) el.addEventListener(t, (e) => e.stopPropagation());
+    return el;
+  }
+
+  /** Ключ открытого диалога — чтобы панель броней не показывала прошлого клиента. */
+  const dialogKey = () => (/IM_DIALOG=([^&#]+)/.exec(location.href) || [])[1] || '';
+
+  /** Имя клиента: текст ссылки на контакт в чате, иначе заголовок диалога. */
+  function dialogClientName() {
+    const link = [...document.querySelectorAll('a.bx-im-attach-link__link[href*="/crm/contact/details/"]')].pop();
+    const fromLink = link && textOf(link).trim();
+    if (fromLink) return fromLink.slice(0, 60);
+    const head = document.querySelector('.bx-im-chat-header__title, .bx-im-dialog-header__title, .bx-im-chat-title__text');
+    return head ? textOf(head).trim().slice(0, 60) : '';
+  }
+
   function createBookingsPanel() {
     if (document.getElementById('s1826p-bk')) return null;
     const panel = document.createElement('div');
     panel.className = 's1826p s1826p-bk';
     panel.id = 's1826p-bk';
     panel.innerHTML = `
-      <h3><span>Бронирования на этом клиенте</span><button class="close" title="Свернуть">✕</button></h3>
+      <h3><span class="title">Бронирования на этом клиенте</span><button class="close" title="Свернуть">✕</button></h3>
       <div class="row" style="align-items:center;justify-content:space-between">
         <span class="pills"><button data-f="upcoming" class="active">Предстоящие</button><button data-f="all">Все</button></span>
         <span class="pills"><button data-f="reload" title="Обновить">↻</button></span>
       </div>
       <div class="hint status"></div>
       <div class="list"></div>`;
-    document.body.appendChild(panel);
-    const ui = { panel, list: panel.querySelector('.list'), status: panel.querySelector('.status'), filter: 'upcoming', deals: [] };
+    document.body.appendChild(shield(panel));
+    const ui = { panel, list: panel.querySelector('.list'), status: panel.querySelector('.status'), title: panel.querySelector('.title'),
+      filter: 'upcoming', deals: [], key: '' };
     panel.querySelector('.close').addEventListener('click', () => panel.classList.remove('open'));
 
     const render = () => {
@@ -1610,12 +1642,18 @@
     };
 
     ui.load = async () => {
+      const key = dialogKey();
+      ui.key = key;
+      const name = dialogClientName();
+      ui.title.textContent = name ? `Бронирования: ${name}` : 'Бронирования на этом клиенте';
       ui.status.textContent = 'Загружаю брони…';
       ui.list.innerHTML = '';
       try {
         const contact = await dialogContactId();
         if (!contact) { ui.deals = []; ui.status.textContent = 'У диалога нет контакта в CRM — брони не найти'; return; }
-        ui.deals = sortDeals(await loadDeals({ CONTACT_ID: contact }));
+        const deals = sortDeals(await loadDeals({ CONTACT_ID: contact }));
+        if (ui.key !== key) return; // пока грузили, открыли другой диалог
+        ui.deals = deals;
         if (!ui.deals.length) ui.status.textContent = 'У клиента нет броней';
         render();
       } catch (e) {
