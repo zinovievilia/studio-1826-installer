@@ -14,3 +14,21 @@ jobs:
           node-version: 22
       - run: node --check studio1826.user.js
       - run: npm test
+
+  # Этап 10, P2: браузерные проверки (Playwright только здесь, в скрипт и package.json не входит).
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save playwright@1.64.1
+      - run: npx playwright install --with-deps chromium
+      - name: Путь к Chromium
+        run: echo "CHROMIUM_PATH=$(node -e "console.log(require('playwright').chromium.executablePath())")" >> "$GITHUB_ENV"
+      - run: node tests/smoke.js
+      - run: node tests/ui-header.js
+      - run: node tests/ui-notes.js
+      - run: node tests/ui-equipment.js
+      - run: node tests/ui-layout.js
