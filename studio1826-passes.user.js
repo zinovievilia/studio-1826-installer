@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v1.2.8 Studio 1826 — Пропуска списком (Авангард)
+// @name         v1.2.9 Studio 1826 — Пропуска списком (Авангард)
 // @namespace    studio1826
-// @version      1.2.8
+// @version      1.2.9
 // @description  Кнопка «Оформить пропуск» в окне ввода открытых линий Bitrix24: список ФИО + дата → пропуска в Авангарде оформляются по очереди
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
@@ -26,7 +26,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.2.8';
+  const VERSION = '1.2.9';
   const DEFAULT_GUESTS_URL = 'https://my.avanguard.pro/account/354/guests';
 
   // ── Чистые функции (тесты: tests/passes.test.js) ───────────────────────────
@@ -82,8 +82,13 @@
    * Период в таблице «24.10.2026 - 31.10.2026»: пропуск на 29-е уже есть, даже если «29.10.2026» в строке нет.
    */
   function rowMatches(rowText, name, fromIso, toIso = fromIso) {
+    if (!normalize(rowText).includes(normalize(name))) return false;
+    return rowCoversPeriod(rowText, fromIso, toIso);
+  }
+
+  /** Даты строки покрывают [fromIso, toIso] (без проверки имени). */
+  function rowCoversPeriod(rowText, fromIso, toIso = fromIso) {
     const row = normalize(rowText);
-    if (!row.includes(normalize(name))) return false;
     const want = (iso) => (/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '') || []).slice(1).join('');
     const wantFrom = want(fromIso);
     const wantTo = want(toIso);
@@ -99,6 +104,16 @@
     return wantFrom === wantTo && [`${d}.${mo}.${y}`, `${d}.${mo}.${y.slice(2)}`, `${y}-${mo}-${d}`].some((v) => row.includes(v));
   }
 
+  /**
+   * Таблица уже показывает список за нужные даты, а не прежний (за сегодня)? Все строки с датами покрывают период;
+   * пустая таблица считается свежей, только если сайт пишет, что записей нет.
+   */
+  function tableFresh(rowTexts, fromIso, toIso = fromIso, emptyShown = false) {
+    const dated = rowTexts.filter((t) => /\d{2}\.\d{2}\.\d{2,4}|\d{4}-\d{2}-\d{2}/.test(t));
+    if (dated.length === 0) return emptyShown;
+    return dated.every((t) => rowCoversPeriod(t, fromIso, toIso));
+  }
+
   /** Запрос списка посетителей именно за этот период (а не стартовый за сегодня). */
   function guestsRequestMatches(url, from, to) {
     if (!/\/api\/guests(?:[/?]|$)/.test(url || '')) return false;
@@ -110,7 +125,7 @@
   }
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { parseNames, isoDate, addDays, humanDate, periodText, rowMatches, guestsRequestMatches, VERSION };
+    module.exports = { parseNames, isoDate, addDays, humanDate, periodText, rowMatches, rowCoversPeriod, tableFresh, guestsRequestMatches, VERSION };
     return;
   }
 
@@ -186,6 +201,11 @@
     .s1826p .confirm-title { font-weight: 600; }
     .s1826p .confirm button.no { background: #8a8f98; }
     .s1826p .confirm button { flex: 1; }
+    .s1826p .days { display: flex; gap: 6px; align-items: flex-end; }
+    .s1826p .days button { padding: 6px 10px; border: 1px solid #c9d4e6; border-radius: 8px; background: #fff;
+      color: #1f6feb; font: 600 13px system-ui; cursor: pointer; }
+    .s1826p .days button.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+    .s1826p .days label { flex: 1; }
   `;
 
   /** Панель: список ФИО + даты + кнопка. `single` — одна дата вместо «с/по». */
@@ -209,10 +229,16 @@
       <h3><span>Оформить пропуск · v${VERSION}</span><button class="close" title="Свернуть">✕</button></h3>
       <div class="hint">ФИО — по одному на строку. Нумерация, запятые и пустые строки уберутся сами.</div>
       <textarea placeholder="Воронцова Лилия Эдуардовна&#10;Хван Валерия Алексеевна"></textarea>
+      ${single ? `
+      <div class="row days">
+        <button type="button" data-days="0">Сегодня</button>
+        <button type="button" data-days="1">Завтра</button>
+        <label>Другая дата <input type="date" class="from" value="${defaultDate}"></label>
+      </div>` : `
       <div class="row">
-        <label>${single ? 'Дата' : 'С'} <input type="date" class="from" value="${defaultDate}"></label>
-        ${single ? '' : `<label>По <input type="date" class="to" value="${defaultDate}"></label>`}
-      </div>
+        <label>С <input type="date" class="from" value="${defaultDate}"></label>
+        <label>По <input type="date" class="to" value="${defaultDate}"></label>
+      </div>`}
       <div class="hint summary"></div>
       <button class="main start" disabled>Оформить</button>
       <ol class="status"></ol>
@@ -254,8 +280,17 @@
           (duplicates.length ? ` · повторы убраны: ${duplicates.length}` : '')
         : '';
       ui.start.disabled = names.length === 0 || !ui.from.value;
+      markDay();
       ui.start.textContent = names.length ? `Оформить: ${names.length} чел.` : 'Оформить';
     };
+    // Быстрые кнопки «Сегодня / Завтра»: подсвечена та, что совпадает с датой в поле
+    const dayButtons = [...panel.querySelectorAll('.days button')];
+    const markDay = () => dayButtons.forEach((b) =>
+      b.classList.toggle('active', ui.from.value === isoDate(addDays(new Date(), Number(b.dataset.days)))));
+    dayButtons.forEach((b) => b.addEventListener('click', () => {
+      ui.from.value = isoDate(addDays(new Date(), Number(b.dataset.days)));
+      ui.refresh();
+    }));
     ui.area.addEventListener('input', ui.refresh);
     ui.from.addEventListener('change', ui.refresh);
     ui.to.addEventListener('change', ui.refresh);
@@ -263,6 +298,7 @@
     ui.setRunning = (running, label) => {
       ui.running = running;
       ui.area.disabled = ui.from.disabled = ui.to.disabled = running;
+      dayButtons.forEach((b) => { b.disabled = running; });
       if (running) ui.start.textContent = label || 'Стоп'; else ui.refresh();
     };
 
@@ -395,8 +431,13 @@
       const answer = await waitFor(() => guestsRequests()
         .find((e) => e.startTime >= setAt - 50 && guestsRequestMatches(e.name, from, to)), 15000, 150);
       if (!answer) return null;
-      await sleep(400); // таблица перерисовывается
-      return matches() || (await sleep(600), matches());
+      // В скрытой вкладке сайт перерисовывает таблицу с опозданием: ждём, пока в ней будут строки за нужные даты
+      const rows = () => [...document.querySelectorAll('tr, [role="row"]')].map(textOf);
+      const emptyShown = () => /нет (данных|записей|посетителей)|ничего не найдено|список пуст/i.test(textOf(document.body));
+      const fresh = await waitFor(() => tableFresh(rows(), from, to, emptyShown()), 10000, 250);
+      if (!fresh) return null;
+      await sleep(300); // поиск по имени фильтрует таблицу на странице
+      return matches() || (await sleep(1000), matches());
     }
 
     // Даты уже стояли — сервер не спрашиваем, поиск по имени фильтрует таблицу на странице: ждём, пока она успокоится
@@ -566,7 +607,7 @@
       id: 's1826p-av',
       toggleText: 'Пропуска списком',
       single: true,
-      defaultDate: isoDate(new Date()),
+      defaultDate: isoDate(addDays(new Date(), 1)),
       position: { toggle: { right: '20px', bottom: '20px' }, panel: { right: '20px', bottom: '70px' } },
       async onStart(ui) {
         if (ui.running) { stop = true; ui.start.textContent = 'Останавливаю…'; return; }

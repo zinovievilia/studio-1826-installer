@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { parseNames, isoDate, addDays, humanDate, periodText, rowMatches, guestsRequestMatches } = require('../studio1826-passes.user.js');
+const { parseNames, isoDate, addDays, humanDate, periodText, rowMatches, rowCoversPeriod, tableFresh, guestsRequestMatches } = require('../studio1826-passes.user.js');
 
 test('список ФИО: по строкам, без нумерации и пустых строк', () => {
   const { names } = parseNames(`
@@ -72,4 +72,16 @@ test('guestsRequestMatches: стартовый запрос за сегодня 
   assert.ok(!guestsRequestMatches(`${base}dateStart=2026-10-29T00:00:00&dateFinish=2026-10-31T23:59:59`, '2026-10-29', '2026-10-29'));
   assert.ok(!guestsRequestMatches('https://my.avanguard.pro/api/auth/security', '2026-10-29', '2026-10-29'));
   assert.ok(!guestsRequestMatches('', '2026-10-29', '2026-10-29'));
+});
+
+test('tableFresh: прежний список за сегодня не считается списком за нужную дату', () => {
+  const stale = ['ФИО Даты Статус', 'Иванов Иван 25.10.2026 новый', 'Петров Пётр 21.10.2026 - 25.10.2026 новый'];
+  assert.ok(!tableFresh(stale, '2026-10-29'));
+  const fresh = ['ФИО Даты Статус', 'Воронцова Лилия Эдуардовна 24.10.2026 - 31.10.2026 новый', 'Хван Валерия Алексеевна 29.10.2026 новый'];
+  assert.ok(tableFresh(fresh, '2026-10-29'));
+  assert.ok(!tableFresh([...fresh, 'Иванов Иван 25.10.2026'], '2026-10-29'), 'хоть одна строка не за ту дату — ещё не обновилась');
+  assert.ok(!tableFresh(['ФИО Даты Статус'], '2026-10-29'), 'пустая без «нет записей» — не знаем');
+  assert.ok(tableFresh(['ФИО Даты Статус'], '2026-10-29', '2026-10-29', true));
+  assert.ok(rowCoversPeriod('24.10.2026 - 31.10.2026', '2026-10-29'));
+  assert.ok(!rowCoversPeriod('25.10.2026', '2026-10-29'));
 });
