@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v1.6.1 Studio 1826 — Пропуска списком (Авангард)
+// @name         v1.6.2 Studio 1826 — Пропуска списком (Авангард)
 // @namespace    studio1826
-// @version      1.6.1
+// @version      1.6.2
 // @description  Кнопка «Оформить пропуск» в окне ввода открытых линий Bitrix24: список ФИО + дата → пропуска в Авангарде оформляются по очереди с проверкой; в Авангарде — кнопка «Пропуска списком» и часы машин за сегодня
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
@@ -27,7 +27,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.6.1';
+  const VERSION = '1.6.2';
   const DEFAULT_GUESTS_URL = 'https://my.avanguard.pro/account/354/guests';
 
   // ── Чистые функции (тесты: tests/passes.test.js) ───────────────────────────
@@ -1516,7 +1516,7 @@
     .s1826p-bk .pills button { padding: 3px 10px; border: 0; border-radius: 6px; background: transparent; color: #2b2f36;
       font: 12px -apple-system, system-ui; cursor: pointer; }
     .s1826p-bk .pills button.active { background: #fff; box-shadow: 0 1px 2px #0000001f; font-weight: 600; }
-    .s1826p-bk .list { display: flex; flex-direction: column; gap: 6px; overflow: auto; max-height: 55vh; }
+    .s1826p-bk .list { display: flex; flex-direction: column; gap: 6px; overflow: auto; height: min(340px, 55vh); align-content: flex-start; }
     .s1826p-bk .card { padding: 8px 10px; border-radius: 10px; background: #f6f8fa; border: 1px solid #eef1f4; }
     .s1826p-bk .card.today { background: #ecfdf3; border-color: #b7ebc6; }
     .s1826p-bk .card.past { opacity: .6; }
