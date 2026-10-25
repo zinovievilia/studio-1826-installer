@@ -383,3 +383,13 @@ claude.ai-проекте "1826Studio", документ `Studio1826Updater.md`):
 
 - `tests/smoke.js` снова OK. Причина `styled:false` была в тесте: настройки хранит основное окно и каждые несколько секунд шлёт их сборщику, поэтому цвет, отправленный тестом напрямую в iframe, сразу перезаписывался. Тест теперь задаёт цвет в localStorage основного окна. Скрипт не менялся.
 - Ветка П (кофе) проверена вживую: Павелецкая 24.10, бронь «кофейня» 7 540 ₽ → 7 540 × 30% / 2 админа = 1 131 ₽, итог 300 + 1 000 + 205 + 1 131 = 2 636 ₽ совпадает с окном; у П выбор только 1 или 2 админа.
+
+## 5.6.2 — сборщик не замолкает (README, «Этап 10», P1)
+
+- Сборщик: тело обработчика запроса вынесено в `handleRequest()`, вызов в `try/catch` (ошибка → `logOwnError('collector', …)` и `send(true)`), в `finally` — `sendPulse()` (`PULSE_TYPE`, объект: в main нет обработчика BX24). Таймер наблюдателя и тик 3 с тоже в `try/catch`.
+- Основное окно: любое сообщение от iframe страницы обновляет `lastPulseAt`; `checkCollectorPulse()` в тике 3 с: тишина > `COLLECTOR_TIMEOUT_MS` (12 с, отсчёт и от загрузки/возврата на вкладку — `pulseWaitFrom`) → `collectorSilent`, в «Обзоре» «Календарь не отвечает — обновите страницу», `cardsMissing` сбрасывается (панель не пропадает).
+- Журнал: «Script error.» не пишется, считается `foreignErrors`; свои ошибки — `[место] сообщение @ 2 строки стека`. В «Диагностике» `main.overlay {hidden, cardsMissing, sidePanel, chat}`, `main.collectorPulse {silent, lastAgoMs}`, `foreignErrors` (и у сборщика).
+- `tests/smoke.js`: ошибка в обработчике (подмена `JSON.stringify` в iframe) → пульс приходит, ошибка в журнале, `pageerror` пуст; iframe удалён → через 12 с предупреждение, панель не скрыта. На 5.6.1 тест падает, на 5.6.2 OK. Прогон локально: `NODE_PATH=<playwright-core со shim «playwright»> CHROMIUM_PATH=…/Google Chrome node tests/smoke.js`.
+- Проверено: `npm test` 62/62, smoke, ui-layout, ui-header, ui-equipment — OK. Живьём ещё не смотрели.
+- Открыто в «Этапе 10»: P0 о ветке `wip/overlay-robustness` (решить, нужна ли), P2 процесс релиза (smoke в CI), P3 сверка `main.iframes`.
+
