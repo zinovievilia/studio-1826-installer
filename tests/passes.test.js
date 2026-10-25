@@ -24,7 +24,7 @@ test('через запятую и точку с запятой', () => {
 test('повторы убираются без учёта регистра и ё', () => {
   const { names, duplicates } = parseNames('Фёдоров Иван\nфедоров иван\nПетров Пётр');
   assert.deepStrictEqual(names, ['Фёдоров Иван', 'Петров Пётр']);
-  assert.deepStrictEqual(duplicates, ['федоров иван']);
+  assert.deepStrictEqual(duplicates, ['Федоров Иван']);
 });
 
 test('пустой ввод', () => {
@@ -198,7 +198,7 @@ test('длительность', () => {
 
 test('разные написания списка: инициалы, только фамилия, табы, лишние пробелы, CAPS, ё', () => {
   const { names, invalid } = parseNames('ВОРОНЦОВА   Лилия\tЭдуардовна\nХван В.А.\nПрокопчук\n  Фёдоров Иван  ');
-  assert.deepStrictEqual(names, ['ВОРОНЦОВА Лилия Эдуардовна', 'Хван В.А.', 'Прокопчук', 'Фёдоров Иван']);
+  assert.deepStrictEqual(names, ['Воронцова Лилия Эдуардовна', 'Хван В.А.', 'Прокопчук', 'Фёдоров Иван']);
   assert.deepStrictEqual(invalid, []);
 });
 
@@ -243,4 +243,15 @@ test('строка таблицы → пропуск: ФИО целиком и �
   assert.deepStrictEqual(guestsForRow('Машина', 'А439ТУ 797', guests).map((g) => g.id), [3]);
   assert.deepStrictEqual(guestsForRow('Хван Валерия Алексеевна', 'Е334АВ 34', guests).map((g) => g.id), [5]);
   assert.deepStrictEqual(guestsForRow('Петров', '', guests), []);
+});
+
+test('ФИО с заглавной: строчные и КАПС исправляются, инициалы и двойные фамилии — нет', () => {
+  const { properName } = require('../studio1826-passes.user.js');
+  assert.strictEqual(properName('прокопчук юлия станиславовна'), 'Прокопчук Юлия Станиславовна');
+  assert.strictEqual(properName('ХВАН валерия алексеевна'), 'Хван Валерия Алексеевна');
+  assert.strictEqual(properName('Хван В.А.'), 'Хван В.А.');
+  assert.strictEqual(properName('римский-корсаков николай'), 'Римский-Корсаков Николай');
+  assert.strictEqual(properName('Мак-Дональд'), 'Мак-Дональд');
+  assert.strictEqual(properName('Машина'), 'Машина');
+  assert.deepStrictEqual(parseNames('прокопчук   юлия\nЕ334ав34').names, ['Прокопчук Юлия · Е334АВ 34']);
 });

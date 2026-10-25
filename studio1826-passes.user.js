@@ -87,7 +87,7 @@
       }
       if (/\d/.test(piece)) { invalid.push(raw.trim()); continue; }
       if (!piece) { if (plate) loosePlates.push(plate); continue; }
-      entries.push({ name: piece, plate });
+      entries.push({ name: properName(piece), plate });
     }
     for (const plate of loosePlates) {
       const free = entries.find((e) => !e.plate);
@@ -104,6 +104,16 @@
       names.push(label);
     }
     return { names, duplicates, invalid };
+  }
+
+  /** «прокопчук юлия», «ХВАН валерия» → «Прокопчук Юлия», «Хван Валерия». Инициалы и смешанный регистр не трогаем. */
+  function properName(s) {
+    const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+    return s.replace(/[A-Za-zА-Яа-яЁё]+/g, (w, i) => {
+      if (s.charAt(i + w.length) === '.') return w; // «В.А.»
+      if (w === w.toLowerCase() || (w === w.toUpperCase() && w.length > 1)) return cap(w);
+      return w;
+    });
   }
 
   function normalize(s) {
@@ -268,7 +278,7 @@
   }
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { parseNames, isoDate, addDays, humanDate, periodText, parsePlate, plateIsSpecial, passLabel, splitLabel,
+    module.exports = { parseNames, properName, isoDate, addDays, humanDate, periodText, parsePlate, plateIsSpecial, passLabel, splitLabel,
       apiPeriod, parseApiTime, dayBounds, guestCoversDay, matchingPasses, eventKind, parkedTime, formatDuration, guestsForRow, pageWorldCode, VERSION };
     return;
   }
