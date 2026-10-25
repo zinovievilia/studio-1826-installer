@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v5.6.2 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v5.6.3 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      5.6.2
+// @version      5.6.3
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '5.6.2';
+    const VERSION = '5.6.3';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -2159,6 +2159,12 @@
         'hoverFocus', 'borders', 'handoff', 'aliases', 'arrows', 'moveArrows', 'stripes'
     ];
 
+    /* 5.6.3: набор Ильи для первого запуска (25.10.2026) — всё включено, кроме полос. */
+    const FEATURE_DEFAULTS = {
+        compactCards: true, reuse: true, fonHighlight: true, copyButton: true, hoverFocus: true,
+        borders: true, handoff: true, aliases: true, arrows: true, moveArrows: true, stripes: false
+    };
+
     /* Цвета стадий по умолчанию (как в Bitrix). */
     /*
      * color — исходный цвет стадии в Bitrix (по нему стадия узнаётся на карточке, менять нельзя);
@@ -2175,9 +2181,10 @@
 
     /* Цвета меток: обводка, «Пересменки», последние брони дня. */
     const MARK_COLORS = [
-        /* 5.6.1: обводка по умолчанию красная (Илья); color — прежний цвет по умолчанию, он заменяется на def. */
-        { id: 'kEq', name: 'Обводка: оборудование', color: '#2563eb', def: '#dc2626' },
-        { id: 'kFrame', name: 'Обводка: рама', color: '#f59e0b', def: '#dc2626' },
+        /* 5.6.1: обводка по умолчанию красная (Илья); color — прежний цвет по умолчанию, он заменяется на def.
+         * 5.6.3: оборудование и рама — #e32400 (набор Ильи). */
+        { id: 'kEq', name: 'Обводка: оборудование', color: '#2563eb', def: '#e32400' },
+        { id: 'kFrame', name: 'Обводка: рама', color: '#f59e0b', def: '#e32400' },
         { id: 'kBg', name: 'Обводка: фон', color: '#dc2626' },
         { id: 'handoff', name: 'Пересменки', color: '#800020' },
         { id: 'last', name: 'Последние брони дня', color: '#2563eb' },
@@ -2195,7 +2202,7 @@
     const STAGE_BY_RGB = new Map(STAGES.map(stage => [hexToRgbKey(stage.color), stage.id]));
 
     /*
-     * 5.6.0: для нового пользователя все функции выключены (настраивает с нуля). Сохранённые значения
+     * 5.6.3: новый пользователь получает FEATURE_DEFAULTS (до 5.6.3 — всё выключено). Сохранённые значения
      * не меняются никогда; для давнего пользователя недостающие ключи берутся по-старому (включены),
      * чтобы обновление ничего у него не выключило.
      */
@@ -2204,7 +2211,7 @@
         const result = {};
 
         FEATURE_KEYS.forEach(key => {
-            result[key] = typeof source[key] === 'boolean' ? source[key] : legacyDefault;
+            result[key] = typeof source[key] === 'boolean' ? source[key] : (legacyDefault || FEATURE_DEFAULTS[key]);
         });
 
         result.colors = {};
@@ -7917,12 +7924,12 @@
                 }
             }
 
-            /* 5.6.0: у нового пользователя «Скрывать лишнее» выключено; давнему сохраняем прежнее (включено). */
+            /* 5.6.3: «Скрывать лишнее» по умолчанию включено у всех (Илья); сохранённый выбор не трогаем. */
             function getSavedHideState() {
                 try {
                     const value = localStorage.getItem(STORAGE_HIDE);
 
-                    if (value === null) return isLegacyUser();
+                    if (value === null) return true;
 
                     return value !== 'false';
                 } catch {
