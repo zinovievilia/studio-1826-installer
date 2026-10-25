@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         v1.3.2 Studio 1826 — Пропуска списком (Авангард)
+// @name         v1.4.0 Studio 1826 — Пропуска списком (Авангард)
 // @namespace    studio1826
-// @version      1.3.2
-// @description  Кнопка «Оформить пропуск» в окне ввода открытых линий Bitrix24: список ФИО + дата → пропуска в Авангарде оформляются по очереди
+// @version      1.4.0
+// @description  Кнопка «Оформить пропуск» в окне ввода открытых линий Bitrix24: список ФИО + дата → пропуска в Авангарде оформляются по очереди с проверкой; в Авангарде — кнопка «Пропуска списком» и часы машин за сегодня
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
 // @match        https://1826studio.bitrix24.ru/*
@@ -20,13 +20,14 @@
 // Отдельный скрипт, не часть «Основного» (studio1826.user.js).
 // Bitrix24 и Авангард — разные сайты, поэтому они общаются через хранилище Tampermonkey:
 //   Bitrix кладёт задание {id, names, from, to} → открывает вкладку Авангарда с #s1826-job=<id> →
-//   эта вкладка оформляет пропуска по одному и пишет результат по каждому имени → Bitrix показывает ✓/✗.
+//   эта вкладка оформляет пропуска по одному (запросом к API сайта, как кнопка «Сохранить») и пишет результат
+//   по каждому имени → Bitrix показывает ✓/✗. «Оформлен» — только когда новый пропуск нашёлся в списке сайта.
 // Задание берёт только вкладка, открытая с его id, — обычная открытая вкладка Авангарда его не трогает.
 
 (function () {
   'use strict';
 
-  const VERSION = '1.3.2';
+  const VERSION = '1.4.0';
   const DEFAULT_GUESTS_URL = 'https://my.avanguard.pro/account/354/guests';
 
   // ── Чистые функции (тесты: tests/passes.test.js) ───────────────────────────
@@ -131,8 +132,93 @@
     return from === to ? humanDate(from) : `${humanDate(from)} – ${humanDate(to)}`;
   }
 
+  // ── Данные Авангарда (api.avanguard.pro) ───────────────────────────────────
+
+  /** Период одного дня в формате API: местное время без пояса, как отправляет сам сайт. */
+  function apiPeriod(iso) {
+    return { dateStart: `${iso}T00:00:00`, dateFinish: `${iso}T23:59:59` };
+  }
+
+  /** Время из API (UTC; бывает без «Z») → миллисекунды, или NaN. */
+  function parseApiTime(value) {
+    if (!value) return NaN;
+    const s = String(value).trim();
+    return Date.parse(/(Z|[+-]\d{2}:?\d{2})$/i.test(s) ? s : `${s.replace(' ', 'T')}Z`);
+  }
+
+  /** Начало и конец местного дня «YYYY-MM-DD» в миллисекундах. */
+  function dayBounds(iso) {
+    const [y, m, d] = iso.split('-').map(Number);
+    return { start: new Date(y, m - 1, d).getTime(), end: new Date(y, m - 1, d + 1).getTime() - 1 };
+  }
+
+  /** Пропуск из API действует хотя бы часть дня `iso`. */
+  function guestCoversDay(guest, iso) {
+    const { start, end } = dayBounds(iso);
+    const from = parseApiTime(guest.dateStart);
+    const to = parseApiTime(guest.dateFinish);
+    return !Number.isNaN(from) && !Number.isNaN(to) && from <= end && to >= start;
+  }
+
+  const plateKey = (number, region) => `${String(number || '').toUpperCase().replace(/\s+/g, '')} ${String(region || '').trim()}`.trim();
+
+  /** Пропуска того же человека (и той же машины, если она указана) на этот день, без архивных. */
+  function matchingPasses(guests, name, iso, plate = null) {
+    return (guests || []).filter((g) => !g.isArchived &&
+      normalize(g.name || '') === normalize(name) &&
+      guestCoversDay(g, iso) &&
+      (!plate || plateKey(g.carNumber, g.carRegion) === plateKey(plate.number, plate.region)));
+  }
+
+  /** Событие журнала проходов → 'in' (въезд) | 'out' (выезд) | null. Учитываем только машины: «Въезд/Выезд». */
+  function eventKind(event) {
+    const name = String((event && event.eventName) || '').toLowerCase();
+    if (/выезд/.test(name)) return 'out';
+    if (/въезд/.test(name)) return 'in';
+    if (name) return null;
+    // Без названия — по коду: 21, 23 … 37 въезд, 22, 24 … 38 выезд
+    const code = Number(event && event.event);
+    if (code >= 21 && code <= 38) return code % 2 ? 'in' : 'out';
+    return null;
+  }
+
+  /**
+   * Сколько машина стояла за день: пары «въезд → выезд» внутри дня [dayStart, now].
+   * Стоит сейчас — считаем до `now`. Выезд без въезда за день — заехала раньше: считаем с начала дня.
+   * → { ms, inside, seen } (seen — были ли события за этот день)
+   */
+  function parkedTime(events, dayStart, now) {
+    const list = (events || [])
+      .map((e) => ({ t: parseApiTime(e.time), kind: eventKind(e) }))
+      .filter((e) => e.kind && !Number.isNaN(e.t) && e.t <= now)
+      .sort((a, b) => a.t - b.t);
+    let inside = null;
+    let known = false; // знаем ли, где была машина до текущего события
+    let ms = 0;
+    let seen = false;
+    for (const e of list) {
+      if (e.t < dayStart) { inside = e.kind === 'in' ? dayStart : null; known = true; continue; }
+      seen = true;
+      if (e.kind === 'in') { if (inside === null) inside = e.t; }
+      else if (inside !== null) { ms += e.t - inside; inside = null; }
+      else if (!known) ms += e.t - dayStart;
+      known = true;
+    }
+    if (inside !== null) ms += now - inside;
+    return { ms, inside: inside !== null, seen: seen || inside !== null };
+  }
+
+  /** 8100000 → «2 ч 15 мин», 2700000 → «45 мин» */
+  function formatDuration(ms) {
+    const minutes = Math.max(0, Math.round(ms / 60000));
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return h ? `${h} ч${m ? ` ${m} мин` : ''}` : `${m} мин`;
+  }
+
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { parseNames, isoDate, addDays, humanDate, periodText, parsePlate, plateIsSpecial, passLabel, splitLabel, VERSION };
+    module.exports = { parseNames, isoDate, addDays, humanDate, periodText, parsePlate, plateIsSpecial, passLabel, splitLabel,
+      apiPeriod, parseApiTime, dayBounds, guestCoversDay, matchingPasses, eventKind, parkedTime, formatDuration, VERSION };
     return;
   }
 
@@ -276,6 +362,15 @@
         bottom: `${Math.max(8, window.innerHeight - r.top + 8)}px` });
       ui.area.focus();
     };
+    /** Открыть/закрыть под кнопкой (кнопка «Пропуска списком» на странице Авангарда) */
+    ui.openBelow = (anchor) => {
+      if (panel.classList.contains('open')) { panel.classList.remove('open'); return; }
+      panel.classList.add('open');
+      const r = anchor.getBoundingClientRect();
+      const left = Math.max(8, Math.min(r.left, window.innerWidth - panel.offsetWidth - 8));
+      Object.assign(panel.style, { left: `${left}px`, right: 'auto', bottom: 'auto', top: `${r.bottom + 8}px` });
+      ui.area.focus();
+    };
     panel.querySelector('.close').addEventListener('click', () => panel.classList.remove('open'));
 
     ui.refresh = () => {
@@ -335,16 +430,17 @@
       no.addEventListener('click', () => done(false));
     });
 
-    /** Статусы по именам: {name: 'ok' | 'skip' | 'work' | 'err:текст'} */
-    ui.showStatus = (names, results) => {
+    /** Статусы по именам: results {name: 'ok' | 'work' | 'err:текст'}, info {name: {before}} — сколько пропусков было раньше. */
+    ui.showStatus = (names, results = {}, info = {}) => {
       ui.status.innerHTML = '';
       for (const name of names) {
         const r = results[name];
+        const before = info[name] && info[name].before;
+        const earlier = before === undefined ? '' : before ? ` · раньше на эту дату уже был${before > 1 ? ` (${before})` : ''}` : ' · раньше не было';
         const li = document.createElement('li');
-        if (r === 'ok') { li.className = 'ok'; li.textContent = `✓ ${name}`; }
-        else if (r === 'skip') { li.className = 'skip'; li.textContent = `✓ ${name} — уже был оформлен`; }
+        if (r === 'ok') { li.className = 'ok'; li.textContent = `✓ ${name} — оформлен${earlier}`; }
         else if (r === 'work') { li.className = 'work'; li.textContent = `… ${name}`; }
-        else if (r && r.startsWith('err:')) { li.className = 'err'; li.textContent = `✗ ${name} — ${r.slice(4)}`; }
+        else if (r && r.startsWith('err:')) { li.className = 'err'; li.textContent = `✗ ${name} — не оформлен: ${r.slice(4)}${earlier}`; }
         else { li.textContent = name; }
         ui.status.appendChild(li);
       }
@@ -355,140 +451,130 @@
     return ui;
   }
 
-  // ── Авангард: оформление ───────────────────────────────────────────────────
+  // ── Авангард: оформление через API сайта ───────────────────────────────────
+  // Пропуск создаётся тем же запросом, что и кнопка «Сохранить» в окне «Новый посетитель».
+  // «Оформлен» пишем только когда новый пропуск нашёлся в списке сайта — сайт сам подтверждает.
+
+  const API_BASE = 'https://api.avanguard.pro/api/';
 
   function buttonByText(root, text) {
     return [...root.querySelectorAll('button, [role="button"], a')]
       .find((b) => visible(b) && textOf(b) === text && !b.closest('.s1826p'));
   }
 
-  /** Открытое окно «Добавить нового посетителя» (самое вложенное — сама форма). */
-  function findModal() {
-    const candidates = [...document.querySelectorAll('[role="dialog"], .modal, [class*="modal" i], [class*="dialog" i]')]
-      .filter((el) => visible(el) && /Добавить нового посетителя/.test(el.textContent || ''));
-    return candidates.sort((a, b) => (a.contains(b) ? 1 : b.contains(a) ? -1 : 0))[0] || null;
+  // Сайт берёт номер аккаунта из адреса строкой — так же и мы
+  const accountId = () => (/\/account\/(\d+)/.exec(location.pathname) || [])[1] || '354';
+
+  /** Ключ входа сайта (сайт сам кладёт его в localStorage и обновляет). Никуда, кроме API Авангарда, не уходит. */
+  function accessToken() {
+    let t = null;
+    try { t = localStorage.getItem('access_token'); } catch (e) { return null; }
+    if (t && t.startsWith('"')) { try { t = JSON.parse(t); } catch (e) { /* как есть */ } }
+    return t || null;
   }
 
-  /** Поле по подписи рядом с ним («ФИО *») */
-  function inputByLabel(modal, labelRe) {
-    for (const label of modal.querySelectorAll('label, span, div, p')) {
-      if (label.children.length > 2 || !labelRe.test(textOf(label))) continue;
-      if (label.htmlFor) {
-        const byFor = modal.querySelector(`#${CSS.escape(label.htmlFor)}`);
-        if (byFor) return byFor;
-      }
-      const inside = label.querySelector('input');
-      if (inside) return inside;
-      let node = label;
-      for (let i = 0; i < 3 && node; i++, node = node.parentElement) {
-        const next = node.nextElementSibling;
-        const input = next && (next.matches('input') ? next : next.querySelector('input'));
-        if (input) return input;
-      }
+  async function api(path, { method = 'GET', body } = {}) {
+    const token = accessToken();
+    if (!token) throw new Error('нет входа в Авангард — войдите на сайте');
+    let res;
+    try {
+      res = await fetch(API_BASE + path, {
+        method,
+        headers: { authorization: `Bearer ${token}`, ...(body ? { 'content-type': 'application/json' } : {}) },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+    } catch (e) {
+      throw new Error('Авангард не отвечает (нет связи с api.avanguard.pro)');
     }
-    return null;
+    if (res.status === 401) throw new Error('Авангард не пустил (вход устарел) — обновите страницу Авангарда');
+    let data = null;
+    try { data = await res.json(); } catch (e) { /* не JSON */ }
+    if (data && data.error) throw new Error(`сайт ответил: ${data.errorDescription || 'ошибка'}`);
+    if (!res.ok) throw new Error(`сайт ответил кодом ${res.status}`);
+    return data;
   }
 
-  /** Значение в поле, которым управляет React: через нативный setter + события. */
-  function setValue(input, value) {
-    const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(input), 'value').set;
-    setter.call(input, value);
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    input.dispatchEvent(new Event('change', { bubbles: true }));
-    input.dispatchEvent(new Event('blur', { bubbles: true }));
+  /** Пропуска на день `iso` по фамилии (поиск сайта), со всего аккаунта. */
+  async function guestsOnDay(iso, search, pageSize = 500) {
+    const p = apiPeriod(iso);
+    const q = new URLSearchParams({ accountId: accountId(), dateStart: p.dateStart, dateFinish: p.dateFinish,
+      search, mine: 'false', onlyCars: 'false', showArchived: 'false', sort: '', pageIndex: '1', pageSize: String(pageSize) });
+    const data = await api(`guests?${q}`);
+    return (data && data.result) || [];
   }
 
-  function modalError(modal) {
-    return [...modal.querySelectorAll('[class*="error" i], [role="alert"], .invalid-feedback')]
-      .map(textOf).filter(Boolean)[0] || null;
-  }
-
-  /** Один пропуск. null — оформлен, иначе текст ошибки. */
-  async function createPass(label, from, to) {
-    const { name, plate } = splitLabel(label);
-    const newButton = buttonByText(document, 'Новый посетитель');
-    if (!newButton) return 'не нашёл кнопку «Новый посетитель»';
-    newButton.click();
-
-    const modal = await waitFor(findModal, 5000);
-    if (!modal) return 'не открылось окно «Добавить нового посетителя»';
-    await sleep(50);
-
-    const dates = [...modal.querySelectorAll('input[type="date"]')].filter(visible);
-    if (dates.length < 2) return 'не нашёл поля дат';
-    const fio = inputByLabel(modal, /^ФИО(?![А-Яа-яЁё])/) ||
-      [...modal.querySelectorAll('input[type="text"], input:not([type])')]
-        .find((i) => visible(i) && !/\+7|X999|000/.test(i.placeholder || ''));
-    if (!fio) return 'не нашёл поле ФИО';
-
-    // Сайт не принимает «с» позже текущего «по» (в окне оба стоят на сегодня) и откатывает значение:
-    // «по», «с», и ещё раз «по» на случай прошедших дат
-    setValue(dates[1], to);
-    setValue(dates[0], from);
-    setValue(dates[1], to);
-    setValue(fio, name);
-    if (plate) {
-      if (plateIsSpecial(plate)) {
-        // Обычная маска X999XX выбросит букву «Б» и сдвинет номер — включаем «Использовать специальный номер»
-        const special = [...modal.querySelectorAll('label')].find((l) => /специальный номер/i.test(textOf(l)));
-        const box = special && (special.querySelector('input[type="checkbox"]') ||
-          (special.htmlFor && modal.querySelector(`#${CSS.escape(special.htmlFor)}`)));
-        if (!box) return 'не нашёл галочку «Использовать специальный номер»';
-        if (!box.checked) box.click();
-        await sleep(100);
-      }
-      const number = [...modal.querySelectorAll('input')].find((i) => visible(i) &&
-        (/999/.test(i.placeholder || '') || /^Номер$/i.test((i.placeholder || '').trim())) && !/\+7/.test(i.placeholder || ''));
-      const region = [...modal.querySelectorAll('input')].find((i) => visible(i) && (i.placeholder || '') === '000');
-      if (!number || !region) return 'не нашёл поля номера машины';
-      setValue(number, plate.number);
-      setValue(region, plate.region);
-      await sleep(50);
-      if (number.value.toUpperCase() !== plate.number || region.value !== plate.region) return `номер ${plate.number} ${plate.region} не вписался`;
-    }
-    await sleep(50);
-    if (fio.value !== name) return 'ФИО не вписалось в поле';
-    if (dates[0].value !== from || dates[1].value !== to) return 'даты не вписались';
-
-    const save = buttonByText(modal, 'Сохранить');
-    if (!save) return 'не нашёл кнопку «Сохранить»';
-    save.click();
-
-    // Успех — окно закрылось. Осталось открытым — показываем, что пишет сайт, и закрываем.
-    if (await waitFor(() => !findModal(), 10000)) return null;
-    const m = findModal();
-    const error = m && modalError(m);
-    const cancel = m && buttonByText(m, 'Отмена');
-    if (cancel) cancel.click();
-    return error ? `сайт ответил: ${error}` : 'окно не закрылось после «Сохранить»';
+  /** Связь с Авангардом: вход есть и список отвечает. null — всё хорошо, иначе текст ошибки. */
+  async function checkAvanguard(iso) {
+    try { await guestsOnDay(iso, '', 1); return null; } catch (e) { return e.message; }
   }
 
   /**
-   * Оформить всех по очереди. На первой ошибке останавливаемся: что-то на странице не так,
-   * дальше вслепую не идём. `report(results)` вызывается после каждого имени.
+   * Один пропуск. → { ok: true, before, id } или { error, before? }.
+   * before — сколько пропусков на этот день у человека было до оформления.
    */
-  async function runBatch(names, from, to, report, shouldStop = () => false) {
-    const results = {};
-    for (const name of names) {
-      if (shouldStop()) break;
-      // Дубли не проверяем: пропуск оформляется заново, даже если такой уже есть — на всякий случай
-      results[name] = 'work';
-      await report(results);
-      const error = await createPass(name, from, to);
-      results[name] = error ? `err:${error}` : 'ok';
-      await report(results);
-      if (error) break;
-      await sleep(150);
+  async function createPass(label, iso, stage) {
+    const { name, plate } = splitLabel(label);
+    const search = name.split(' ')[0];
+    let before;
+    try {
+      await stage('проверяю, был ли пропуск');
+      before = matchingPasses(await guestsOnDay(iso, search), name, iso, plate);
+      // Как кнопка «Сохранить»: даты — начало и конец местного дня в UTC; спецномер — тот же carNumber без маски
+      const { start, end } = dayBounds(iso);
+      const body = { accountId: accountId(), name, type: 'full',
+        dateStart: new Date(start).toISOString(), dateFinish: new Date(end - 999).toISOString(), login: '' };
+      if (plate) Object.assign(body, { carNumber: plate.number, carRegion: plate.region });
+      await stage('оформляю');
+      const created = await api('guests', { method: 'POST', body });
+      const r = created && created.result;
+      const id = r && typeof r === 'object' ? r.id : r;
+      await stage('проверяю, что пропуск появился');
+      // Список на сайте обновляется не мгновенно — несколько попыток
+      for (let i = 0; i < 4; i++) {
+        await sleep(400 + i * 600);
+        const after = matchingPasses(await guestsOnDay(iso, search), name, iso, plate);
+        const found = id != null && id !== true ? after.some((g) => String(g.id) === String(id))
+          : after.some((g) => !before.some((b) => String(b.id) === String(g.id)));
+        if (found) return { ok: true, before: before.length, id };
+      }
+      return { error: 'сайт принял запрос, но пропуска в списке нет — проверьте в Авангарде', before: before.length };
+    } catch (e) {
+      return { error: e.message, before: before ? before.length : undefined };
     }
-    return results;
   }
+
+  /**
+   * Оформить всех по очереди. На первой ошибке останавливаемся. Уже оформленные (`prev`, после перезагрузки вкладки)
+   * второй раз не оформляем. `report({results, info, stage})` — после каждого шага.
+   */
+  async function runBatch(names, iso, report, shouldStop = () => false, prev = {}) {
+    const results = { ...(prev.results || {}) };
+    const info = { ...(prev.info || {}) };
+    for (const name of names) {
+      if (results[name] === 'ok') continue;
+      if (shouldStop()) break;
+      // Дубли не пропускаем: по решению Ильи пропуск оформляется всегда, «был ли раньше» только показываем
+      results[name] = 'work';
+      const stage = (text) => report({ results, info, stage: `${name}: ${text}` });
+      const r = await createPass(name, iso, stage);
+      results[name] = r.ok ? 'ok' : `err:${r.error}`;
+      if (r.before !== undefined) info[name] = { before: r.before };
+      await report({ results, info, stage: '' });
+      if (!r.ok) break;
+    }
+    return { results, info };
+  }
+
+  /** Ждём, пока сайт сам загрузит список (и при необходимости обновит вход) — тогда ключ свежий. */
+  const siteLoadedGuests = () => performance.getEntriesByType('resource')
+    .some((e) => /api\.avanguard\.pro\/api\/guests\?/.test(e.name));
 
   const JOB_KEY = 's1826-job-id';
   const JUMP_KEY = 's1826-job-jumped';
   function readSession(key) { try { return sessionStorage.getItem(key); } catch (e) { return null; } }
   function writeSession(key, value) { try { sessionStorage.setItem(key, value); } catch (e) { /* без него вкладка просто не продолжит после перезагрузки */ } }
 
-  const onGuestsPage = () => /\/account\/\d+\/guests/.test(location.pathname);
+  const onGuestsPage = () => /\/account\/\d+\/guests\/?$/.test(location.pathname);
 
   async function avanguardMain() {
     // Запоминаем адрес страницы посетителей — Bitrix откроет именно его
@@ -503,12 +589,13 @@
       // Адрес с #s1826-job мог потеряться при загрузке: тогда берём свежее ничьё задание, если вкладка фоновая
       const fresh = job && !job.taken && Date.now() - (job.createdAt || 0) < 45000 && document.hidden;
       // Сайт на секунду уходит на /login и теряет хвост адреса; если мы сами перезагрузили вкладку — продолжаем своё задание
-      const resumed = job && job.taken && readSession(JOB_KEY) === job.id &&
-        !(await store.get(`result:${job.id}`, {})).done;
+      const prev = job ? await store.get(`result:${job.id}`, {}) : {};
+      const resumed = job && job.taken && readSession(JOB_KEY) === job.id && !prev.done;
       if (job && ((!job.taken && ((jobMatch && job.id === jobMatch[1]) || fresh)) || resumed)) {
+        const save = (r) => store.set(`result:${job.id}`, r);
         if (!resumed) {
           await store.set('job', { ...job, taken: true });
-          await store.set(`result:${job.id}`, { done: false, started: true, results: {} });
+          await save({ done: false, started: true, results: {}, stage: 'Авангард открылся, жду вход' });
           writeSession(JOB_KEY, job.id);
         }
         // Хвост адреса с заданием убираем только на странице посетителей: на /login это ломает возврат роутера сайта
@@ -516,6 +603,7 @@
         const guestsUrl = await store.get('guestsUrl', DEFAULT_GUESTS_URL);
         const started = Date.now();
         let jumped = readSession(JUMP_KEY) === job.id;
+        // Готово, когда сайт сам загрузил список посетителей: значит, вход действует
         const ready = await waitFor(() => {
           cleanHash();
           // Прошло 10 с, а страницы посетителей нет (фоновая вкладка застряла после /login) — идём на неё сами, один раз
@@ -524,60 +612,232 @@
             writeSession(JUMP_KEY, job.id);
             location.href = guestsUrl;
           }
-          return onGuestsPage() && buttonByText(document, 'Новый посетитель');
+          return onGuestsPage() && accessToken() && siteLoadedGuests();
         }, 30000, 300);
         if (!ready) {
-          await store.set(`result:${job.id}`, { done: true, error: `Страница посетителей не открылась (вкладка Авангарда на ${location.pathname}) — войдите в Авангард и попробуйте снова`, results: {} });
+          await save({ ...prev, done: true, error: `Авангард не открыл список посетителей (вкладка на ${location.pathname}) — войдите в Авангард и попробуйте снова` });
           return;
         }
         rememberUrl();
+        await save({ ...prev, done: false, stage: 'Авангард: вход есть, проверяю связь' });
+        const problem = await checkAvanguard(job.from);
+        if (problem) { await save({ ...prev, done: true, error: `Авангард: ${problem}` }); return; }
         document.title = '⏳ Пропуска… ' + document.title;
-        const results = await runBatch(job.names, job.from, job.to,
-          (r) => store.set(`result:${job.id}`, { done: false, results: r }),
-          () => false);
-        await store.set(`result:${job.id}`, { done: true, results });
+        const out = await runBatch(job.names, job.from,
+          (r) => save({ done: false, ...r }), () => false, prev);
+        await save({ done: true, ...out });
         document.title = document.title.replace(/^⏳ Пропуска… /, '✓ ');
         setTimeout(() => window.close(), 1500); // если Bitrix не закрыл вкладку сам
         return;
       }
     }
 
-    // Обычная вкладка Авангарда — своя панель на странице посетителей
-    let mounted = false;
+    // Обычная вкладка Авангарда — кнопка «Пропуска списком» рядом с «Новый посетитель» и часы машин в таблице
+    addStyle(PANEL_CSS + PARKING_CSS);
+    let ui = null;
     const sync = () => {
       rememberUrl();
-      if (onGuestsPage() && !mounted) { mountAvanguardPanel(); mounted = true; }
-      const toggle = document.getElementById('s1826p-av-toggle');
-      if (toggle) toggle.style.display = onGuestsPage() ? '' : 'none';
+      if (!onGuestsPage()) { if (ui) ui.panel.classList.remove('open'); return; }
+      if (!ui) ui = createAvanguardPanel();
+      injectAvanguardButton(ui);
     };
     sync();
     setInterval(sync, 1000);
+    startParkingColumn();
   }
 
-  function mountAvanguardPanel() {
-    addStyle(PANEL_CSS);
+  /** Своя кнопка справа от «+ Новый посетитель», в том же стиле (классы берём у неё). */
+  function injectAvanguardButton(ui) {
+    if (!ui || document.getElementById('s1826p-av-btn')) return;
+    const native = buttonByText(document, 'Новый посетитель');
+    if (!native) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = 's1826p-av-btn';
+    btn.className = native.className;
+    btn.title = `Оформить пропуска списком (v${VERSION})`;
+    btn.textContent = '🎫 Пропуска списком';
+    btn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); ui.openBelow(btn); });
+    // Кнопку сайта не двигаем (ей управляет React) — ставим свою следом. margin-right:auto забирает свободное место
+    // панели фильтров (justify-between), и обе кнопки стоят рядом слева, а фильтры остаются справа.
+    btn.style.marginLeft = '8px';
+    btn.style.marginRight = 'auto';
+    native.after(btn);
+  }
+
+  function createAvanguardPanel() {
     let stop = false;
-    buildPanel({
+    return buildPanel({
       id: 's1826p-av',
-      toggleText: 'Пропуска списком',
+      toggleText: null,
       single: true,
       defaultDate: isoDate(addDays(new Date(), 1)),
-      position: { toggle: { right: '20px', bottom: '20px' }, panel: { right: '20px', bottom: '70px' } },
+      position: { panel: {} },
       async onStart(ui) {
         if (ui.running) { stop = true; ui.start.textContent = 'Останавливаю…'; return; }
         const { names } = parseNames(ui.area.value);
-        const from = ui.from.value;
-        const to = from;
-        if (!(await ui.confirm(`Оформить ${names.length} чел. на ${periodText(from, to)}?`, names))) return;
+        const date = ui.from.value;
+        if (!(await ui.confirm(`Оформить ${names.length} чел. на ${humanDate(date)}?`, names))) return;
         stop = false;
         ui.setRunning(true, 'Стоп');
-        const results = await runBatch(names, from, to, (r) => ui.showStatus(names, r), () => stop);
+        ui.summary.textContent = 'Авангард: проверяю связь…';
+        const problem = await checkAvanguard(date);
+        let out = { results: {}, info: {} };
+        if (problem) ui.summary.textContent = `Авангард: ${problem}`;
+        else {
+          out = await runBatch(names, date, (r) => { ui.showStatus(names, r.results, r.info); ui.summary.textContent = r.stage || ''; }, () => stop);
+        }
         ui.setRunning(false);
         // В поле остаются только неоформленные — можно поправить и запустить снова
-        ui.area.value = names.filter((n) => results[n] !== 'ok' && results[n] !== 'skip').join('\n');
+        const left = names.filter((n) => out.results[n] !== 'ok');
+        ui.area.value = left.join('\n');
         ui.refresh();
+        ui.showStatus(names, out.results, out.info);
+        ui.summary.textContent = problem ? `Авангард: ${problem}` : doneText(names, out.results);
       },
     });
+  }
+
+  function doneText(names, results) {
+    const ok = names.filter((n) => results[n] === 'ok').length;
+    return ok === names.length ? `Готово: оформлено ${ok} из ${names.length}, сайт подтвердил каждый.`
+      : `Оформлено ${ok} из ${names.length}. Неоформленные остались в поле — можно запустить снова.`;
+  }
+
+  // ── Авангард: часы машины на парковке за сегодня ──────────────────────────
+  // Колонка «Сегодня» между «Период» и «Статус». Данные — журнал проходов пропуска (то же, что видно,
+  // если открыть пропуск: «Въезд/Выезд по распознаванию»), без кликов. Считаем только пропуска на сегодня с машиной.
+
+  const PARKING_CSS = `
+    .s1826p-hours { white-space: nowrap; font-size: 13px; color: #374151; }
+    .s1826p-hours.inside { color: #1a7f37; font-weight: 600; }
+    .s1826p-hours.muted { color: #9ca3af; }
+  `;
+
+  /** Последний ответ сайта со списком посетителей — его ловит скрипт в мире страницы (patchPageWorld). */
+  let lastGuests = null;
+  window.addEventListener('s1826-guests', (e) => {
+    try {
+      const { url, text } = JSON.parse(e.detail);
+      const data = JSON.parse(text);
+      if (data && Array.isArray(data.result)) lastGuests = { url, list: data.result, at: Date.now() };
+    } catch (err) { /* не наш ответ */ }
+  });
+
+  // Журнал проходов всего аккаунта за сегодня — одним запросом (по страницам), раз в минуту
+  const DAY_LOG_TTL = 60000;
+  let dayLog = null; // { at, iso, byGuest: Map(id → events[]) } | { at, error }
+
+  async function todayLog() {
+    const iso = isoDate(new Date());
+    if (dayLog && dayLog.iso === iso && Date.now() - dayLog.at < DAY_LOG_TTL) return dayLog;
+    // Пояс у start/finish не ясен — берём окно шире суток, лишнее отсекает parkedTime по времени
+    const p = { start: apiPeriod(isoDate(addDays(new Date(), -1))).dateStart, finish: apiPeriod(isoDate(addDays(new Date(), 1))).dateFinish };
+    try {
+      const byGuest = new Map();
+      for (let page = 1, pages = 1; page <= pages && page <= 10; page++) {
+        const q = new URLSearchParams({ subjectAccountId: accountId(), entityType: 'guest', pageIndex: String(page), pageSize: '500', ...p });
+        const data = await api(`log/access?${q}`);
+        pages = (data && data.paginator && data.paginator.totalPages) || 1;
+        for (const ev of (data && data.result) || []) {
+          const id = ev.entity && ev.entity.id;
+          if (id == null) continue;
+          if (!byGuest.has(String(id))) byGuest.set(String(id), []);
+          byGuest.get(String(id)).push(ev);
+        }
+      }
+      dayLog = { at: Date.now(), iso, byGuest };
+    } catch (e) {
+      dayLog = { at: Date.now(), iso, error: e.message };
+    }
+    return dayLog;
+  }
+
+  function startParkingColumn() {
+    let busy = false;
+    let again = false;
+    const run = async () => {
+      if (busy) { again = true; return; }
+      busy = true;
+      try { await fillParkingColumn(); } catch (e) { /* таблица перерисовалась — повторим на следующей перемене */ }
+      busy = false;
+      if (again) { again = false; schedule(); }
+    };
+    let timer = null;
+    const schedule = () => { clearTimeout(timer); timer = setTimeout(run, 250); };
+    new MutationObserver((records) => {
+      // Свои вставки не считаем
+      if (records.every((r) => [...r.addedNodes, ...r.removedNodes].every((n) => n.nodeType !== 1 || n.classList.contains('s1826p-hours')))) return;
+      schedule();
+    }).observe(document.body, { childList: true, subtree: true });
+    window.addEventListener('s1826-guests', schedule);
+    setInterval(schedule, DAY_LOG_TTL);
+    schedule();
+  }
+
+  function guestsTable() {
+    return [...document.querySelectorAll('table')].find((t) => {
+      const heads = [...t.querySelectorAll('thead th')].map(textOf);
+      return heads.includes('Период') && heads.includes('Статус');
+    }) || null;
+  }
+
+  async function fillParkingColumn() {
+    if (!onGuestsPage()) return;
+    const table = guestsTable();
+    if (!table) return;
+    const heads = [...table.querySelectorAll('thead th')].filter((th) => !th.classList.contains('s1826p-hours'));
+    const periodIdx = heads.findIndex((th) => textOf(th) === 'Период');
+    if (periodIdx < 0) return;
+    if (!table.querySelector('thead th.s1826p-hours')) {
+      const th = document.createElement('th');
+      th.className = `${heads[periodIdx].className} s1826p-hours`;
+      th.textContent = 'Сегодня';
+      th.title = 'Сколько машина стояла на парковке сегодня (по въездам и выездам) — скрипт пропусков Studio 1826';
+      heads[periodIdx].after(th);
+    }
+    const rows = [...table.querySelectorAll('tbody tr')];
+    if (!lastGuests) {
+      // Копия ответа не пришла (сайт поменял способ запроса) — повторяем последний запрос списка сами
+      const url = performance.getEntriesByType('resource').map((e) => e.name).filter((n) => n.startsWith(`${API_BASE}guests?`)).pop();
+      if (url) {
+        const data = await api(url.slice(API_BASE.length));
+        if (!lastGuests && data && Array.isArray(data.result)) lastGuests = { url, list: data.result, at: Date.now() };
+      }
+    }
+    const list = (lastGuests && lastGuests.list) || [];
+    const today = isoDate(new Date());
+    const jobs = [];
+    rows.forEach((tr, i) => {
+      const cells = [...tr.children].filter((td) => !td.classList.contains('s1826p-hours'));
+      if (cells.length <= periodIdx) return; // строка «нет данных»
+      let td = tr.querySelector('td.s1826p-hours');
+      if (!td) {
+        td = document.createElement('td');
+        td.className = `${cells[periodIdx].className} s1826p-hours`;
+        cells[periodIdx].after(td);
+      }
+      // Строки идут в порядке ответа сайта; сверяем по ФИО, чтобы не подставить чужие часы
+      const rowText = normalize(textOf(tr));
+      const guest = list[i] && rowText.includes(normalize(list[i].name || '')) ? list[i]
+        : list.find((g) => g.name && rowText.includes(normalize(g.name)) && (!g.carNumber || rowText.includes(String(g.carNumber).toLowerCase())));
+      const set = (text, cls = '') => {
+        if (td.textContent !== text) td.textContent = text;
+        td.className = td.className.replace(/\s*(inside|muted)\b/g, '') + (cls ? ` ${cls}` : '');
+      };
+      if (!guest) { set(list.length ? '' : '…', 'muted'); return; }
+      if (!guest.carNumber || !guestCoversDay(guest, today)) { set('', 'muted'); return; }
+      jobs.push({ guest, set });
+    });
+    if (!jobs.length) return;
+    const log = await todayLog();
+    const dayStart = dayBounds(today).start;
+    for (const { guest, set } of jobs) {
+      if (log.error) { set('?', 'muted'); continue; }
+      const v = parkedTime(log.byGuest.get(String(guest.id)) || [], dayStart, Date.now());
+      if (!v.seen) set('не заезжала', 'muted');
+      else set(v.inside ? `${formatDuration(v.ms)} · стоит` : formatDuration(v.ms), v.inside ? 'inside' : '');
+    }
   }
 
   // ── Bitrix24: кнопка «Пропуск» ──────────────────────────────────────────────
@@ -643,6 +903,7 @@
 
         ui.setRunning(true, 'Оформляю в Авангарде…');
         ui.showStatus(names, {});
+        ui.summary.textContent = 'Авангард: открываю вкладку…';
         // Ждём результаты; если вкладка Авангарда 60 с ничего не сообщает — сдаёмся
         let lastChange = Date.now();
         let lastSeen = '';
@@ -652,7 +913,11 @@
           const res = await store.get(`result:${job.id}`, null);
           const seen = JSON.stringify(res);
           if (seen !== lastSeen) { lastSeen = seen; lastChange = Date.now(); }
-          if (res) { ui.showStatus(names, res.results || {}); last = res; }
+          if (res) {
+            ui.showStatus(names, res.results || {}, res.info || {});
+            ui.summary.textContent = res.stage ? `Авангард · ${res.stage}` : 'Авангард: открываю вкладку…';
+            last = res;
+          }
           if (res && res.done) break;
           if (Date.now() - lastChange > 60000) {
             const j = await store.get('job', null);
@@ -668,22 +933,22 @@
         try { if (tab && tab.close) tab.close(); } catch (e) { /* закроется сама или останется */ }
         ui.setRunning(false);
         const results = (last && last.results) || {};
-        const left = names.filter((n) => results[n] !== 'ok' && results[n] !== 'skip');
+        const left = names.filter((n) => results[n] !== 'ok');
         ui.area.value = left.join('\n');
         ui.refresh();
-        ui.summary.textContent = last && last.error
-          ? last.error
-          : left.length ? `Не оформлено: ${left.length}. Остались в поле — можно запустить снова.` : 'Готово: все пропуска оформлены.';
+        ui.showStatus(names, results, (last && last.info) || {});
+        ui.summary.textContent = last && last.error ? last.error : doneText(names, results);
       },
     });
   }
 
   /**
-   * Фоновая вкладка: Chrome не вызывает requestAnimationFrame, и сайт (React) не перерисовывает таблицу и окна.
+   * Мир страницы. 1) Фоновая вкладка: Chrome не вызывает requestAnimationFrame, и сайт (React) не перерисовывает таблицу и окна.
    * Подмена через unsafeWindow до страницы не доходит (скрипт в своём мире), поэтому вставляем её тегом <script>
    * в мир страницы — как можно раньше, до старта сайта. CSP у Авангарда нет.
+   * 2) Копия ответа сайта со списком посетителей (событие s1826-guests) — для колонки «Сегодня». Запросы сайта не меняются.
    */
-  function patchAnimationFrameInPage() {
+  function patchPageWorld() {
     const code = `(function () {
       var raf = window.requestAnimationFrame.bind(window), caf = window.cancelAnimationFrame.bind(window);
       var timers = new Set();
@@ -695,6 +960,32 @@
       };
       window.cancelAnimationFrame = function (id) {
         if (timers.has(id)) { timers.delete(id); clearTimeout(id); } else caf(id);
+      };
+      // Ответ сайта со списком посетителей — копия для колонки «Сегодня» (строки таблицы идут в его порядке)
+      var GUESTS = /\/api\/guests\?/;
+      var post = function (url, text) {
+        try { window.dispatchEvent(new CustomEvent('s1826-guests', { detail: JSON.stringify({ url: url, text: text }) })); } catch (e) {}
+      };
+      var origFetch = window.fetch;
+      if (origFetch) window.fetch = function (input) {
+        var p = origFetch.apply(this, arguments);
+        try {
+          var url = String((input && input.url) || input);
+          if (GUESTS.test(url)) p.then(function (r) { r.clone().text().then(function (t) { post(url, t); }, function () {}); }, function () {});
+        } catch (e) {}
+        return p;
+      };
+      var open = XMLHttpRequest.prototype.open, send = XMLHttpRequest.prototype.send;
+      XMLHttpRequest.prototype.open = function (method, url) { this.__s1826url = String(url); return open.apply(this, arguments); };
+      XMLHttpRequest.prototype.send = function () {
+        var xhr = this;
+        if (GUESTS.test(xhr.__s1826url || '')) xhr.addEventListener('load', function () {
+          try {
+            var t = xhr.responseType === '' || xhr.responseType === 'text' ? xhr.responseText : JSON.stringify(xhr.response);
+            post(xhr.responseURL || xhr.__s1826url, t);
+          } catch (e) {}
+        });
+        return send.apply(this, arguments);
       };
     })();`;
     try {
@@ -709,7 +1000,7 @@
     ? document.addEventListener('DOMContentLoaded', fn, { once: true }) : fn());
 
   if (location.hostname === 'my.avanguard.pro') {
-    patchAnimationFrameInPage();
+    patchPageWorld();
     whenReady(avanguardMain);
   } else {
     whenReady(bitrixMain);
