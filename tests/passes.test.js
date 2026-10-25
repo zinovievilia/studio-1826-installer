@@ -384,3 +384,12 @@ test('вставка: служебные слова и фразы из чата 
   assert.deepStrictEqual(fromMessage('воронцова лилия эдуардовна\nхван валерия алексеевна'), ['Воронцова Лилия Эдуардовна', 'Хван Валерия Алексеевна']);
   assert.deepStrictEqual(fromMessage('Воронцова Л.Э., Хван В.А.'), ['Воронцова Л.Э.', 'Хван В.А.']);
 });
+
+test('вставка: «оглы/кызы» не мешают, одиночная фамилия видна как «не взял»', () => {
+  const { prefillText } = require('../studio1826-passes.user.js');
+  assert.deepStrictEqual(parseNames(prefillText('Алиева Айгюль Рашид кызы и Мамедов Али Гусейн оглы', '')).names,
+    ['Алиева Айгюль Рашид кызы', 'Мамедов Али Гусейн оглы']);
+  const dropped = [];
+  assert.deepStrictEqual(parseNames(prefillText('Пропуск для Ивановой Анны и для Петрова', '', dropped)).names, ['Ивановой Анны']);
+  assert.deepStrictEqual(dropped, ['Петрова']);
+});

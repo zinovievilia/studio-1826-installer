@@ -214,7 +214,9 @@
   const NAME_LIKE = /^[A-Za-zА-Яа-яЁё][A-Za-zА-Яа-яЁё.'’\-]*(?: [A-Za-zА-Яа-яЁё][A-Za-zА-Яа-яЁё.'’\-]*){0,3}$/;
   const COMPANY = /(^|\s)(ИП|ООО|ОАО|ЗАО|ПАО|АО|НКО|АНО)(\s|$)/;
   const STATUS_WORD = /^(ушел|ушёл|новый|на месте|архив|разрешить выезд|машина не заезжала|не заезжала|стоит)$/i; // колонки «Статус» и «Сегодня»
-  function prefillText(selected, clipboard) {
+  const NAME_PARTICLE = /^(?:оглы|кызы|улы|уулу|ибн|бен|де|фон|ван|ди|да|ла)$/i;
+  /** `dropped` (необязательно) — сюда попадут одиночные слова, похожие на фамилию, которые не взяты («для Петрова»). */
+  function prefillText(selected, clipboard, dropped = null) {
     for (const raw of [selected, clipboard]) {
       const text = String(raw || '').trim();
       if (!text || text.length > 5000) continue;
@@ -232,9 +234,12 @@
           if (plate && name === 'Машина') return true;
           const words = splitLabel(line.trim()).name.split(/\s+/).filter(Boolean);
           // Одно слово из сообщения — почти всегда не человек («Ок», «Бронь»); исключение — фамилия с инициалами
-          if (words.length < 2 && !plate) return false;
+          if (words.length < 2 && !plate) {
+            if (dropped && NAME_LIKE.test(name) && /^[A-ZА-ЯЁ]/.test(words[0] || '')) dropped.push(name);
+            return false;
+          }
           // В обычном сообщении ФИО пишут с заглавных: «получается с собой паспорт» — не ФИО
-          if (!allLower && !words.every((w) => /^[A-ZА-ЯЁ]/.test(w))) return false;
+          if (!allLower && !words.every((w) => /^[A-ZА-ЯЁ]/.test(w) || NAME_PARTICLE.test(w))) return false;
           return NAME_LIKE.test(name);
         });
       });
@@ -571,6 +576,7 @@
       if (ui.running) return;
       let clip = '';
       let clipNote = '';
+      const dropped = [];
       if (!prefillText(selected, '') && !ui.area.value.trim()) {
         try {
           clip = await navigator.clipboard.readText();
@@ -579,11 +585,12 @@
           clipNote = 'Буфер: нет доступа (разрешите сайту буфер обмена) — вставьте ⌘V / Ctrl+V';
         }
       }
-      const text = prefillText(selected, clip);
+      const text = prefillText(selected, clip, dropped);
       if (!text) { if (clipNote) ui.summary.textContent = clipNote; return; }
       ui.area.value = text;
       ui.refresh();
-      ui.summary.textContent = `${text === prefillText(selected, '') ? 'Взято из выделения' : 'Вставлено из буфера'} · ${ui.summary.textContent}`;
+      ui.summary.textContent = `${text === prefillText(selected, '') ? 'Взято из выделения' : 'Вставлено из буфера'} · ${ui.summary.textContent}` +
+        (dropped.length ? ` · ⚠ не взял (одно слово): ${[...new Set(dropped)].join(', ')} — допишите, если это человек` : '');
     };
 
     /** Открыть/закрыть над элементом (значок в окне ввода сообщения) */
