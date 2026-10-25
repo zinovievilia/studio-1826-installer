@@ -1,0 +1,41 @@
+name: updater
+
+# Сборка macOS-приложения Studio1826Updater и тесты его чистой логики.
+# Запускается только при изменениях в папке приложения — userscript это не затрагивает.
+on:
+  push:
+    paths:
+      - 'Studio1826UpdaterDMG/**'
+      - '.github/workflows/updater.yml'
+  pull_request:
+    paths:
+      - 'Studio1826UpdaterDMG/**'
+      - '.github/workflows/updater.yml'
+
+jobs:
+  build:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: Studio1826UpdaterDMG
+    steps:
+      - uses: actions/checkout@v4
+      - name: Xcode version
+        run: xcodebuild -version
+      - name: Core tests
+        run: |
+          swiftc -swift-version 5 Studio1826Updater/Core/*.swift Tests/CoreTests/main.swift -o "$RUNNER_TEMP/coretests"
+          "$RUNNER_TEMP/coretests"
+      - name: Build app
+        run: |
+          if ! xcodebuild -project Studio1826Updater.xcodeproj -target Studio1826Updater \
+              -configuration Release CODE_SIGNING_ALLOWED=NO \
+              SYMROOT="$RUNNER_TEMP/build" build > "$RUNNER_TEMP/build.log" 2>&1; then
+            grep -E "error:" "$RUNNER_TEMP/build.log" | sort -u
+            tail -40 "$RUNNER_TEMP/build.log"
+            exit 1
+          fi
+          grep -E "\.swift:[0-9]+:[0-9]+: warning:" "$RUNNER_TEMP/build.log" | sort -u || true
+          test -x "$RUNNER_TEMP/build/Release/Studio1826Updater.app/Contents/MacOS/Studio1826Updater"
+          test -f "$RUNNER_TEMP/build/Release/Studio1826Updater.app/Contents/Resources/ReplyLibrary.json"
+          echo "BUILD OK"
