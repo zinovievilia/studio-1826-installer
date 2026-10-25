@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v1.2.2 Studio 1826 — Пропуска списком (Авангард)
+// @name         v1.2.3 Studio 1826 — Пропуска списком (Авангард)
 // @namespace    studio1826
-// @version      1.2.2
+// @version      1.2.3
 // @description  Кнопка «Оформить пропуск» в окне ввода открытых линий Bitrix24: список ФИО + дата → пропуска в Авангарде оформляются по очереди
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
@@ -26,7 +26,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.2.2';
+  const VERSION = '1.2.3';
   const DEFAULT_GUESTS_URL = 'https://my.avanguard.pro/account/354/guests';
 
   // ── Чистые функции (тесты: tests/passes.test.js) ───────────────────────────
@@ -362,8 +362,23 @@
     const { from: f, to: t, search } = listControls();
     if (f && t) { setValue(f, from); setValue(t, to); }
     if (search) setValue(search, name);
-    if (f || search) await sleep(1100); // список перезапрашивается с сервера
-    return [...document.querySelectorAll('tr, [role="row"]')].some((row) => rowMatches(textOf(row), name, from, to));
+    const matches = () => [...document.querySelectorAll('tr, [role="row"]')].some((row) => rowMatches(textOf(row), name, from, to));
+    if (f || search) {
+      // Список перезапрашивается с сервера, в фоновой вкладке таймеры ещё и замедлены: ждём не фиксированную
+      // паузу, а находку или пока таблица перестанет меняться (не дольше 8 с)
+      const table = () => [...document.querySelectorAll('tr, [role="row"]')].map(textOf).join('|');
+      const started = Date.now();
+      let last = table();
+      let stableSince = started;
+      await sleep(1100);
+      while (!matches() && Date.now() - started < 8000) {
+        const now = table();
+        if (now !== last) { last = now; stableSince = Date.now(); }
+        else if (Date.now() - stableSince >= 1500) break;
+        await sleep(250);
+      }
+    }
+    return matches();
   }
 
   /** Один пропуск. null — оформлен, иначе текст ошибки. */
@@ -383,6 +398,9 @@
         .find((i) => visible(i) && !/\+7|X999|000/.test(i.placeholder || ''));
     if (!fio) return 'не нашёл поле ФИО';
 
+    // Сайт не принимает «с» позже текущего «по» (в окне оба стоят на сегодня) и откатывает значение:
+    // «по», «с», и ещё раз «по» на случай прошедших дат
+    setValue(dates[1], to);
     setValue(dates[0], from);
     setValue(dates[1], to);
     setValue(fio, name);
@@ -480,14 +498,14 @@
     buildPanel({
       id: 's1826p-av',
       toggleText: 'Пропуска списком',
-      single: false,
+      single: true,
       defaultDate: isoDate(new Date()),
       position: { toggle: { right: '20px', bottom: '20px' }, panel: { right: '20px', bottom: '70px' } },
       async onStart(ui) {
         if (ui.running) { stop = true; ui.start.textContent = 'Останавливаю…'; return; }
         const { names } = parseNames(ui.area.value);
         const from = ui.from.value;
-        const to = ui.to.value;
+        const to = from;
         if (!(await ui.confirm(`Оформить ${names.length} чел. на ${periodText(from, to)}?`, names))) return;
         stop = false;
         ui.setRunning(true, 'Стоп');
