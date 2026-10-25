@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v1.2.3 Studio 1826 — Пропуска списком (Авангард)
+// @name         v1.2.4 Studio 1826 — Пропуска списком (Авангард)
 // @namespace    studio1826
-// @version      1.2.3
+// @version      1.2.4
 // @description  Кнопка «Оформить пропуск» в окне ввода открытых линий Bitrix24: список ФИО + дата → пропуска в Авангарде оформляются по очереди
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
@@ -26,7 +26,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.2.3';
+  const VERSION = '1.2.4';
   const DEFAULT_GUESTS_URL = 'https://my.avanguard.pro/account/354/guests';
 
   // ── Чистые функции (тесты: tests/passes.test.js) ───────────────────────────
@@ -451,10 +451,13 @@
 
     // Вкладка, открытая из Bitrix с заданием
     const jobMatch = /#s1826-job=([\w-]+)/.exec(location.hash);
-    if (jobMatch) {
+    {
       const job = await store.get('job', null);
-      if (job && job.id === jobMatch[1] && !job.taken) {
+      // Адрес с #s1826-job мог потеряться при загрузке: тогда берём свежее ничьё задание, если вкладка фоновая
+      const fresh = job && !job.taken && Date.now() - (job.createdAt || 0) < 45000 && document.hidden;
+      if (job && !job.taken && ((jobMatch && job.id === jobMatch[1]) || fresh)) {
         await store.set('job', { ...job, taken: true });
+        await store.set(`result:${job.id}`, { done: false, started: true, results: {} });
         // Вкладка в фоне: Chrome не вызывает requestAnimationFrame, а окна сайта открываются с анимацией.
         // Подменяем на таймер, чтобы окно «Новый посетитель» появлялось и в фоновой вкладке.
         try {
@@ -573,7 +576,7 @@
         const date = ui.from.value;
         if (!(await ui.confirm(`Оформить пропуска на ${humanDate(date)}?`, names))) return;
 
-        const job = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), names, from: date, to: date };
+        const job = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), names, from: date, to: date, createdAt: Date.now() };
         await store.set('job', job);
         await store.set(`result:${job.id}`, { done: false, results: {} });
         const url = await store.get('guestsUrl', DEFAULT_GUESTS_URL);
@@ -593,8 +596,12 @@
           if (res) { ui.showStatus(names, res.results || {}); last = res; }
           if (res && res.done) break;
           if (Date.now() - lastChange > 60000) {
+            const j = await store.get('job', null);
+            const started = j && j.id === job.id && j.taken;
             last = { ...(res || {}), done: true,
-              error: 'Вкладка Авангарда не отвечает. Проверьте, что вы вошли в my.avanguard.pro, и запустите снова.' };
+              error: started
+                ? 'Вкладка Авангарда запустилась, но 60 с ничего не сообщает. Откройте её и посмотрите, что на странице.'
+                : 'Вкладка Авангарда не запустила скрипт (задание не взято). Проверьте, что скрипт включён для my.avanguard.pro и вы вошли в аккаунт, и запустите снова.' };
             break;
           }
         }
