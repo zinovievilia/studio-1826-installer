@@ -327,3 +327,47 @@ test('«пропуск на/для …» и отчества в падежах',
   assert.deepStrictEqual(t('Воронцовой Лилии Эдуардовне Хван Валерии Алексеевне'), ['Воронцовой Лилии Эдуардовне', 'Хван Валерии Алексеевне']);
   assert.deepStrictEqual(t('Еще машина А439ТУ797'), ['Машина · А439ТУ 797']);
 });
+
+test('«Пропуск готов»: случайный ответ, подряд не повторяется, ссылка только где можно', () => {
+  const { pickDoneMessage } = require('../studio1826-passes.user.js');
+  const pool = ['a', 'b', 'c'];
+  let last = '';
+  let linked = 0;
+  for (let i = 0; i < 300; i++) {
+    const m = pickDoneMessage(pool, last, 'https://x', ['Как нас найти:']);
+    assert.notStrictEqual(m, last);
+    if (m.includes('https://x')) { linked++; assert.ok(/^[abc]\n\nКак нас найти:\nhttps:\/\/x$/.test(m)); }
+    last = m;
+  }
+  assert.ok(linked > 30 && linked < 200);
+  for (let i = 0; i < 50; i++) assert.ok(pool.includes(pickDoneMessage(pool, '', '', ['x'])));
+  assert.strictEqual(pickDoneMessage(['x'], 'x', ''), 'x');
+});
+
+test('вставка из реальных сообщений: никто не теряется, лишнее не попадает', () => {
+  const { prefillText } = require('../studio1826-passes.user.js');
+  const fromMessage = (msg) => parseNames(prefillText(msg, '')).names;
+  assert.deepStrictEqual(fromMessage('Здравствуйте, на 28.10 с 10:00 до 14:00 пропуска: Хван Валерия Алексеевна; Прокопчук Юлия Станиславовна'),
+    ['Хван Валерия Алексеевна', 'Прокопчук Юлия Станиславовна']);
+  assert.deepStrictEqual(fromMessage('Зал 110, съемка с 12 до 18. Гости: Воронцова Лилия, Хван Валерия'), ['Воронцова Лилия', 'Хван Валерия']);
+  assert.deepStrictEqual(fromMessage('Воронцова Лилия Эдуардовна +79161234567'), ['Воронцова Лилия Эдуардовна']);
+  assert.deepStrictEqual(fromMessage('Хван Валерия Алексеевна hvan@mail.ru'), ['Хван Валерия Алексеевна']);
+  assert.deepStrictEqual(fromMessage('Привет) мы втроем: я - Воронцова Лилия Эдуардовна, подруга Хван Валерия и фотограф Прокопчук Юлия Станиславовна'),
+    ['Воронцова Лилия Эдуардовна', 'Хван Валерия', 'Прокопчук Юлия Станиславовна']);
+  assert.deepStrictEqual(fromMessage('Воронцова Лилия Эдуардовна.\nС уважением'), ['Воронцова Лилия Эдуардовна']);
+  assert.deepStrictEqual(fromMessage('Добрый вечер! Будем на машине, номер А439ТУ 797, Воронцова Лилия Эдуардовна. Спасибо большое!'),
+    ['Воронцова Лилия Эдуардовна · А439ТУ 797']);
+});
+
+test('вставка: опечатка в номере не пропадает молча', () => {
+  const { prefillText } = require('../studio1826-passes.user.js');
+  const { names, invalid } = parseNames(prefillText('Иванов Иван Е33ав34\nПетров Петр', ''));
+  assert.deepStrictEqual(names, ['Петров Петр']);
+  assert.strictEqual(invalid.length, 1);
+});
+
+test('падеж: отчество не в именительном отмечается', () => {
+  const r = parseNames('Пропуск для Воронцовой Лилии Эдуардовны и Хван Валерии Алексеевны\nИванову Петру Сергеевичу\nПрокопчук Юлия Станиславовна');
+  assert.deepStrictEqual(r.names, ['Воронцовой Лилии Эдуардовны', 'Хван Валерии Алексеевны', 'Иванову Петру Сергеевичу', 'Прокопчук Юлия Станиславовна']);
+  assert.deepStrictEqual(r.oblique, ['Воронцовой Лилии Эдуардовны', 'Хван Валерии Алексеевны', 'Иванову Петру Сергеевичу']);
+});
