@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v1.2.2 Studio 1826 — Пропуска списком (Авангард)
+// @name         v1.2.3 Studio 1826 — Пропуска списком (Авангард)
 // @namespace    studio1826
-// @version      1.2.2
+// @version      1.2.3
 // @description  Кнопка «Оформить пропуск» в окне ввода открытых линий Bitrix24: список ФИО + дата → пропуска в Авангарде оформляются по очереди
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
@@ -26,7 +26,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.2.2';
+  const VERSION = '1.2.3';
   const DEFAULT_GUESTS_URL = 'https://my.avanguard.pro/account/354/guests';
 
   // ── Чистые функции (тесты: tests/passes.test.js) ───────────────────────────
@@ -480,14 +480,14 @@
     buildPanel({
       id: 's1826p-av',
       toggleText: 'Пропуска списком',
-      single: false,
+      single: true,
       defaultDate: isoDate(new Date()),
       position: { toggle: { right: '20px', bottom: '20px' }, panel: { right: '20px', bottom: '70px' } },
       async onStart(ui) {
         if (ui.running) { stop = true; ui.start.textContent = 'Останавливаю…'; return; }
         const { names } = parseNames(ui.area.value);
         const from = ui.from.value;
-        const to = ui.to.value;
+        const to = from;
         if (!(await ui.confirm(`Оформить ${names.length} чел. на ${periodText(from, to)}?`, names))) return;
         stop = false;
         ui.setRunning(true, 'Стоп');
