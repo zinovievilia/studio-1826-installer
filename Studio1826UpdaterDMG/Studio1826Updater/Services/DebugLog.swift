@@ -2,8 +2,12 @@ import AppKit
 
 /// Журнал ошибок и дебаг-отчёты.
 /// Ошибка записывается в журнал и сразу собирает отчёт в папку Application Support/…/Debug
-/// (не чаще раза в 30 минут на одну и ту же ошибку). Кнопка в «Если что-то не работает»
-/// кладёт свежий отчёт в «Загрузки».
+/// (не чаще раза в 30 минут на одну и ту же ошибку) и отправляет его в приватный репозиторий
+/// дебага. Кнопка в «Если что-то не работает» кладёт свежий отчёт в «Загрузки» и тоже отправляет.
+///
+/// Ключ для отправки не хранится в git: build.sh вписывает его в Info.plist собранного приложения
+/// из файла ~/.studio1826/debug-token. Ключ должен уметь писать только в репозиторий дебага —
+/// из DMG его можно достать. Нет ключа — отчёты просто остаются на Mac.
 @MainActor
 final class DebugLog {
     static let shared = DebugLog()
@@ -40,7 +44,7 @@ final class DebugLog {
         if let last = lastAutoReport[key], Date().timeIntervalSince(last) < Self.autoReportPause { return }
         lastAutoReport[key] = Date()
         do {
-            try writeAutoReport(reason: "\(area): \(message)")
+            upload(try writeAutoReport(reason: "\(area): \(message)"))
         } catch {
             NSLog("Studio1826: дебаг не сохранился: \(error)")
         }
@@ -68,10 +72,11 @@ final class DebugLog {
         let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
         let url = downloads.appendingPathComponent(DebugReport.fileName(for: report.created))
         try report.text().write(to: url, atomically: true, encoding: .utf8)
+        upload(report)
         return url
     }
 
-    private func writeAutoReport(reason: String) throws {
+    private func writeAutoReport(reason: String) throws -> DebugReport {
         let report = makeReport(reason: reason)
         let fm = FileManager.default
         try fm.createDirectory(at: Self.reportsFolder, withIntermediateDirectories: true)
@@ -84,6 +89,48 @@ final class DebugLog {
             .sorted { $0.lastPathComponent > $1.lastPathComponent }
             .dropFirst(Self.keptReports)
         for file in old { try? fm.removeItem(at: file) }
+        return report
+    }
+
+    // MARK: Отправка в репозиторий дебага
+
+    static let debugRepo = "zinovievilia/studio-1826-debug"
+
+    private static var uploadToken: String? {
+        let token = (Bundle.main.object(forInfoDictionaryKey: "S1826DebugToken") as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return token?.isEmpty == false ? token : nil
+    }
+
+    var canUpload: Bool { Self.uploadToken != nil }
+
+    /// reports/<пользователь Mac>/<файл>. Ошибки отправки — только в системный лог,
+    /// иначе неудачная отправка сама порождала бы новые отчёты.
+    private func upload(_ report: DebugReport) {
+        guard let token = Self.uploadToken else { return }
+        let path = "reports/\(DebugReport.safePathComponent(NSUserName()))/\(DebugReport.fileName(for: report.created))"
+        guard let url = URL(string: "https://api.github.com/repos/\(Self.debugRepo)/contents/\(path)") else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let body: [String: String] = [
+            "message": "Дебаг \(APP_VERSION): \(report.reason)",
+            "content": Data(report.text().utf8).base64EncodedString(),
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        let finalRequest = request
+        Task.detached {
+            do {
+                let (_, response) = try await URLSession.shared.data(for: finalRequest)
+                if let http = response as? HTTPURLResponse, http.statusCode != 201 {
+                    NSLog("Studio1826: дебаг не отправился, GitHub ответил \(http.statusCode)")
+                }
+            } catch {
+                NSLog("Studio1826: дебаг не отправился: \(error)")
+            }
+        }
     }
 
     // MARK: Состояние приложения

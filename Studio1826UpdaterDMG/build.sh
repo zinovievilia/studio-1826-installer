@@ -83,6 +83,18 @@ echo "✓  Приложение собрано: $APP_PATH"
 # Версия в Info.plist = APP_VERSION
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP_PATH/Contents/Info.plist" || true
 
+# Ключ для отправки дебага — только в собранное приложение, в git его нет.
+# Ключ должен уметь писать только в приватный репозиторий дебага (studio-1826-debug).
+DEBUG_TOKEN_FILE="$HOME/.studio1826/debug-token"
+if [ -s "$DEBUG_TOKEN_FILE" ]; then
+    DEBUG_TOKEN="$(tr -d '[:space:]' < "$DEBUG_TOKEN_FILE")"
+    /usr/libexec/PlistBuddy -c "Delete :S1826DebugToken" "$APP_PATH/Contents/Info.plist" 2>/dev/null || true
+    /usr/libexec/PlistBuddy -c "Add :S1826DebugToken string $DEBUG_TOKEN" "$APP_PATH/Contents/Info.plist"
+    echo "✓  Отправка дебага включена"
+else
+    echo "⚠  Нет $DEBUG_TOKEN_FILE — дебаг будет только сохраняться на Mac"
+fi
+
 # ── 2. Подписываем ad-hoc ────────────────────────────────────────────────────
 echo ""
 echo "▶  Подписываю ad-hoc (без Developer ID)…"
