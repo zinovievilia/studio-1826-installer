@@ -32,6 +32,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         browsers = BrowserService()
         updater = UpdaterService(browsers: browsers)
+        DebugLog.shared.browsers = browsers
+        DebugLog.shared.updater = updater
         replies = ReplyStore()
         links = LinksStore()
         cashReport = CashReportModel()

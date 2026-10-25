@@ -103,6 +103,21 @@ final class BrowserService: ObservableObject {
         }
     }
 
+    /// Запись в папку Userscripts — это «данные другого приложения». macOS запоминает ответ на свой вопрос,
+    /// и после «Не разрешать» (или для прошлой ad-hoc сборки) запрет остаётся, а вопрос больше не появляется.
+    /// Удаляем только запись нашего приложения — при следующей записи macOS спросит снова.
+    static func resetAppDataPermission() {
+        let tccutil = Process()
+        tccutil.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+        tccutil.arguments = ["reset", "SystemPolicyAppData", Bundle.main.bundleIdentifier ?? "studio1826.updater"]
+        do {
+            try tccutil.run()
+            tccutil.waitUntilExit()
+        } catch {
+            DebugLog.shared.record("Доступ к Userscripts", "tccutil reset не запустился: \(error.localizedDescription)")
+        }
+    }
+
     func launchUserscriptsApp() {
         guard let url = userscriptsAppURL else { return }
         NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration()) { _, _ in }

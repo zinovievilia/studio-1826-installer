@@ -10,7 +10,7 @@ private let appDMGURL     = URL(string: "\(repoRaw)/Studio1826Updater.dmg")!
 
 /// Текущая версия приложения — должна совпадать с содержимым app.version в репо.
 /// build.sh берёт версию отсюда: строка должна начинаться с `let APP_VERSION = "`.
-let APP_VERSION = "4.2.1"
+let APP_VERSION = "4.3.0"
 
 // MARK: - ScheduleMode
 
@@ -274,6 +274,7 @@ class UpdaterService: ObservableObject {
         } catch {
             scripts[script.id]?.hasError = true
             scripts[script.id]?.status = "Ошибка: \(error.localizedDescription)"
+            DebugLog.shared.record("Скрипт «\(script.name)»", error.localizedDescription)
             scripts[script.id]?.lastCheck = Date()
         }
     }
@@ -302,6 +303,7 @@ class UpdaterService: ObservableObject {
                 }
                 if http.statusCode != 200 {
                     appStatus = "Ошибка сервера: \(http.statusCode)"
+                    DebugLog.shared.record("Проверка обновления", "app.version: GitHub ответил \(http.statusCode)")
                     appLatestVersion = nil
                     return
                 }
@@ -321,6 +323,7 @@ class UpdaterService: ObservableObject {
             }
         } catch {
             appStatus = "Ошибка проверки: \(error.localizedDescription)"
+            DebugLog.shared.record("Проверка обновления", error.localizedDescription)
         }
     }
 
@@ -396,6 +399,7 @@ class UpdaterService: ObservableObject {
             }
             try? FileManager.default.removeItem(at: tmp)
             appStatus = "Ошибка установки: \(error.localizedDescription)"
+            DebugLog.shared.record("Установка обновления", error.localizedDescription)
             isInstallingApp = false
         }
     }
