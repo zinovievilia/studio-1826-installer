@@ -46,6 +46,13 @@ struct DebugReport {
         return "Studio1826-debug-\(f.string(from: date)).txt"
     }
 
+    /// Для пути в репозитории: только латиница, цифры, «-», «_», «.».
+    static func safePathComponent(_ text: String) -> String {
+        let allowed = Set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.")
+        let cleaned = String(text.map { allowed.contains($0) ? $0 : "_" })
+        return cleaned.isEmpty ? "unknown" : cleaned
+    }
+
     func text(timeZone: TimeZone = .current) -> String {
         var lines: [String] = [
             "Studio 1826 — дебаг",

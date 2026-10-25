@@ -227,6 +227,8 @@ let utc = TimeZone(identifier: "UTC")!
 let debugDate = Date(timeIntervalSince1970: 1_793_000_000)
 expect(DebugReport.fileName(for: debugDate, timeZone: utc).hasPrefix("Studio1826-debug-2026-"), "имя файла дебага")
 expect(!DebugReport.fileName(for: debugDate, timeZone: utc).contains(":"), "в имени файла нет двоеточий")
+expect(DebugReport.safePathComponent("Илья mac") == "_____mac", "путь в репо — только латиница")
+expect(DebugReport.safePathComponent("") == "unknown", "пустое имя пользователя")
 let manyEvents = (0..<150).map { DebugEvent(date: debugDate, area: "a", message: "\($0)") }
 expect(DebugReport.trimmed(manyEvents).count == DebugReport.eventLimit, "журнал обрезается")
 expect(DebugReport.trimmed(manyEvents).last?.message == "149", "в журнале остаются последние")
