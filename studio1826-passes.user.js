@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v1.4.1 Studio 1826 — Пропуска списком (Авангард)
+// @name         v1.4.2 Studio 1826 — Пропуска списком (Авангард)
 // @namespace    studio1826
-// @version      1.4.1
+// @version      1.4.2
 // @description  Кнопка «Оформить пропуск» в окне ввода открытых линий Bitrix24: список ФИО + дата → пропуска в Авангарде оформляются по очереди с проверкой; в Авангарде — кнопка «Пропуска списком» и часы машин за сегодня
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
@@ -27,7 +27,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.4.1';
+  const VERSION = '1.4.2';
   const DEFAULT_GUESTS_URL = 'https://my.avanguard.pro/account/354/guests';
 
   // ── Чистые функции (тесты: tests/passes.test.js) ───────────────────────────
@@ -63,6 +63,50 @@
     return m ? { name: m[1], plate: { number: m[2], region: m[3] } } : { name: String(label || '').trim(), plate: null };
   }
 
+  // Отчество: «…овна», «…евич», «…ична»; «оглы/кызы» идут следом отдельным словом
+  const PATRONYMIC = /^[А-ЯЁа-яё]+(?:ович|евич|овна|евна|ична|инична|ьич|ич)$/i;
+  const PATRONYMIC_TAIL = /^(?:оглы|кызы|улы|уулу)$/i;
+  const PURE_NAME_LINE = /^[A-Za-zА-Яа-яЁё.'’\- ]+$/;
+
+  /**
+   * Клиенты переносят строки посреди ФИО: «Воронцова Лилия Эдуардовна Хван\nВалерия Алексеевна».
+   * В подряд идущих строках из одних слов ФИО заканчивается на отчестве (не первым словом: «Шостакович…» — фамилия).
+   * Строка без отчества остаётся как есть («Иванов Иван», «Прокопчук»). Обрывок «Хван» склеивается со следующей
+   * строкой, только если там отчество и вместе выходит не больше трёх слов. Остальные строки не трогаем.
+   */
+  function splitByPatronymics(text) {
+    const out = [];
+    let run = [];
+    const flush = () => {
+      const names = [];
+      let cur = [];
+      run.forEach((words, li) => {
+        for (let j = 0; j < words.length; j++) {
+          cur.push(words[j]);
+          if ((cur.length >= 2 && PATRONYMIC.test(words[j])) || (cur.length >= 3 && PATRONYMIC_TAIL.test(words[j]))) {
+            if (PATRONYMIC_TAIL.test(words[j + 1] || '')) cur.push(words[++j]);
+            names.push(cur); cur = [];
+          }
+        }
+        if (!cur.length) return;
+        const next = run[li + 1] || [];
+        const k = next.findIndex((w) => PATRONYMIC.test(w));
+        const glue = k >= 0 && cur.length + k + 1 <= 3 && !cur.some((w) => PATRONYMIC.test(w));
+        if (!glue) { names.push(cur); cur = []; }
+      });
+      if (cur.length) names.push(cur);
+      out.push(...names.map((n) => n.join(' ')));
+      run = [];
+    };
+    for (const line of text.split('\n')) {
+      const bare = line.replace(/^\s*(?:\d+\s*[.)]|[-–—•*])\s*/, '').trim();
+      if (bare && PURE_NAME_LINE.test(bare)) run.push(bare.split(/\s+/));
+      else { flush(); out.push(line); }
+    }
+    flush();
+    return out.join('\n');
+  }
+
   /**
    * Список пропусков из вставленного текста: по строке (или через «;» и «,»), без нумерации, пробелов и повторов.
    * Номер машины — в строке с ФИО или отдельной строкой: отдельный номер достаётся первому ФИО без машины,
@@ -72,7 +116,7 @@
     const entries = [];
     const loosePlates = [];
     const invalid = [];
-    for (const raw of String(text || '').split(/[\n;,]+/)) {
+    for (const raw of splitByPatronymics(String(text || '').replace(/[ \t]+и[ \t]+/gi, '\n')).split(/[\n;,]+/)) {
       let piece = raw
         .replace(/^\s*(?:\d+\s*[.)]|[-–—•*])\s*/, '') // «1.», «2)», «-», «•»
         .replace(/\s+/g, ' ')
@@ -111,6 +155,7 @@
     const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
     return s.replace(/[A-Za-zА-Яа-яЁё]+/g, (w, i) => {
       if (s.charAt(i + w.length) === '.') return w; // «В.А.»
+      if (/^(?:оглы|кызы|улы|уулу)$/i.test(w)) return w.toLowerCase();
       if (w === w.toLowerCase() || (w === w.toUpperCase() && w.length > 1)) return cap(w);
       return w;
     });
@@ -299,7 +344,7 @@
   }
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { parseNames, properName, prefillText, isoDate, addDays, humanDate, periodText, parsePlate, plateIsSpecial, passLabel, splitLabel,
+    module.exports = { parseNames, splitByPatronymics, properName, prefillText, isoDate, addDays, humanDate, periodText, parsePlate, plateIsSpecial, passLabel, splitLabel,
       apiPeriod, parseApiTime, dayBounds, guestCoversDay, matchingPasses, eventKind, parkedTime, formatDuration, guestsForRow, pageWorldCode, VERSION };
     return;
   }
