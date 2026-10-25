@@ -259,7 +259,7 @@ test('ФИО с заглавной: строчные и КАПС исправл�
 test('вставка из выделения/буфера: только строки с ФИО и номерами', () => {
   const { prefillText } = require('../studio1826-passes.user.js');
   const message = 'Здравствуйте! Вот список на завтра:\n1. Воронцова Лилия Эдуардовна\n2. Хван Валерия Алексеевна\nмашина Е334ав34\nСпасибо!\n12:30';
-  assert.strictEqual(prefillText(message, ''), '1. Воронцова Лилия Эдуардовна\n2. Хван Валерия Алексеевна\nмашина Е334ав34');
+  assert.strictEqual(prefillText(message, ''), 'Воронцова Лилия Эдуардовна\nХван Валерия Алексеевна\nмашина Е334ав34');
   assert.strictEqual(prefillText('', 'Прокопчук Юлия'), 'Прокопчук Юлия');
   assert.strictEqual(prefillText('Иванов Иван', 'Прокопчук Юлия'), 'Иванов Иван');
   assert.strictEqual(prefillText('https://my.avanguard.pro/account/354/guests', ''), '');
@@ -273,4 +273,222 @@ test('вставка: выделение строк таблицы Аванга�
   const sel = 'Погоря Виктория Сергеевна\t—\t02.09.2026 - 31.12.2026\t\tушел\nГуревич Евгений Михайлович ИП\tПолина Андронова';
   assert.strictEqual(prefillText(sel, ''), 'Погоря Виктория Сергеевна\nПолина Андронова');
   assert.strictEqual(prefillText('ООО Ромашка\tИванов Иван\tА439ТУ 797', ''), 'Иванов Иван\nА439ТУ 797');
+});
+
+test('ФИО с переносом посреди имени делятся по отчествам', () => {
+  const t = (text) => parseNames(text).names;
+  assert.deepStrictEqual(t('Воронцова Лилия Эдуардовна Хван \nВалерия Алексеевна'),
+    ['Воронцова Лилия Эдуардовна', 'Хван Валерия Алексеевна']);
+  assert.deepStrictEqual(t('Воронцова Лилия Эдуардовна Хван Валерия Алексеевна Прокопчук Юлия Станиславовна'),
+    ['Воронцова Лилия Эдуардовна', 'Хван Валерия Алексеевна', 'Прокопчук Юлия Станиславовна']);
+  assert.deepStrictEqual(t('Хван Валерия\nАлексеевна\nИванов Иван Иванович'), ['Хван Валерия Алексеевна', 'Иванов Иван Иванович']);
+  assert.deepStrictEqual(t('Шостакович Дмитрий Дмитриевич Пашкевич Анна Ильинична'),
+    ['Шостакович Дмитрий Дмитриевич', 'Пашкевич Анна Ильинична']);
+  assert.deepStrictEqual(t('Мамедов Али Гусейн оглы Алиева Лейла Рашидовна'), ['Мамедов Али Гусейн оглы', 'Алиева Лейла Рашидовна']);
+});
+
+test('без отчеств и с номерами ничего не склеивается и не режется', () => {
+  const t = (text) => parseNames(text).names;
+  assert.deepStrictEqual(t('Прокопчук\nИванов Иван'), ['Прокопчук', 'Иванов Иван']);
+  assert.deepStrictEqual(t('Иванов Иван\nПетров Петр Петрович'), ['Иванов Иван', 'Петров Петр Петрович']);
+  assert.deepStrictEqual(t('1. Воронцова Лилия Эдуардовна\n2. Хван Валерия Алексеевна'), ['Воронцова Лилия Эдуардовна', 'Хван Валерия Алексеевна']);
+  assert.deepStrictEqual(t('Иванов Иван Иванович Е334ав34\nПетров Петр'), ['Иванов Иван Иванович · Е334АВ 34', 'Петров Петр']);
+  assert.deepStrictEqual(t('Хван В.А.\nМашина'), ['Хван В.А.', 'Машина']);
+});
+
+test('«и» между людьми', () => {
+  assert.deepStrictEqual(parseNames('Иванов Иван и Петров Петр').names, ['Иванов Иван', 'Петров Петр']);
+  assert.deepStrictEqual(parseNames('Воронцова Лилия Эдуардовна и Хван\nВалерия Алексеевна').names,
+    ['Воронцова Лилия Эдуардовна', 'Хван Валерия Алексеевна']);
+});
+
+test('сообщения клиентов: приветствия и благодарности — не люди, ФИО через запятую и перенос', () => {
+  const t = (text) => parseNames(text).names;
+  assert.deepStrictEqual(t('Спасибо'), []);
+  assert.deepStrictEqual(t('Здравствуйте!'), []);
+  assert.deepStrictEqual(t('Добрый день, Воронцова Лилия Эдуардовна Хван'), ['Воронцова Лилия Эдуардовна', 'Хван']);
+  assert.deepStrictEqual(t('Воронцова Лилия Эдуардовна Хван\nВалерия Алексеевна, спасибо!'),
+    ['Воронцова Лилия Эдуардовна', 'Хван Валерия Алексеевна']);
+  assert.deepStrictEqual(t('Добрый день! Оформите пожалуйста пропуска на завтра:\nВоронцова Лилия Эдуардовна, Хван\nВалерия Алексеевна\nСпасибо большое!'),
+    ['Воронцова Лилия Эдуардовна', 'Хван Валерия Алексеевна']);
+  assert.deepStrictEqual(t('Иванов Иван, Петров Петр'), ['Иванов Иван', 'Петров Петр']);
+});
+
+test('вставка из сообщения: ФИО через перенос не теряется', () => {
+  const { prefillText } = require('../studio1826-passes.user.js');
+  const msg = 'Добрый день, Воронцова Лилия Эдуардовна Хван \nВалерия Алексеевна, спасибо!';
+  assert.deepStrictEqual(parseNames(prefillText(msg, '')).names, ['Воронцова Лилия Эдуардовна', 'Хван Валерия Алексеевна']);
+});
+
+test('«пропуск на/для …» и отчества в падежах', () => {
+  const t = (text) => parseNames(text).names;
+  assert.deepStrictEqual(t('Пропуск на Иванова Ивана Ивановича'), ['Иванова Ивана Ивановича']);
+  assert.deepStrictEqual(t('Нужен пропуск для Петрова Петра Петровича и еще Сидоров Сидор'), ['Петрова Петра Петровича', 'Сидоров Сидор']);
+  assert.deepStrictEqual(t('Воронцовой Лилии Эдуардовне Хван Валерии Алексеевне'), ['Воронцовой Лилии Эдуардовне', 'Хван Валерии Алексеевне']);
+  assert.deepStrictEqual(t('Еще машина А439ТУ797'), ['Машина · А439ТУ 797']);
+});
+
+test('«Пропуск готов»: случайный ответ, подряд не повторяется, ссылка только где можно', () => {
+  const { pickDoneMessage } = require('../studio1826-passes.user.js');
+  const pool = ['a', 'b', 'c'];
+  let last = '';
+  let linked = 0;
+  for (let i = 0; i < 300; i++) {
+    const m = pickDoneMessage(pool, last, 'https://x', ['Как нас найти:']);
+    assert.notStrictEqual(m, last);
+    if (m.includes('https://x')) { linked++; assert.ok(/^[abc]\n\nКак нас найти:\nhttps:\/\/x$/.test(m)); }
+    last = m;
+  }
+  assert.ok(linked > 30 && linked < 200);
+  for (let i = 0; i < 50; i++) assert.ok(pool.includes(pickDoneMessage(pool, '', '', ['x'])));
+  assert.strictEqual(pickDoneMessage(['x'], 'x', ''), 'x');
+});
+
+test('вставка из реальных сообщений: никто не теряется, лишнее не попадает', () => {
+  const { prefillText } = require('../studio1826-passes.user.js');
+  const fromMessage = (msg) => parseNames(prefillText(msg, '')).names;
+  assert.deepStrictEqual(fromMessage('Здравствуйте, на 28.10 с 10:00 до 14:00 пропуска: Хван Валерия Алексеевна; Прокопчук Юлия Станиславовна'),
+    ['Хван Валерия Алексеевна', 'Прокопчук Юлия Станиславовна']);
+  assert.deepStrictEqual(fromMessage('Зал 110, съемка с 12 до 18. Гости: Воронцова Лилия, Хван Валерия'), ['Воронцова Лилия', 'Хван Валерия']);
+  assert.deepStrictEqual(fromMessage('Воронцова Лилия Эдуардовна +79161234567'), ['Воронцова Лилия Эдуардовна']);
+  assert.deepStrictEqual(fromMessage('Хван Валерия Алексеевна hvan@mail.ru'), ['Хван Валерия Алексеевна']);
+  assert.deepStrictEqual(fromMessage('Привет) мы втроем: я - Воронцова Лилия Эдуардовна, подруга Хван Валерия и фотограф Прокопчук Юлия Станиславовна'),
+    ['Воронцова Лилия Эдуардовна', 'Хван Валерия', 'Прокопчук Юлия Станиславовна']);
+  assert.deepStrictEqual(fromMessage('Воронцова Лилия Эдуардовна.\nС уважением'), ['Воронцова Лилия Эдуардовна']);
+  assert.deepStrictEqual(fromMessage('Добрый вечер! Будем на машине, номер А439ТУ 797, Воронцова Лилия Эдуардовна. Спасибо большое!'),
+    ['Воронцова Лилия Эдуардовна · А439ТУ 797']);
+});
+
+test('вставка: опечатка в номере не пропадает молча', () => {
+  const { prefillText } = require('../studio1826-passes.user.js');
+  const { names, invalid } = parseNames(prefillText('Иванов Иван Е33ав34\nПетров Петр', ''));
+  assert.deepStrictEqual(names, ['Петров Петр']);
+  assert.strictEqual(invalid.length, 1);
+});
+
+test('падеж: отчество не в именительном отмечается', () => {
+  const r = parseNames('Пропуск для Воронцовой Лилии Эдуардовны и Хван Валерии Алексеевны\nИванову Петру Сергеевичу\nПрокопчук Юлия Станиславовна');
+  assert.deepStrictEqual(r.names, ['Воронцовой Лилии Эдуардовны', 'Хван Валерии Алексеевны', 'Иванову Петру Сергеевичу', 'Прокопчук Юлия Станиславовна']);
+  assert.deepStrictEqual(r.oblique, ['Воронцовой Лилии Эдуардовны', 'Хван Валерии Алексеевны', 'Иванову Петру Сергеевичу']);
+});
+
+test('вставка: служебные слова и фразы из чата не становятся пропусками', () => {
+  const { prefillText } = require('../studio1826-passes.user.js');
+  const fromMessage = (msg) => parseNames(prefillText(msg, '')).names;
+  assert.deepStrictEqual(fromMessage('Добрый день! Завтра приедем вдвоём: Воронцова Лилия Эдуардовна (тел. 8 916 123-45-67) и Хван Валерия Алексеевна'),
+    ['Воронцова Лилия Эдуардовна', 'Хван Валерия Алексеевна']);
+  assert.deepStrictEqual(fromMessage('Здравствуйте!\nБронь на 28.10, зал 75\nСписок гостей:\n- Воронцова Лилия Эдуардовна\n- Хван Валерия Алексеевна\nА439ТУ 797'),
+    ['Воронцова Лилия Эдуардовна · А439ТУ 797', 'Хван Валерия Алексеевна']);
+  assert.deepStrictEqual(fromMessage('Ок, спасибо, ждём пропуск'), []);
+  assert.deepStrictEqual(fromMessage('Варвара Калина\n18:33\nПодскажите, получается с собой нужен паспорт?'), ['Варвара Калина']);
+  assert.deepStrictEqual(fromMessage('воронцова лилия эдуардовна\nхван валерия алексеевна'), ['Воронцова Лилия Эдуардовна', 'Хван Валерия Алексеевна']);
+  assert.deepStrictEqual(fromMessage('Воронцова Л.Э., Хван В.А.'), ['Воронцова Л.Э.', 'Хван В.А.']);
+});
+
+test('вставка: «оглы/кызы» не мешают, одиночная фамилия видна как «не взял»', () => {
+  const { prefillText } = require('../studio1826-passes.user.js');
+  assert.deepStrictEqual(parseNames(prefillText('Алиева Айгюль Рашид кызы и Мамедов Али Гусейн оглы', '')).names,
+    ['Алиева Айгюль Рашид кызы', 'Мамедов Али Гусейн оглы']);
+  const dropped = [];
+  assert.deepStrictEqual(parseNames(prefillText('Пропуск для Ивановой Анны и для Петрова', '', dropped)).names, ['Ивановой Анны']);
+  assert.deepStrictEqual(dropped, ['Петрова']);
+});
+
+const deals = require('../studio1826-passes.user.js');
+
+test('брони: зал из состава брони', () => {
+  assert.strictEqual(deals.hallFromProducts('Доплата за час, Зал 70 (П)(2300) - 1шт, Уборка(500) - 1шт'), 'Зал 70 (П)');
+  assert.strictEqual(deals.hallFromProducts('Гримерное место 2 (П)(800) - 1шт'), 'Гримерное место 2 (П)');
+  assert.strictEqual(deals.hallFromProducts('Lark M2(600) - 1шт'), '');
+  assert.strictEqual(deals.hallFromProducts(''), '');
+  assert.strictEqual(deals.hallFromProducts(null), '');
+});
+
+test('брони: дата и время берутся как в строке, без сдвига пояса', () => {
+  assert.deepStrictEqual(deals.bxDateTime('2026-10-25T10:00:00+03:00'), { iso: '2026-10-25', date: '25.10', year: '2026', time: '10:00' });
+  assert.deepStrictEqual(deals.bxDateTime('2026-10-25T23:30:00+00:00').time, '23:30');
+  assert.strictEqual(deals.bxDateTime(''), null);
+  assert.strictEqual(deals.bxDateTime(undefined), null);
+});
+
+test('брони: сводка по сделке и строка рядом со ссылкой', () => {
+  const s = deals.dealSummary({
+    ID: '134219', TITLE: 'Аренда №134219', STAGE_ID: 'UC_2LZNKA', OPPORTUNITY: '3700.00', UF_CRM_CASH: '1500|RUB',
+    UF_CRM_DATETIME_START: '2026-10-25T10:00:00+03:00', UF_CRM_DATETIME_END: '2026-10-25T12:00:00+03:00',
+    UF_CRM_PRODUCTCONTROL: 'Зал 70 (П)(2300) - 1шт', UF_CRM_1726582733243: '111',
+  }, '2026-10-25');
+  assert.strictEqual(s.when, 'today');
+  assert.strictEqual(s.time, '10:00–12:00');
+  assert.strictEqual(s.sum, '3 700 ₽');
+  assert.strictEqual(s.due, '1 500 ₽');
+  assert.strictEqual(s.branch, 'Павелецкая');
+  assert.strictEqual(deals.dealLine(s), '25.10 10:00–12:00 · Зал 70 (П) · 3 700 ₽ · Предоплачен');
+});
+
+test('брони: отмена, другой год, зал по справочнику, пустые поля', () => {
+  const s = deals.dealSummary({
+    ID: 7, STAGE_ID: 'C2:APOLOGY', OPPORTUNITY: '0', UF_CRM_CASH: '0|RUB', UF_CRM_ORDER_PLACE_LIST: '55',
+    UF_CRM_DATETIME_START: '2025-12-31T22:00:00+03:00', UF_CRM_DATETIME_END: '2026-01-01T01:00:00+03:00',
+  }, '2026-10-25', { 55: 'Циклорама (С)' });
+  assert.strictEqual(s.cancelled, true);
+  assert.strictEqual(s.when, 'past');
+  assert.strictEqual(s.date, '31.12.2025');
+  assert.strictEqual(s.time, '22:00');
+  assert.strictEqual(s.hall, 'Циклорама (С)');
+  assert.strictEqual(s.sum, '');
+  assert.strictEqual(s.stage, 'Отмена брони (с возвратом)');
+  const empty = deals.dealSummary({ ID: 9 }, '2026-10-25');
+  assert.strictEqual(empty.when, 'unknown');
+  assert.strictEqual(empty.title, 'Сделка №9');
+  assert.strictEqual(deals.dealLine(empty), '');
+});
+
+test('брони: предстоящие по возрастанию сверху, прошедшие свежие первыми', () => {
+  const d = (id, iso, time, when) => ({ id, iso, time, when });
+  const out = deals.sortDeals([
+    d('a', '2026-10-20', '10:00', 'past'), d('b', '2026-10-30', '12:00', 'future'),
+    d('c', '2026-10-25', '18:00', 'today'), d('e', '2026-10-22', '09:00', 'past'), d('f', '', '', 'unknown'),
+  ]).map((x) => x.id);
+  assert.deepStrictEqual(out, ['c', 'b', 'e', 'a', 'f']);
+});
+
+test('пропуск готов: приветствие по времени суток', () => {
+  const { donePool } = require('../studio1826-passes.user.js');
+  const list = ['Здравствуйте! А.', 'Добрый день! Б.', 'Добрый вечер! В.', 'Здравствуйте! Г, хорошего дня!', 'Здравствуйте! Д, хорошего вечера!'];
+  assert.deepStrictEqual(donePool(list, 9), ['Здравствуйте! А.', 'Здравствуйте! Г, хорошего дня!']);
+  assert.deepStrictEqual(donePool(list, 14), ['Здравствуйте! А.', 'Добрый день! Б.', 'Здравствуйте! Г, хорошего дня!']);
+  assert.deepStrictEqual(donePool(list, 18), ['Здравствуйте! А.', 'Добрый вечер! В.', 'Здравствуйте! Д, хорошего вечера!']);
+  assert.deepStrictEqual(donePool(list, 2), donePool(list, 21));
+  assert.deepStrictEqual(donePool(['Добрый вечер! В.'], 10), ['Добрый вечер! В.']);
+});
+
+test('пропуск готов: в списках нет «ждём вас», у одного — «пропуск», у нескольких — «пропуска»', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'studio1826-passes.user.js'), 'utf8');
+  const arr = (name) => src.split(`const ${name} = [`)[1].split('];')[0].split('\n').map((l) => l.trim()).filter((l) => l.startsWith("'"));
+  const one = arr('DONE_ONE');
+  const many = arr('DONE_MANY');
+  assert.strictEqual(one.length, 90);
+  assert.strictEqual(many.length, 36);
+  for (const m of [...one, ...many]) assert.ok(!/жд[её]м вас|ждать вас/i.test(m), m);
+  for (const m of one) assert.ok(!/пропуска/i.test(m), m);
+  for (const m of many) assert.ok(/пропуска/i.test(m), m);
+  for (const h of [6, 13, 20]) {
+    const { donePool } = require('../studio1826-passes.user.js');
+    assert.ok(donePool(one, h).length >= 20 && donePool(many, h).length >= 8, `час ${h}`);
+  }
+});
+
+test('пропуск готов: повторное нажатие меняет вариант, свой текст не трогает', () => {
+  const { placeDoneMessage } = require('../studio1826-passes.user.js');
+  assert.strictEqual(placeDoneMessage('', '', 'А'), 'А');
+  assert.strictEqual(placeDoneMessage('А', 'А', 'Б'), 'Б');
+  assert.strictEqual(placeDoneMessage('А\n\nИнформация как нас найти:\nhttps://x\n', 'А\n\nИнформация как нас найти:\nhttps://x', 'Б'), 'Б');
+  assert.strictEqual(placeDoneMessage('Мой текст\nА', 'А', 'Б'), 'Мой текст\nБ');
+  assert.strictEqual(placeDoneMessage('Мой текст', 'А', 'Б'), 'Мой текст\nБ');
+  assert.strictEqual(placeDoneMessage('А, и ещё моё', 'А', 'Б'), 'А, и ещё моё\nБ');
+});
+
+test('пропуск готов: подводка к ссылке — только формулировка Ильи', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'studio1826-passes.user.js'), 'utf8');
+  assert.match(src, /const DONE_LINK_INTROS = \['Информация как нас найти:'\];/);
 });

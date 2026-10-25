@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v1.4.1 Studio 1826 — Пропуска списком (Авангард)
+// @name         v1.6.2 Studio 1826 — Пропуска списком (Авангард)
 // @namespace    studio1826
-// @version      1.4.1
+// @version      1.6.2
 // @description  Кнопка «Оформить пропуск» в окне ввода открытых линий Bitrix24: список ФИО + дата → пропуска в Авангарде оформляются по очереди с проверкой; в Авангарде — кнопка «Пропуска списком» и часы машин за сегодня
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
@@ -27,7 +27,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.4.1';
+  const VERSION = '1.6.2';
   const DEFAULT_GUESTS_URL = 'https://my.avanguard.pro/account/354/guests';
 
   // ── Чистые функции (тесты: tests/passes.test.js) ───────────────────────────
@@ -63,6 +63,94 @@
     return m ? { name: m[1], plate: { number: m[2], region: m[3] } } : { name: String(label || '').trim(), plate: null };
   }
 
+  // Отчество: «…овна», «…евич», «…ична»; «оглы/кызы» идут следом отдельным словом
+  const PATRONYMIC = /^[А-ЯЁа-яё]+(?:(?:ович|евич|ьич|ич)(?:а|у|ем)?|(?:овн|евн|ичн)(?:а|ы|е|ой|у))$/i; // и в падежах: «…Петровича», «…Эдуардовне»
+  const PATRONYMIC_TAIL = /^(?:оглы|кызы|улы|уулу)$/i;
+  const PURE_NAME_LINE = /^[A-Za-zА-Яа-яЁё.'’\- ]+$/;
+
+  // Вежливые слова из сообщений клиентов — не люди
+  const STOP_PHRASES = /(^|[^А-Яа-яЁёA-Za-z])(добр(?:ый|ого) (?:день|дня|вечер|вечера)|доброе утро|доброго утра|здравствуйте|здравствуй|привет(?:ствую)?|спасибо(?: большое| заранее)?|благодарю|пожалуйста|до свидания|хорошего (?:дня|вечера)|оформите|оформить|оформи|нужен|нужны|нужно|пропуска|пропуск|пропусков|на завтра|на сегодня|вот|список|гости|гостей|участники|участников|на|для|ещё|еще|я|мы|нас|нам|втро[её]м|вдво[её]м|вчетвером|подруга|подруги|друг|друзья|коллега|коллеги|фотограф|визажист|стилист|модель|модели|ассистент|гость|будем|будет|приедем|приедут|приеду|машине|машину|на машине|авто|автомобиль|номер|гос номер|госномер|с уважением|большое|съ[её]мка|съ[её]мки|зал|завтра|сегодня|послезавтра|тел|телефон|бронь|брони|ок|окей|хорошо|ждём|ждем|подскажите|придём|придем|придут|список гостей)(?=$|[^А-Яа-яЁёA-Za-z])/gi;
+
+  /**
+   * Сообщение клиента → только содержательное: без приветствий и благодарностей. С `noise` (вставка из выделения
+   * или буфера) — ещё без телефонов, почты, ссылок, дат, времени, «Зал 110» и отдельных чисел (номера машин
+   * сохраняются); тире между словами — граница, как запятая. Набранное вручную числа не теряет: там они — ошибка.
+   */
+  function cleanMessage(text, { noise = false } = {}) {
+    let s = String(text || '');
+    if (!noise) {
+      for (let i = 0; i < 3; i++) s = s.replace(STOP_PHRASES, '$1');
+      return s.replace(/[!?:«»"]/g, ' ').replace(/[ \t]+$/gm, '').replace(/^[ \t]+/gm, '');
+    }
+    s = s.replace(/^\s*(?:\d+\s*[.)]|[-–—•*])\s*/gm, ''); // нумерация «1.», «2)», «-»
+    // Номера машин прячем, чтобы чистка чисел их не задела
+    const plates = [];
+    s = s.replace(new RegExp(PLATE_IN_TEXT.source, 'gi'), (m, pre) => {
+      plates.push(m.slice(pre.length));
+      return `${pre}\u0001${plates.length - 1}\u0002`;
+    });
+    s = s
+      .replace(/(^|[^А-Яа-яЁёA-Za-z])(?:с|до|по|в|к|на|зал|зале|№)(?=\s*\d)/gi, '$1 ') // «с 10:00 до 14:00», «Зал 110»
+      .replace(/https?:\/\/\S+|www\.\S+/gi, ' ')
+      .replace(/\S+@\S+\.\S+/g, ' ')
+      .replace(/(?:\+7|8)[\s\-()]*\d{3}[\s\-()]*\d{3}[\s-]*\d{2}[\s-]*\d{2}/g, ' ')
+      .replace(/\d{1,2}[./]\d{1,2}(?:[./]\d{2,4})?/g, ' ')
+      .replace(/\d{1,2}:\d{2}/g, ' ')
+      // Отдельные числа — шум; «Е33ав34» (смесь букв и цифр) оставляем: это опечатка в номере, её надо показать
+      .replace(/(^|[^\dA-Za-zА-Яа-яЁё\u0001])\d+(?![\dA-Za-zА-Яа-яЁё\u0002])/g, '$1 ')
+      .replace(/[()]/g, ' ')
+      .replace(/\s[-–—]\s/g, ', ');
+    for (let i = 0; i < 3; i++) s = s.replace(STOP_PHRASES, '$1'); // подряд идущие («Добрый день, спасибо»)
+    s = s
+      .replace(/([А-Яа-яЁёA-Za-z]{3,})\.(?=\s|,|$)/g, '$1') // точка в конце фразы, но не у инициалов «В.А.»
+      .replace(/(^|\s)\.+(?=\s|$)/g, '$1')
+      .replace(/\u0001(\d+)\u0002/g, (m, n) => plates[Number(n)]);
+    return s.replace(/[!?:«»"]/g, ' ').replace(/[ \t]+$/gm, '').replace(/^[ \t]+/gm, '');
+  }
+
+  /**
+   * Клиенты переносят строки посреди ФИО: «Воронцова Лилия Эдуардовна Хван\nВалерия Алексеевна».
+   * В подряд идущих строках из одних слов ФИО заканчивается на отчестве (не первым словом: «Шостакович…» — фамилия).
+   * Строка без отчества остаётся как есть («Иванов Иван», «Прокопчук»). Обрывок «Хван» склеивается со следующей
+   * строкой, только если там отчество и вместе выходит не больше трёх слов. Остальные строки не трогаем.
+   */
+  function splitByPatronymics(text) {
+    const out = [];
+    let run = [];
+    const flush = () => {
+      const names = [];
+      let cur = [];
+      run.forEach((words, li) => {
+        for (let j = 0; j < words.length; j++) {
+          cur.push(words[j]);
+          if ((cur.length >= 2 && PATRONYMIC.test(words[j])) || (cur.length >= 3 && PATRONYMIC_TAIL.test(words[j]))) {
+            if (PATRONYMIC_TAIL.test(words[j + 1] || '')) cur.push(words[++j]);
+            names.push(cur); cur = [];
+          }
+        }
+        if (!cur.length) return;
+        const next = run[li + 1] || [];
+        const k = next.findIndex((w) => PATRONYMIC.test(w));
+        const glue = k >= 0 && cur.length + k + 1 <= 3 && !cur.some((w) => PATRONYMIC.test(w));
+        if (!glue) { names.push(cur); cur = []; }
+      });
+      if (cur.length) names.push(cur);
+      out.push(...names.map((n) => n.join(' ')));
+      run = [];
+    };
+    // Запятая и «;» — тоже граница строки, но ФИО через неё может продолжаться («…Хван,\nВалерия Алексеевна»)
+    for (const line of text.split('\n')) {
+      for (const seg of line.split(/[,;]/)) {
+        const bare = seg.replace(/^\s*(?:\d+\s*[.)]|[-–—•*])\s*/, '').trim();
+        if (!bare) continue;
+        if (PURE_NAME_LINE.test(bare)) run.push(bare.split(/\s+/));
+        else { flush(); out.push(seg.trim()); }
+      }
+    }
+    flush();
+    return out.join('\n');
+  }
+
   /**
    * Список пропусков из вставленного текста: по строке (или через «;» и «,»), без нумерации, пробелов и повторов.
    * Номер машины — в строке с ФИО или отдельной строкой: отдельный номер достаётся первому ФИО без машины,
@@ -72,7 +160,7 @@
     const entries = [];
     const loosePlates = [];
     const invalid = [];
-    for (const raw of String(text || '').split(/[\n;,]+/)) {
+    for (const raw of splitByPatronymics(cleanMessage(String(text || '').replace(/[ \t]+и[ \t]+/gi, '\n'))).split(/[\n;,]+/)) {
       let piece = raw
         .replace(/^\s*(?:\d+\s*[.)]|[-–—•*])\s*/, '') // «1.», «2)», «-», «•»
         .replace(/\s+/g, ' ')
@@ -103,7 +191,9 @@
       seen.add(key);
       names.push(label);
     }
-    return { names, duplicates, invalid };
+    // Отчество не в именительном («Воронцовой Лилии Эдуардовны») — пропуск выйдет на «кого»: показываем, чтобы поправили
+    const oblique = names.filter((l) => /(?:ович|евич|ьич)(?:а|у|ем)(?:\s|$)|(?:овн|евн|ичн)(?:ы|е|ой|у)(?:\s|$)/i.test(splitLabel(l).name));
+    return { names, duplicates, invalid, oblique };
   }
 
   /** «прокопчук юлия», «ХВАН валерия» → «Прокопчук Юлия», «Хван Валерия». Инициалы и смешанный регистр не трогаем. */
@@ -111,6 +201,7 @@
     const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
     return s.replace(/[A-Za-zА-Яа-яЁё]+/g, (w, i) => {
       if (s.charAt(i + w.length) === '.') return w; // «В.А.»
+      if (/^(?:оглы|кызы|улы|уулу)$/i.test(w)) return w.toLowerCase();
       if (w === w.toLowerCase() || (w === w.toUpperCase() && w.length > 1)) return cap(w);
       return w;
     });
@@ -123,14 +214,34 @@
   const NAME_LIKE = /^[A-Za-zА-Яа-яЁё][A-Za-zА-Яа-яЁё.'’\-]*(?: [A-Za-zА-Яа-яЁё][A-Za-zА-Яа-яЁё.'’\-]*){0,3}$/;
   const COMPANY = /(^|\s)(ИП|ООО|ОАО|ЗАО|ПАО|АО|НКО|АНО)(\s|$)/;
   const STATUS_WORD = /^(ушел|ушёл|новый|на месте|архив|разрешить выезд|машина не заезжала|не заезжала|стоит)$/i; // колонки «Статус» и «Сегодня»
-  function prefillText(selected, clipboard) {
+  const NAME_PARTICLE = /^(?:оглы|кызы|улы|уулу|ибн|бен|де|фон|ван|ди|да|ла)$/i;
+  /** `dropped` (необязательно) — сюда попадут одиночные слова, похожие на фамилию, которые не взяты («для Петрова»). */
+  function prefillText(selected, clipboard, dropped = null) {
     for (const raw of [selected, clipboard]) {
       const text = String(raw || '').trim();
       if (!text || text.length > 5000) continue;
       // Выделение из таблицы — ячейки через табуляцию: каждая ячейка отдельно. Названия аккаунтов (ИП, ООО…) не люди.
-      const lines = text.split(/[\n\t]+/).filter((line) => !COMPANY.test(line.trim()) && !STATUS_WORD.test(line.trim())).filter((line) => {
+      const cells = text.split(/[\n\t]+/).filter((line) => !COMPANY.test(line.trim()) && !STATUS_WORD.test(line.trim()));
+      // Сначала чистим и делим всё сообщение целиком (ФИО может переходить через строку), потом отбираем строки
+      const split = splitByPatronymics(cleanMessage(cells.join('\n').replace(/[ \t]+и[ \t]+/gi, '\n'), { noise: true }));
+      const allLower = text === text.toLowerCase();
+      const lines = split.split('\n').filter((line) => {
         const { names, invalid } = parseNames(line);
-        return names.length > 0 && !invalid.length && names.every((label) => NAME_LIKE.test(splitLabel(label).name));
+        // Строка с опечаткой в номере остаётся: в поле её видно, «Оформить» не даст запустить, пока не исправят
+        if (invalid.length) return /[A-Za-zА-Яа-яЁё]{2,}/.test(line);
+        return names.length > 0 && names.every((label) => {
+          const { name, plate } = splitLabel(label);
+          if (plate && name === 'Машина') return true;
+          const words = splitLabel(line.trim()).name.split(/\s+/).filter(Boolean);
+          // Одно слово из сообщения — почти всегда не человек («Ок», «Бронь»); исключение — фамилия с инициалами
+          if (words.length < 2 && !plate) {
+            if (dropped && NAME_LIKE.test(name) && /^[A-ZА-ЯЁ]/.test(words[0] || '')) dropped.push(name);
+            return false;
+          }
+          // В обычном сообщении ФИО пишут с заглавных: «получается с собой паспорт» — не ФИО
+          if (!allLower && !words.every((w) => /^[A-ZА-ЯЁ]/.test(w) || NAME_PARTICLE.test(w))) return false;
+          return NAME_LIKE.test(name);
+        });
       });
       if (lines.length && lines.length <= 50) return lines.map((l) => l.trim()).join('\n');
     }
@@ -298,9 +409,128 @@
     })();`;
   }
 
+  // ── Брони клиента в открытых линиях (сделки «Аренда №…») ────────────────────
+
+  // Стадии воронки по умолчанию (crm.dealcategory.stage.list 0) — чтобы не спрашивать Bitrix каждый раз
+  const DEAL_STAGES = {
+    NEW: 'Новая', UC_2LZNKA: 'Предоплачен', UC_X22T12: 'Оранжевый Терминал', UC_75UHT6: 'Уголок Предоплачен',
+    UC_S21W1T: 'Проверено', UC_0I4GPT: 'Проверено (несколько броней)', UC_2F3KA8: 'Рентал', UC_C0WFLK: 'Админы',
+    UC_HF6L1U: 'Сформировать счет на оплату', UC_8NO1SM: 'Оплата по счету', UC_B7UKVK: 'Оплата в конце месяца',
+    UC_7UM022: 'Фотошкола', UC_CTRX3Q: 'На обработку Степе', WON: 'Аренда завершена',
+    LOSE: 'Отмена брони (без возврата)', APOLOGY: 'Отмена брони (с возвратом)',
+  };
+  const DEAL_BRANCHES = { 109: 'Академическая', 111: 'Павелецкая', 113: 'Серпуховская' };
+
+  /** Зал из строки состава брони: «…, Зал 70 (П)(2300) - 1шт, Доплата…» → «Зал 70 (П)». */
+  function hallFromProducts(text) {
+    const items = String(text || '').split(/,\s*/).map((s) => s.trim()).filter(Boolean);
+    for (const item of items) {
+      const m = /^(.*?\((?:П|С|А|П\.|С\.)\))\s*\(\d[\d\s.]*\)\s*-\s*\d+\s*шт/i.exec(item);
+      if (m && /зал|гример|циклорам|студ|фон|комнат|лофт|место/i.test(m[1])) return m[1].trim();
+    }
+    for (const item of items) {
+      const m = /^((?:Зал|Гример\S*|Циклорам\S*)[^(]*?(?:\([^)]{1,3}\))?)\s*\(\d/i.exec(item);
+      if (m) return m[1].trim();
+    }
+    return '';
+  }
+
+  /** «2026-10-25T10:00:00+03:00» → { iso: '2026-10-25', date: '25.10', time: '10:00' } — время студии, как в строке. */
+  function bxDateTime(value) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(value || ''));
+    return m ? { iso: `${m[1]}-${m[2]}-${m[3]}`, date: `${m[3]}.${m[2]}`, year: m[1], time: `${m[4]}:${m[5]}` } : null;
+  }
+
+  const money = (v) => {
+    const n = Math.round(Number(String(v == null ? '' : v).split('|')[0]));
+    return Number.isFinite(n) && n > 0 ? `${String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} ₽` : '';
+  };
+
+  /** Сделка из crm.deal.list → то, что показываем. `today` — «YYYY-MM-DD». */
+  function dealSummary(deal, today, hallNames = {}) {
+    const start = bxDateTime(deal.UF_CRM_DATETIME_START);
+    const end = bxDateTime(deal.UF_CRM_DATETIME_END);
+    const hall = hallFromProducts(deal.UF_CRM_PRODUCTCONTROL) || hallNames[String(deal.UF_CRM_ORDER_PLACE_LIST)] || '';
+    const stageId = String(deal.STAGE_ID || '');
+    const stage = DEAL_STAGES[stageId.replace(/^C\d+:/, '')] || '';
+    const cancelled = /^(?:C\d+:)?(LOSE|APOLOGY)$/.test(stageId);
+    const when = !start ? 'unknown' : start.iso < today ? 'past' : start.iso === today ? 'today' : 'future';
+    const thisYear = today.slice(0, 4);
+    return {
+      id: String(deal.ID),
+      title: deal.TITLE || `Сделка №${deal.ID}`,
+      date: start ? (start.year === thisYear ? start.date : `${start.date}.${start.year}`) : '',
+      iso: start ? start.iso : '',
+      time: start ? (end && end.iso === start.iso ? `${start.time}–${end.time}` : start.time) : '',
+      hall,
+      sum: money(deal.OPPORTUNITY),
+      due: money(deal.UF_CRM_CASH),
+      stage,
+      branch: DEAL_BRANCHES[deal.UF_CRM_1726582733243] || '',
+      cancelled,
+      when,
+    };
+  }
+
+  /** «25.10 10:00–12:00 · Зал 70 (П) · 3 700 ₽ · Предоплачен» */
+  function dealLine(s) {
+    return [s.date && `${s.date}${s.time ? ` ${s.time}` : ''}`, s.hall, s.sum, s.stage].filter(Boolean).join(' · ');
+  }
+
+  /** Предстоящие и сегодняшние — сверху по времени, прошедшие — ниже, свежие первыми. */
+  function sortDeals(list) {
+    const upcoming = list.filter((d) => d.when === 'today' || d.when === 'future').sort((a, b) => (a.iso + a.time).localeCompare(b.iso + b.time));
+    const rest = list.filter((d) => !upcoming.includes(d)).sort((a, b) => (b.iso + b.time).localeCompare(a.iso + a.time));
+    return [...upcoming, ...rest];
+  }
+
+  /**
+   * Варианты под время суток (часы компьютера): 05–11 — только «Здравствуйте», 12–17 — ещё «Добрый день»,
+   * 18–04 — ещё «Добрый вечер». «Хорошего дня» — только до 18:00, «хорошего вечера» — только с 18:00.
+   */
+  function donePool(list, hour) {
+    const evening = hour >= 18 || hour < 5;
+    const day = hour >= 12 && !evening;
+    const pool = list.filter((m) => {
+      if (/^Добрый день/i.test(m) && !day) return false;
+      if (/^Добрый вечер/i.test(m) && !evening) return false;
+      if (/хорошего дня/i.test(m) && evening) return false;
+      if (/хорошего вечера/i.test(m) && !evening) return false;
+      return true;
+    });
+    return pool.length ? pool : list;
+  }
+
+  /**
+   * Новое поле ввода после «✅ Пропуск готов»: если в конце стоит прошлый вставленный ответ — меняем его на новый,
+   * иначе дописываем с новой строки (набранное вручную не трогаем).
+   */
+  function placeDoneMessage(current, prev, text) {
+    const body = String(current || '').replace(/\s+$/, '');
+    if (prev && body.endsWith(prev)) {
+      const before = body.slice(0, body.length - prev.length).replace(/\s+$/, '');
+      return before ? `${before}\n${text}` : text;
+    }
+    return body ? `${body}\n${text}` : text;
+  }
+
+  /**
+   * Случайный ответ «пропуск готов», не такой, как прошлый. Примерно в трети случаев (если `link` есть) — с адресом
+   * и случайной подводкой к нему.
+   */
+  function pickDoneMessage(pool, last, link, intros = [], rnd = Math.random) {
+    const pick = (list) => list[Math.floor(rnd() * list.length)];
+    for (let i = 0; i < 10; i++) {
+      let text = pick(pool);
+      if (link && intros.length && rnd() < 0.35) text += `\n\n${pick(intros)}\n${link}`;
+      if (text !== last || pool.length < 2) return text;
+    }
+    return pool.find((m) => m !== last) || pool[0];
+  }
+
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { parseNames, properName, prefillText, isoDate, addDays, humanDate, periodText, parsePlate, plateIsSpecial, passLabel, splitLabel,
-      apiPeriod, parseApiTime, dayBounds, guestCoversDay, matchingPasses, eventKind, parkedTime, formatDuration, guestsForRow, pageWorldCode, VERSION };
+    module.exports = { parseNames, cleanMessage, splitByPatronymics, properName, prefillText, isoDate, addDays, humanDate, periodText, parsePlate, plateIsSpecial, passLabel, splitLabel,
+      apiPeriod, parseApiTime, dayBounds, guestCoversDay, matchingPasses, eventKind, parkedTime, formatDuration, guestsForRow, pageWorldCode, pickDoneMessage, donePool, placeDoneMessage, hallFromProducts, bxDateTime, dealSummary, dealLine, sortDeals, VERSION };
     return;
   }
 
@@ -451,6 +681,7 @@
       if (ui.running) return;
       let clip = '';
       let clipNote = '';
+      const dropped = [];
       if (!prefillText(selected, '') && !ui.area.value.trim()) {
         try {
           clip = await navigator.clipboard.readText();
@@ -459,11 +690,12 @@
           clipNote = 'Буфер: нет доступа (разрешите сайту буфер обмена) — вставьте ⌘V / Ctrl+V';
         }
       }
-      const text = prefillText(selected, clip);
+      const text = prefillText(selected, clip, dropped);
       if (!text) { if (clipNote) ui.summary.textContent = clipNote; return; }
       ui.area.value = text;
       ui.refresh();
-      ui.summary.textContent = `${text === prefillText(selected, '') ? 'Взято из выделения' : 'Вставлено из буфера'} · ${ui.summary.textContent}`;
+      ui.summary.textContent = `${text === prefillText(selected, '') ? 'Взято из выделения' : 'Вставлено из буфера'} · ${ui.summary.textContent}` +
+        (dropped.length ? ` · ⚠ не взял (одно слово): ${[...new Set(dropped)].join(', ')} — допишите, если это человек` : '');
     };
 
     /** Открыть/закрыть над элементом (значок в окне ввода сообщения) */
@@ -491,12 +723,13 @@
 
     ui.refresh = () => {
       if (ui.running) return;
-      const { names, duplicates, invalid } = parseNames(ui.area.value);
+      const { names, duplicates, invalid, oblique } = parseNames(ui.area.value);
       if (ui.to.value < ui.from.value) ui.to.value = ui.from.value;
       ui.summary.textContent = (names.length
         ? `${names.length} чел. на ${periodText(ui.from.value, ui.to.value)}` +
           (duplicates.length ? ` · повторы убраны: ${duplicates.length}` : '')
-        : '') + (invalid.length ? ` · не понял номер: ${invalid.join(', ')}` : '');
+        : '') + (invalid.length ? ` · не понял номер: ${invalid.join(', ')}` : '') +
+        (oblique.length ? ` · ⚠ проверьте падеж (нужно «кто»): ${oblique.join(', ')}` : '');
       ui.start.disabled = names.length === 0 || invalid.length > 0 || !ui.from.value;
       markDay();
       ui.start.textContent = names.length ? `Оформить: ${names.length} чел.` : 'Оформить';
@@ -991,6 +1224,148 @@
     }
   }
 
+  // ── Bitrix24: кнопка «✅ Пропуск готов» — ответ клиенту ────────────────────
+  // Вставляет в поле ввода случайную формулировку (не отправляет). Подряд одна и та же не повторяется.
+
+  // Формулировки — список Ильи от 25.10 (без «ждать вас»). Приветствие выбирается по времени (donePool).
+  // Один человек
+  const DONE_ONE = [
+    'Здравствуйте! Оформили для вас пропуск.',
+    'Здравствуйте! Ваш пропуск готов.',
+    'Здравствуйте! Пропуск для вас готов.',
+    'Здравствуйте! Пропуск уже оформили.',
+    'Здравствуйте! Оформили вам пропуск.',
+    'Здравствуйте! Ваш пропуск уже оформлен.',
+    'Здравствуйте! Пропуск оформили, до встречи!',
+    'Здравствуйте! Пропуск готов, до встречи в студии!',
+    'Здравствуйте! Всё готово, пропуск оформили.',
+    'Добрый день! Оформили для вас пропуск.',
+    'Добрый день! Ваш пропуск готов.',
+    'Добрый день! Пропуск для вас готов.',
+    'Добрый день! Пропуск уже оформили.',
+    'Добрый день! Оформили вам пропуск.',
+    'Добрый день! Ваш пропуск уже оформлен.',
+    'Добрый день! Пропуск оформили, до встречи!',
+    'Добрый день! Пропуск готов, до встречи в студии!',
+    'Добрый день! Всё готово, пропуск оформили.',
+    'Добрый вечер! Оформили для вас пропуск.',
+    'Добрый вечер! Ваш пропуск готов.',
+    'Добрый вечер! Пропуск для вас готов.',
+    'Добрый вечер! Пропуск уже оформили.',
+    'Добрый вечер! Оформили вам пропуск.',
+    'Добрый вечер! Ваш пропуск уже оформлен.',
+    'Добрый вечер! Пропуск оформили, до встречи!',
+    'Добрый вечер! Пропуск готов, до встречи в студии!',
+    'Добрый вечер! Всё готово, пропуск оформили.',
+    'Здравствуйте! Пропуск оформили, до встречи в 1826!',
+    'Здравствуйте! Пропуск оформили, до встречи в студии.',
+    'Здравствуйте! Всё готово к вашему визиту, пропуск оформили.',
+    'Здравствуйте! Пропуск готов, можете проходить в студию.',
+    'Здравствуйте! Пропуск оформили, можете проходить.',
+    'Здравствуйте! Ваш пропуск готов, можете приезжать.',
+    'Здравствуйте! Пропуск готов, можете приезжать в студию.',
+    'Добрый день! Пропуск оформили, до встречи в 1826!',
+    'Добрый день! Пропуск оформили, до встречи в студии.',
+    'Добрый день! Всё готово к вашему визиту, пропуск оформили.',
+    'Добрый день! Пропуск готов, можете проходить в студию.',
+    'Добрый день! Пропуск оформили, можете проходить.',
+    'Добрый день! Ваш пропуск готов, можете приезжать.',
+    'Добрый день! Пропуск готов, можете приезжать в студию.',
+    'Добрый вечер! Пропуск оформили, до встречи в 1826!',
+    'Добрый вечер! Пропуск оформили, до встречи в студии.',
+    'Добрый вечер! Всё готово к вашему визиту, пропуск оформили.',
+    'Добрый вечер! Пропуск готов, можете проходить в студию.',
+    'Добрый вечер! Пропуск оформили, можете проходить.',
+    'Добрый вечер! Ваш пропуск готов, можете приезжать.',
+    'Добрый вечер! Пропуск готов, можете приезжать в студию.',
+    'Здравствуйте! Готово, пропуск для вас оформили.',
+    'Здравствуйте! Всё готово, ваш пропуск оформлен.',
+    'Здравствуйте! Пропуск уже готов, до встречи!',
+    'Здравствуйте! Ваш пропуск оформили, хорошего дня!',
+    'Здравствуйте! Пропуск готов, хорошего дня!',
+    'Здравствуйте! Пропуск оформили, хорошего вечера!',
+    'Здравствуйте! Пропуск готов, хорошего вечера!',
+    'Здравствуйте! Ваш пропуск готов, до встречи!',
+    'Добрый день! Готово, пропуск для вас оформили.',
+    'Добрый день! Всё готово, ваш пропуск оформлен.',
+    'Добрый день! Пропуск уже готов, до встречи!',
+    'Добрый день! Ваш пропуск оформили, хорошего дня!',
+    'Добрый день! Пропуск готов, хорошего дня!',
+    'Добрый день! Ваш пропуск готов, до встречи!',
+    'Добрый день! Пропуск готов, до скорой встречи!',
+    'Добрый день! Всё готово, до встречи в студии!',
+    'Добрый вечер! Готово, пропуск для вас оформили.',
+    'Добрый вечер! Всё готово, ваш пропуск оформлен.',
+    'Добрый вечер! Пропуск уже готов, до встречи!',
+    'Добрый вечер! Ваш пропуск оформили, хорошего вечера!',
+    'Добрый вечер! Пропуск готов, хорошего вечера!',
+    'Добрый вечер! Ваш пропуск готов, до встречи!',
+    'Добрый вечер! Пропуск готов, до скорой встречи!',
+    'Добрый вечер! Всё готово, до встречи в студии!',
+    'Здравствуйте! Пропуск для вас уже готов, можете приезжать.',
+    'Добрый день! Пропуск для вас уже готов, можете приезжать.',
+    'Добрый вечер! Пропуск для вас уже готов, можете приезжать.',
+    'Здравствуйте! Оформили пропуск, всё готово к вашему приезду.',
+    'Добрый день! Оформили пропуск, всё готово к вашему приезду.',
+    'Добрый вечер! Оформили пропуск, всё готово к вашему приезду.',
+    'Здравствуйте! Ваш пропуск оформлен, до встречи в назначенное время!',
+    'Добрый день! Ваш пропуск оформлен, до встречи в назначенное время!',
+    'Добрый вечер! Ваш пропуск оформлен, до встречи в назначенное время!',
+    'Здравствуйте! Пропуск готов, спасибо! До встречи в студии.',
+    'Добрый день! Пропуск готов, спасибо! До встречи в студии.',
+    'Добрый вечер! Пропуск готов, спасибо! До встречи в студии.',
+    'Здравствуйте! Оформили пропуск, хорошей съёмки!',
+    'Добрый день! Оформили пропуск, хорошей съёмки!',
+    'Добрый вечер! Оформили пропуск, хорошей съёмки!',
+    'Здравствуйте! Пропуск готов. Будем рады видеть вас в 1826!',
+    'Добрый день! Пропуск готов. Будем рады видеть вас в 1826!',
+    'Добрый вечер! Пропуск готов. Будем рады видеть вас в 1826!',
+  ];
+
+  // Несколько человек
+  const DONE_MANY = [
+    'Здравствуйте! Оформили для вас пропуска.',
+    'Здравствуйте! Ваши пропуска готовы.',
+    'Здравствуйте! Пропуска для вас готовы.',
+    'Здравствуйте! Пропуска уже оформили.',
+    'Здравствуйте! Оформили вам пропуска.',
+    'Здравствуйте! Ваши пропуска уже оформлены.',
+    'Здравствуйте! Все пропуска для вас готовы.',
+    'Здравствуйте! Пропуска оформили, до встречи!',
+    'Здравствуйте! Все пропуска оформили.',
+    'Добрый день! Оформили для вас пропуска.',
+    'Добрый день! Ваши пропуска готовы.',
+    'Добрый день! Пропуска для вас готовы.',
+    'Добрый день! Пропуска уже оформили.',
+    'Добрый день! Оформили вам пропуска.',
+    'Добрый день! Ваши пропуска уже оформлены.',
+    'Добрый день! Все пропуска для вас готовы.',
+    'Добрый день! Пропуска оформили, до встречи!',
+    'Добрый день! Все пропуска оформили.',
+    'Добрый вечер! Оформили для вас пропуска.',
+    'Добрый вечер! Ваши пропуска готовы.',
+    'Добрый вечер! Пропуска для вас готовы.',
+    'Добрый вечер! Пропуска уже оформили.',
+    'Добрый вечер! Оформили вам пропуска.',
+    'Добрый вечер! Ваши пропуска уже оформлены.',
+    'Добрый вечер! Все пропуска для вас готовы.',
+    'Добрый вечер! Пропуска оформили, до встречи!',
+    'Добрый вечер! Все пропуска оформили.',
+    'Здравствуйте! Пропуска для вас готовы, можете приезжать.',
+    'Добрый день! Пропуска для вас готовы, можете приезжать.',
+    'Добрый вечер! Пропуска для вас готовы, можете приезжать.',
+    'Здравствуйте! Пропуска уже оформлены, до встречи в студии!',
+    'Добрый день! Пропуска уже оформлены, до встречи в студии!',
+    'Добрый вечер! Пропуска уже оформлены, до встречи в студии!',
+    'Здравствуйте! Пропуска оформили, можете спокойно приезжать.',
+    'Добрый день! Пропуска оформили, можете спокойно приезжать.',
+    'Добрый вечер! Пропуска оформили, можете спокойно приезжать.',
+  ];
+
+  // С адресом — для Павелецкой (ссылку на Серпуховскую Илья пока не дал). Добавляется к любому варианту выше.
+  const DONE_LINK = 'https://1826.studio/pav/contacts';
+  const DONE_LINK_INTROS = ['Информация как нас найти:']; // формулировка Ильи, своих не добавлять
+
   // ── Bitrix24: кнопка «Пропуск» ──────────────────────────────────────────────
 
   // Значок «🎫» встраивается в окно ввода сообщения — только в открытых линиях:
@@ -1004,9 +1379,11 @@
         border: 1px solid rgba(31,111,235,.35); border-radius: 12px; background: rgba(31,111,235,.08); color: #1f6feb;
         font: 600 12px system-ui; white-space: nowrap; cursor: pointer; }
       .s1826p-btn:hover { background: rgba(31,111,235,.16); }
-    `);
+    ` + DEALS_CSS);
     let ui = null;
-    const panel = () => ui || (ui = createBitrixPanel());
+    const panel = () => ui || ((ui = createBitrixPanel()) && shield(ui.panel), ui);
+    let bk = null;
+    const bookings = () => bk || (bk = createBookingsPanel());
 
     const inject = () => {
       for (const row of document.querySelectorAll(LINES_BUTTONS)) {
@@ -1019,11 +1396,28 @@
         icon.textContent = '🎫 Оформить пропуск';
         const selected = keepSelection(icon);
         icon.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); const p = panel(); if (p) p.openAt(icon, selected()); });
-        wrap.appendChild(icon);
+        const done = document.createElement('button');
+        done.type = 'button';
+        done.className = 's1826p-btn s1826p-done';
+        done.title = 'Вставить в поле ответ «пропуск оформлен» (каждый раз другими словами). Сообщение не отправляется.';
+        done.textContent = '✅ Пропуск готов';
+        done.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); insertDoneMessage(row, done); });
+        const bookingsBtn = document.createElement('button');
+        bookingsBtn.type = 'button';
+        bookingsBtn.className = 's1826p-btn s1826p-bookings';
+        bookingsBtn.title = 'Бронирования на этом клиенте: даты, залы, суммы, стадии';
+        bookingsBtn.textContent = '📅 Брони клиента';
+        bookingsBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); const p = bookings(); if (p) p.openAt(bookingsBtn); });
+        wrap.append(icon, done, bookingsBtn);
+        shield(wrap);
         row.appendChild(wrap);
       }
       // Ушли из линий — панель закрываем (если она не работает)
       if (ui && !ui.running && !document.querySelector(LINES_BUTTONS)) ui.panel.classList.remove('open');
+      if (bk && !document.querySelector(LINES_BUTTONS)) bk.panel.classList.remove('open');
+      // Сменился диалог — панель броней показывает уже нового клиента
+      if (bk && bk.panel.classList.contains('open') && bk.key !== dialogKey()) bk.load();
+      annotateDealLinks();
     };
     inject();
     let scheduled = false;
@@ -1032,6 +1426,257 @@
       scheduled = true;
       requestAnimationFrame(() => { scheduled = false; inject(); });
     }).observe(document.body, { childList: true, subtree: true });
+  }
+
+  let lastDone = '';
+  let lastRunCount = 1; // сколько человек было в последнем запуске из этой вкладки: «пропуск» или «пропуска»
+  /** Вставить ответ в поле ввода этого диалога (повторное нажатие меняет вариант, свой текст не трогает). Не отправляет. */
+  function insertDoneMessage(row, button) {
+    let box = row;
+    while (box && !box.querySelector('textarea')) box = box.parentElement;
+    const area = box && box.querySelector('textarea');
+    // Адрес — только Павелецкой: в заголовке диалога линии пишется филиал
+    const title = textOf(document.querySelector('.bx-im-dialog-header, .bx-messenger-panel, .bx-im-chat-header, header') || document.body).slice(0, 2000);
+    const withLink = !/серпух/i.test(title);
+    const text = pickDoneMessage(donePool(lastRunCount > 1 ? DONE_MANY : DONE_ONE, new Date().getHours()), lastDone, withLink ? DONE_LINK : '', DONE_LINK_INTROS);
+    const prevDone = lastDone;
+    lastDone = text;
+    if (!area) {
+      try { navigator.clipboard.writeText(text); } catch (e) { /* без буфера — только подсказка */ }
+      button.title = 'Не нашёл поле ввода — ответ скопирован, вставьте ⌘V';
+      return;
+    }
+    const value = placeDoneMessage(area.value, prevDone, text);
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
+    setter.call(area, value);
+    area.dispatchEvent(new Event('input', { bubbles: true }));
+    area.focus();
+    area.setSelectionRange(value.length, value.length);
+  }
+
+  // ── Bitrix24: брони клиента рядом со сделками и панель «Бронирования на этом клиенте» ─────
+
+  // REST портала (BX.rest) живёт в мире страницы: мост через события, код вставляем тегом <script> один раз
+  let restBridge = null;
+  function bitrixRest(method, params) {
+    if (!restBridge) {
+      restBridge = { seq: 0, waiting: new Map() };
+      window.addEventListener('s1826-rest-reply', (e) => {
+        try {
+          const { id, result, error } = JSON.parse(e.detail);
+          const w = restBridge.waiting.get(id);
+          if (w) { restBridge.waiting.delete(id); error ? w.reject(new Error(error)) : w.resolve(result); }
+        } catch (err) { /* чужое событие */ }
+      });
+      const tag = document.createElement('script');
+      tag.textContent = `(function () {
+        window.addEventListener('s1826-rest', function (e) {
+          var q = JSON.parse(e.detail);
+          var reply = function (r) { window.dispatchEvent(new CustomEvent('s1826-rest-reply', { detail: JSON.stringify(r) })); };
+          try {
+            BX.rest.callMethod(q.method, q.params, function (res) {
+              var err = res.error && res.error();
+              reply(err ? { id: q.id, error: String((err.ex && err.ex.error_description) || err) } : { id: q.id, result: res.data() });
+            });
+          } catch (ex) { reply({ id: q.id, error: String(ex && ex.message || ex) }); }
+        });
+      })();`;
+      (document.head || document.documentElement).appendChild(tag);
+      tag.remove();
+    }
+    return new Promise((resolve, reject) => {
+      const id = ++restBridge.seq;
+      restBridge.waiting.set(id, { resolve, reject });
+      window.dispatchEvent(new CustomEvent('s1826-rest', { detail: JSON.stringify({ id, method, params }) }));
+      setTimeout(() => { if (restBridge.waiting.delete(id)) reject(new Error('Bitrix не ответил')); }, 15000);
+    });
+  }
+
+  const DEAL_SELECT = ['ID', 'TITLE', 'STAGE_ID', 'OPPORTUNITY', 'UF_CRM_DATETIME_START', 'UF_CRM_DATETIME_END',
+    'UF_CRM_ORDER_PLACE_LIST', 'UF_CRM_PRODUCTCONTROL', 'UF_CRM_CASH', 'UF_CRM_1726582733243', 'UF_CRM_HOUR_COUNT'];
+  const dealCache = new Map(); // id → { at, summary }
+  const DEAL_TTL = 120000;
+
+  /** Сделки по фильтру → сводки (с кэшем по id). */
+  async function loadDeals(filter) {
+    const deals = await bitrixRest('crm.deal.list', { filter, order: { ID: 'DESC' }, select: DEAL_SELECT });
+    const today = isoDate(new Date());
+    const list = (deals || []).map((d) => dealSummary(d, today));
+    for (const s of list) dealCache.set(s.id, { at: Date.now(), summary: s });
+    return list;
+  }
+
+  const DEALS_CSS = `
+    .s1826p-deal { margin-left: 6px; color: #6b7280; font-size: 12px; white-space: nowrap; }
+    .s1826p-deal.today { color: #1a7f37; font-weight: 600; }
+    .s1826p-deal.future { color: #1f6feb; }
+    .s1826p-deal.cancelled { text-decoration: line-through; color: #9ca3af; }
+    .s1826p-bk { width: 400px; }
+    .s1826p-bk .pills { display: inline-flex; gap: 2px; padding: 2px; border-radius: 8px; background: #eef1f4; }
+    .s1826p-bk .pills button { padding: 3px 10px; border: 0; border-radius: 6px; background: transparent; color: #2b2f36;
+      font: 12px -apple-system, system-ui; cursor: pointer; }
+    .s1826p-bk .pills button.active { background: #fff; box-shadow: 0 1px 2px #0000001f; font-weight: 600; }
+    .s1826p-bk .list { display: flex; flex-direction: column; gap: 6px; overflow: auto; height: min(340px, 55vh); align-content: flex-start; }
+    .s1826p-bk .card { padding: 8px 10px; border-radius: 10px; background: #f6f8fa; border: 1px solid #eef1f4; }
+    .s1826p-bk .card.today { background: #ecfdf3; border-color: #b7ebc6; }
+    .s1826p-bk .card.past { opacity: .6; }
+    .s1826p-bk .card.cancelled { opacity: .5; }
+    .s1826p-bk .when { font-weight: 700; font-size: 14px; }
+    .s1826p-bk .meta { font-size: 12px; color: #4b5563; margin-top: 2px; }
+    .s1826p-bk .acts { display: flex; gap: 6px; margin-top: 6px; }
+    .s1826p-bk .acts a, .s1826p-bk .acts button { display: inline-block; padding: 3px 9px; border: 0; border-radius: 6px;
+      background: #eef1f4; color: #2b2f36; font: 12px -apple-system, system-ui; text-decoration: none; cursor: pointer; }
+    .s1826p-bk .acts a:hover, .s1826p-bk .acts button:hover { background: #e2e6eb; }
+  `;
+
+  /** Рядом с каждой ссылкой «Аренда №…» в сообщении «Сделка прикреплена к диалогу» — дата, время, зал, сумма, стадия. */
+  let annotating = false;
+  async function annotateDealLinks() {
+    if (annotating) return;
+    const links = [...document.querySelectorAll('a.bx-im-attach-link__link[href*="/crm/deal/details/"]')]
+      .filter((a) => !(a.nextElementSibling && a.nextElementSibling.classList.contains('s1826p-deal')));
+    if (!links.length) return;
+    annotating = true;
+    try {
+      const idOf = (a) => (/\/deal\/details\/(\d+)/.exec(a.getAttribute('href')) || [])[1];
+      const need = [...new Set(links.map(idOf).filter((id) => id && !(dealCache.get(id) && Date.now() - dealCache.get(id).at < DEAL_TTL)))];
+      if (need.length) await loadDeals({ ID: need });
+      for (const a of links) {
+        if (a.nextElementSibling && a.nextElementSibling.classList.contains('s1826p-deal')) continue;
+        const c = dealCache.get(idOf(a));
+        if (!c) continue;
+        const span = document.createElement('span');
+        span.className = `s1826p-deal ${c.summary.cancelled ? 'cancelled' : c.summary.when}`;
+        span.textContent = `· ${dealLine(c.summary)}`;
+        a.after(span);
+      }
+    } catch (e) { /* Bitrix не ответил — попробуем при следующей перемене */ }
+    annotating = false;
+  }
+
+  /** Контакт открытого диалога: ссылка «Контактная информация сохранена…», иначе — через imopenlines.dialog.get. */
+  async function dialogContactId() {
+    const link = [...document.querySelectorAll('a.bx-im-attach-link__link[href*="/crm/contact/details/"]')].pop();
+    const fromLink = link && (/\/contact\/details\/(\d+)/.exec(link.getAttribute('href')) || [])[1];
+    if (fromLink) return fromLink;
+    const chat = (/IM_DIALOG=chat(\d+)/.exec(location.href) || [])[1];
+    if (!chat) return null;
+    const d = await bitrixRest('imopenlines.dialog.get', { CHAT_ID: chat });
+    const m = /CONTACT\|(\d+)/.exec(`${(d && d.entity_data_2) || ''} ${(d && d.entity_data_1) || ''}`);
+    return m && m[1] !== '0' ? m[1] : null;
+  }
+
+  /**
+   * Bitrix ловит нажатия мыши вне окна мессенджера и переключает диалог на первый в списке.
+   * Наши панели и кнопки не отдают ему эти события.
+   */
+  const SHIELD_EVENTS = ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick', 'touchstart', 'touchend'];
+  function shield(el) {
+    for (const t of SHIELD_EVENTS) el.addEventListener(t, (e) => e.stopPropagation());
+    return el;
+  }
+
+  /** Ключ открытого диалога — чтобы панель броней не показывала прошлого клиента. */
+  const dialogKey = () => (/IM_DIALOG=([^&#]+)/.exec(location.href) || [])[1] || '';
+
+  /** Имя клиента: текст ссылки на контакт в чате, иначе заголовок диалога. */
+  function dialogClientName() {
+    const link = [...document.querySelectorAll('a.bx-im-attach-link__link[href*="/crm/contact/details/"]')].pop();
+    const fromLink = link && textOf(link).trim();
+    if (fromLink) return fromLink.slice(0, 60);
+    const head = document.querySelector('.bx-im-chat-header__title, .bx-im-dialog-header__title, .bx-im-chat-title__text');
+    return head ? textOf(head).trim().slice(0, 60) : '';
+  }
+
+  function createBookingsPanel() {
+    if (document.getElementById('s1826p-bk')) return null;
+    const panel = document.createElement('div');
+    panel.className = 's1826p s1826p-bk';
+    panel.id = 's1826p-bk';
+    panel.innerHTML = `
+      <h3><span class="title">Бронирования на этом клиенте</span><button class="close" title="Свернуть">✕</button></h3>
+      <div class="row" style="align-items:center;justify-content:space-between">
+        <span class="pills"><button data-f="upcoming" class="active">Предстоящие</button><button data-f="all">Все</button></span>
+        <span class="pills"><button data-f="reload" title="Обновить">↻</button></span>
+      </div>
+      <div class="hint status"></div>
+      <div class="list"></div>`;
+    document.body.appendChild(shield(panel));
+    const ui = { panel, list: panel.querySelector('.list'), status: panel.querySelector('.status'), title: panel.querySelector('.title'),
+      filter: 'upcoming', deals: [], key: '' };
+    panel.querySelector('.close').addEventListener('click', () => panel.classList.remove('open'));
+
+    const render = () => {
+      ui.list.innerHTML = '';
+      const shown = ui.filter === 'all' ? ui.deals : ui.deals.filter((d) => d.when === 'today' || d.when === 'future');
+      ui.status.textContent = ui.deals.length
+        ? `${shown.length} из ${ui.deals.length}${ui.filter === 'upcoming' && shown.length < ui.deals.length ? ' · прошедшие — во «Все»' : ''}`
+        : ui.status.textContent;
+      for (const d of shown) {
+        const card = document.createElement('div');
+        card.className = `card ${d.cancelled ? 'cancelled' : d.when}`;
+        const when = document.createElement('div');
+        when.className = 'when';
+        when.textContent = `${d.date || 'без даты'}${d.time ? ` · ${d.time}` : ''}${d.when === 'today' ? ' · сегодня' : ''}`;
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        meta.textContent = [d.hall, d.branch, d.sum, d.due && `остаток ${d.due}`, d.stage].filter(Boolean).join(' · ');
+        const acts = document.createElement('div');
+        acts.className = 'acts';
+        const open = document.createElement('a');
+        open.href = `/crm/deal/details/${d.id}/`;
+        open.target = '_blank';
+        open.textContent = d.title;
+        const copy = document.createElement('button');
+        copy.type = 'button';
+        copy.textContent = 'Скопировать';
+        copy.title = 'Скопировать дату, время и зал';
+        copy.addEventListener('click', () => {
+          try { navigator.clipboard.writeText(`${d.date} ${d.time}, ${d.hall}`.trim()); copy.textContent = 'Скопировано'; } catch (e) { /* без буфера */ }
+          setTimeout(() => { copy.textContent = 'Скопировать'; }, 1500);
+        });
+        acts.append(open, copy);
+        card.append(when, meta, acts);
+        ui.list.appendChild(card);
+      }
+    };
+
+    ui.load = async () => {
+      const key = dialogKey();
+      ui.key = key;
+      const name = dialogClientName();
+      ui.title.textContent = name ? `Бронирования: ${name}` : 'Бронирования на этом клиенте';
+      ui.status.textContent = 'Загружаю брони…';
+      ui.list.innerHTML = '';
+      try {
+        const contact = await dialogContactId();
+        if (!contact) { ui.deals = []; ui.status.textContent = 'У диалога нет контакта в CRM — брони не найти'; return; }
+        const deals = sortDeals(await loadDeals({ CONTACT_ID: contact }));
+        if (ui.key !== key) return; // пока грузили, открыли другой диалог
+        ui.deals = deals;
+        if (!ui.deals.length) ui.status.textContent = 'У клиента нет броней';
+        render();
+      } catch (e) {
+        ui.status.textContent = `Bitrix не отдал брони: ${e.message}`;
+      }
+    };
+
+    panel.querySelectorAll('.pills button').forEach((b) => b.addEventListener('click', () => {
+      if (b.dataset.f === 'reload') { ui.load(); return; }
+      ui.filter = b.dataset.f;
+      panel.querySelectorAll('.pills button[data-f="upcoming"], .pills button[data-f="all"]').forEach((x) => x.classList.toggle('active', x === b));
+      render();
+    }));
+
+    ui.openAt = (anchor) => {
+      if (panel.classList.contains('open')) { panel.classList.remove('open'); return; }
+      panel.classList.add('open');
+      const r = anchor.getBoundingClientRect();
+      const left = Math.max(8, Math.min(r.left, window.innerWidth - panel.offsetWidth - 8));
+      Object.assign(panel.style, { left: `${left}px`, right: 'auto', top: 'auto', bottom: `${Math.max(8, window.innerHeight - r.top + 8)}px` });
+      ui.load();
+    };
+    return ui;
   }
 
   function createBitrixPanel() {
@@ -1047,6 +1692,7 @@
         const date = ui.from.value;
         if (!(await ui.confirm(`Оформить пропуска на ${humanDate(date)}?`, names))) return;
 
+        lastRunCount = names.length;
         const job = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), names, from: date, to: date, createdAt: Date.now() };
         await store.set('job', job);
         await store.set(`result:${job.id}`, { done: false, results: {} });
