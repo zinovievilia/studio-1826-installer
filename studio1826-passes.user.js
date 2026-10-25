@@ -216,9 +216,52 @@
     return h ? `${h} ч${m ? ` ${m} мин` : ''}` : `${m} мин`;
   }
 
+  /** Код для мира страницы (см. patchPageWorld). Это шаблонная строка: «\/» в ней теряет «\», поэтому без регулярок. Тест проверяет разбор. */
+  function pageWorldCode() {
+    return `(function () {
+      var raf = window.requestAnimationFrame.bind(window), caf = window.cancelAnimationFrame.bind(window);
+      var timers = new Set();
+      window.requestAnimationFrame = function (cb) {
+        if (!document.hidden) return raf(cb);
+        var id = setTimeout(function () { timers.delete(id); cb(performance.now()); }, 16);
+        timers.add(id);
+        return id;
+      };
+      window.cancelAnimationFrame = function (id) {
+        if (timers.has(id)) { timers.delete(id); clearTimeout(id); } else caf(id);
+      };
+      // Ответ сайта со списком посетителей — копия для колонки «Сегодня» (строки таблицы идут в его порядке)
+      var isGuests = function (url) { return String(url).indexOf('/api/guests?') >= 0; };
+      var post = function (url, text) {
+        try { window.dispatchEvent(new CustomEvent('s1826-guests', { detail: JSON.stringify({ url: url, text: text }) })); } catch (e) {}
+      };
+      var origFetch = window.fetch;
+      if (origFetch) window.fetch = function (input) {
+        var p = origFetch.apply(this, arguments);
+        try {
+          var url = String((input && input.url) || input);
+          if (isGuests(url)) p.then(function (r) { r.clone().text().then(function (t) { post(url, t); }, function () {}); }, function () {});
+        } catch (e) {}
+        return p;
+      };
+      var open = XMLHttpRequest.prototype.open, send = XMLHttpRequest.prototype.send;
+      XMLHttpRequest.prototype.open = function (method, url) { this.__s1826url = String(url); return open.apply(this, arguments); };
+      XMLHttpRequest.prototype.send = function () {
+        var xhr = this;
+        if (isGuests(xhr.__s1826url || '')) xhr.addEventListener('load', function () {
+          try {
+            var t = xhr.responseType === '' || xhr.responseType === 'text' ? xhr.responseText : JSON.stringify(xhr.response);
+            post(xhr.responseURL || xhr.__s1826url, t);
+          } catch (e) {}
+        });
+        return send.apply(this, arguments);
+      };
+    })();`;
+  }
+
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = { parseNames, isoDate, addDays, humanDate, periodText, parsePlate, plateIsSpecial, passLabel, splitLabel,
-      apiPeriod, parseApiTime, dayBounds, guestCoversDay, matchingPasses, eventKind, parkedTime, formatDuration, VERSION };
+      apiPeriod, parseApiTime, dayBounds, guestCoversDay, matchingPasses, eventKind, parkedTime, formatDuration, pageWorldCode, VERSION };
     return;
   }
 
@@ -797,13 +840,11 @@
       heads[periodIdx].after(th);
     }
     const rows = [...table.querySelectorAll('tbody tr')];
-    if (!lastGuests) {
-      // Копия ответа не пришла (сайт поменял способ запроса) — повторяем последний запрос списка сами
-      const url = performance.getEntriesByType('resource').map((e) => e.name).filter((n) => n.startsWith(`${API_BASE}guests?`)).pop();
-      if (url) {
-        const data = await api(url.slice(API_BASE.length));
-        if (!lastGuests && data && Array.isArray(data.result)) lastGuests = { url, list: data.result, at: Date.now() };
-      }
+    // Копия ответа не пришла (или устарела после поиска/фильтра) — повторяем последний запрос списка сами
+    const url = performance.getEntriesByType('resource').map((e) => e.name).filter((n) => n.startsWith(`${API_BASE}guests?`)).pop();
+    if (url && (!lastGuests || lastGuests.url !== url)) {
+      const data = await api(url.slice(API_BASE.length));
+      if (data && Array.isArray(data.result)) lastGuests = { url, list: data.result, at: Date.now() };
     }
     const list = (lastGuests && lastGuests.list) || [];
     const today = isoDate(new Date());
@@ -949,45 +990,7 @@
    * 2) Копия ответа сайта со списком посетителей (событие s1826-guests) — для колонки «Сегодня». Запросы сайта не меняются.
    */
   function patchPageWorld() {
-    const code = `(function () {
-      var raf = window.requestAnimationFrame.bind(window), caf = window.cancelAnimationFrame.bind(window);
-      var timers = new Set();
-      window.requestAnimationFrame = function (cb) {
-        if (!document.hidden) return raf(cb);
-        var id = setTimeout(function () { timers.delete(id); cb(performance.now()); }, 16);
-        timers.add(id);
-        return id;
-      };
-      window.cancelAnimationFrame = function (id) {
-        if (timers.has(id)) { timers.delete(id); clearTimeout(id); } else caf(id);
-      };
-      // Ответ сайта со списком посетителей — копия для колонки «Сегодня» (строки таблицы идут в его порядке)
-      var GUESTS = /\/api\/guests\?/;
-      var post = function (url, text) {
-        try { window.dispatchEvent(new CustomEvent('s1826-guests', { detail: JSON.stringify({ url: url, text: text }) })); } catch (e) {}
-      };
-      var origFetch = window.fetch;
-      if (origFetch) window.fetch = function (input) {
-        var p = origFetch.apply(this, arguments);
-        try {
-          var url = String((input && input.url) || input);
-          if (GUESTS.test(url)) p.then(function (r) { r.clone().text().then(function (t) { post(url, t); }, function () {}); }, function () {});
-        } catch (e) {}
-        return p;
-      };
-      var open = XMLHttpRequest.prototype.open, send = XMLHttpRequest.prototype.send;
-      XMLHttpRequest.prototype.open = function (method, url) { this.__s1826url = String(url); return open.apply(this, arguments); };
-      XMLHttpRequest.prototype.send = function () {
-        var xhr = this;
-        if (GUESTS.test(xhr.__s1826url || '')) xhr.addEventListener('load', function () {
-          try {
-            var t = xhr.responseType === '' || xhr.responseType === 'text' ? xhr.responseText : JSON.stringify(xhr.response);
-            post(xhr.responseURL || xhr.__s1826url, t);
-          } catch (e) {}
-        });
-        return send.apply(this, arguments);
-      };
-    })();`;
+    const code = pageWorldCode();
     try {
       const tag = document.createElement('script');
       tag.textContent = code;

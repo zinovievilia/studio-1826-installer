@@ -208,3 +208,23 @@ test('разные написания номеров рядом с ФИО', () =
   assert.deepStrictEqual(parseNames('Иванов Иван\nЕ334аб34').names, ['Иванов Иван · Е334АБ 34']);
   assert.deepStrictEqual(parseNames('Иванов Иван 89161234567').invalid, ['Иванов Иван 89161234567']);
 });
+
+test('код для мира страницы разбирается и ловит ответ со списком посетителей', async () => {
+  const { pageWorldCode } = require('../studio1826-passes.user.js');
+  const code = pageWorldCode();
+  const events = [];
+  class FakeXHR { open() {} send() {} addEventListener() {} }
+  const win = {
+    requestAnimationFrame: () => 1, cancelAnimationFrame: () => {},
+    fetch: async (url) => ({ clone: () => ({ text: async () => `{"result":[{"id":1}],"url":"${url}"}` }) }),
+    dispatchEvent: (e) => events.push(JSON.parse(e.detail)),
+  };
+  // eslint-disable-next-line no-new-func
+  new Function('window', 'XMLHttpRequest', 'CustomEvent', 'document', 'performance', code)(
+    win, FakeXHR, class { constructor(type, init) { this.type = type; this.detail = init.detail; } }, { hidden: false }, { now: () => 0 });
+  await win.fetch('https://api.avanguard.pro/api/guests?accountId=354&search=439');
+  await win.fetch('https://api.avanguard.pro/api/guests/1267210');
+  await new Promise((r) => setTimeout(r, 10));
+  assert.strictEqual(events.length, 1);
+  assert.ok(events[0].url.includes('search=439'));
+});
