@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v1.2.6 Studio 1826 — Пропуска списком (Авангард)
+// @name         v1.2.7 Studio 1826 — Пропуска списком (Авангард)
 // @namespace    studio1826
-// @version      1.2.6
+// @version      1.2.7
 // @description  Кнопка «Оформить пропуск» в окне ввода открытых линий Bitrix24: список ФИО + дата → пропуска в Авангарде оформляются по очереди
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
@@ -26,7 +26,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.2.6';
+  const VERSION = '1.2.7';
   const DEFAULT_GUESTS_URL = 'https://my.avanguard.pro/account/354/guests';
 
   // ── Чистые функции (тесты: tests/passes.test.js) ───────────────────────────
@@ -99,8 +99,18 @@
     return wantFrom === wantTo && [`${d}.${mo}.${y}`, `${d}.${mo}.${y.slice(2)}`, `${y}-${mo}-${d}`].some((v) => row.includes(v));
   }
 
+  /** Запрос списка посетителей именно за этот период (а не стартовый за сегодня). */
+  function guestsRequestMatches(url, from, to) {
+    if (!/\/api\/guests(?:[/?]|$)/.test(url || '')) return false;
+    let decoded = url;
+    try { decoded = decodeURIComponent(url); } catch (e) { /* оставляем как есть */ }
+    const start = /[?&]dateStart=(\d{4}-\d{2}-\d{2})/.exec(decoded);
+    const finish = /[?&]dateFinish=(\d{4}-\d{2}-\d{2})/.exec(decoded);
+    return Boolean(start && finish && start[1] === from && finish[1] === to);
+  }
+
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { parseNames, isoDate, addDays, humanDate, periodText, rowMatches, VERSION };
+    module.exports = { parseNames, isoDate, addDays, humanDate, periodText, rowMatches, guestsRequestMatches, VERSION };
     return;
   }
 
@@ -360,7 +370,10 @@
   /** Уже есть пропуск на этого человека на весь период? Смотрим таблицу с фильтром на нужные даты и поиском по имени. */
   async function alreadyListed(name, from, to) {
     const { from: f, to: t, search } = listControls();
-    const doneBefore = net.done;
+    // Стартовая загрузка страницы (список за сегодня, до 6 с) не должна сойти за ответ на наш фильтр
+    await waitFor(() => net.pending === 0, 10000, 150);
+    const setAt = Date.now();
+    const datesChange = Boolean(f && t && (f.value !== from || t.value !== to));
     if (f && t) { setValue(f, from); setValue(t, to); }
     if (search) setValue(search, name);
     const matches = () => [...document.querySelectorAll('tr, [role="row"]')].some((row) => rowMatches(textOf(row), name, from, to));
@@ -375,11 +388,14 @@
       // «таблица не менялась» годится только если запрос так и не ушёл
       while (Date.now() - started < 15000) {
         await sleep(150);
-        const answered = Date.now() - started > 1200 && net.done > doneBefore && net.pending === 0 && Date.now() - net.lastDone > 400;
-        if (answered) break;
+        const ours = net.log.filter((r) => r.startedAt >= setAt && guestsRequestMatches(r.url, from, to));
+        const answered = ours.some((r) => r.endedAt) && net.pending === 0 && Date.now() - net.lastDone > 400;
+        if (datesChange && answered) break;
         const now = table();
         if (now !== last) { last = now; stableSince = Date.now(); }
-        if (net.done === doneBefore && net.pending === 0 && Date.now() - started > 4000 && Date.now() - stableSince >= 2000) break;
+        // Даты уже стояли (новый запрос не нужен) или запрос так и не ушёл: ждём, пока таблица успокоится
+        const noRequest = !net.log.some((r) => r.startedAt >= setAt);
+        if ((!datesChange || noRequest) && net.pending === 0 && Date.now() - started > 4000 && Date.now() - stableSince >= 2000) break;
       }
     }
     return matches();
@@ -451,22 +467,31 @@
   function writeSession(key, value) { try { sessionStorage.setItem(key, value); } catch (e) { /* без него вкладка просто не продолжит после перезагрузки */ } }
 
   /** Считаем запросы страницы к серверу: пропуск «уже есть» проверяем только по ответу на фильтр. */
-  const net = { pending: 0, done: 0, lastDone: 0 };
+  const net = { pending: 0, done: 0, lastDone: 0, log: [] };
   function watchNetwork() {
     try {
       const page = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-      const finish = () => { net.pending = Math.max(0, net.pending - 1); net.done += 1; net.lastDone = Date.now(); };
+      const begin = (url) => {
+        net.pending += 1;
+        net.log.push({ url: String(url || ''), startedAt: Date.now(), endedAt: 0 });
+        if (net.log.length > 200) net.log.shift();
+        return net.log[net.log.length - 1];
+      };
+      const finish = (entry) => { net.pending = Math.max(0, net.pending - 1); net.done += 1; net.lastDone = Date.now(); entry.endedAt = net.lastDone; };
       const realFetch = page.fetch;
       if (realFetch) {
         page.fetch = function (...args) {
-          net.pending += 1;
-          return realFetch.apply(this, args).then((r) => { finish(); return r; }, (e) => { finish(); throw e; });
+          const entry = begin(args[0] && args[0].url ? args[0].url : args[0]);
+          return realFetch.apply(this, args).then((r) => { finish(entry); return r; }, (e) => { finish(entry); throw e; });
         };
       }
-      const realSend = page.XMLHttpRequest.prototype.send;
-      page.XMLHttpRequest.prototype.send = function (...args) {
-        net.pending += 1;
-        this.addEventListener('loadend', finish, { once: true });
+      const proto = page.XMLHttpRequest.prototype;
+      const realOpen = proto.open;
+      const realSend = proto.send;
+      proto.open = function (method, url, ...rest) { this.__s1826url = url; return realOpen.call(this, method, url, ...rest); };
+      proto.send = function (...args) {
+        const entry = begin(this.__s1826url);
+        this.addEventListener('loadend', () => finish(entry), { once: true });
         return realSend.apply(this, args);
       };
     } catch (e) { /* без счётчика остаётся ожидание по стабильности таблицы */ }

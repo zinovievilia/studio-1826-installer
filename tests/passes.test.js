@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { parseNames, isoDate, addDays, humanDate, periodText, rowMatches } = require('../studio1826-passes.user.js');
+const { parseNames, isoDate, addDays, humanDate, periodText, rowMatches, guestsRequestMatches } = require('../studio1826-passes.user.js');
 
 test('список ФИО: по строкам, без нумерации и пустых строк', () => {
   const { names } = parseNames(`
@@ -62,4 +62,14 @@ test('период в таблице покрывает дату — пропу�
   assert.ok(!rowMatches(row, 'Воронцова Лилия Эдуардовна', '2026-11-01'));
   assert.ok(!rowMatches(row, 'Воронцова Лилия Эдуардовна', '2026-10-29', '2026-11-02'), 'период шире существующего — не покрыт');
   assert.ok(!rowMatches(row, 'Хван Валерия Алексеевна', '2026-10-29'));
+});
+
+test('guestsRequestMatches: стартовый запрос за сегодня не считается ответом на фильтр', () => {
+  const base = 'https://my.avanguard.pro/api/guests?';
+  assert.ok(guestsRequestMatches(`${base}dateStart=2026-10-29T00:00:00&dateFinish=2026-10-29T23:59:59&search=`, '2026-10-29', '2026-10-29'));
+  assert.ok(guestsRequestMatches(`${base}dateStart=2026-10-29T00%3A00%3A00&dateFinish=2026-10-29T23%3A59%3A59`, '2026-10-29', '2026-10-29'));
+  assert.ok(!guestsRequestMatches(`${base}dateStart=2026-10-25T00:00:00&dateFinish=2026-10-25T23:59:59`, '2026-10-29', '2026-10-29'));
+  assert.ok(!guestsRequestMatches(`${base}dateStart=2026-10-29T00:00:00&dateFinish=2026-10-31T23:59:59`, '2026-10-29', '2026-10-29'));
+  assert.ok(!guestsRequestMatches('https://my.avanguard.pro/api/auth/security', '2026-10-29', '2026-10-29'));
+  assert.ok(!guestsRequestMatches('', '2026-10-29', '2026-10-29'));
 });
