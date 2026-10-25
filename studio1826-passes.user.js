@@ -64,9 +64,19 @@
   }
 
   // Отчество: «…овна», «…евич», «…ична»; «оглы/кызы» идут следом отдельным словом
-  const PATRONYMIC = /^[А-ЯЁа-яё]+(?:ович|евич|овна|евна|ична|инична|ьич|ич)$/i;
+  const PATRONYMIC = /^[А-ЯЁа-яё]+(?:(?:ович|евич|ьич|ич)(?:а|у|ем)?|(?:овн|евн|ичн)(?:а|ы|е|ой|у))$/i; // и в падежах: «…Петровича», «…Эдуардовне»
   const PATRONYMIC_TAIL = /^(?:оглы|кызы|улы|уулу)$/i;
   const PURE_NAME_LINE = /^[A-Za-zА-Яа-яЁё.'’\- ]+$/;
+
+  // Вежливые слова из сообщений клиентов — не люди
+  const STOP_PHRASES = /(^|[^А-Яа-яЁёA-Za-z])(добр(?:ый|ого) (?:день|дня|вечер|вечера)|доброе утро|доброго утра|здравствуйте|здравствуй|привет(?:ствую)?|спасибо(?: большое| заранее)?|благодарю|пожалуйста|до свидания|хорошего (?:дня|вечера)|оформите|оформить|оформи|нужен|нужны|нужно|пропуска|пропуск|пропусков|на завтра|на сегодня|вот|список|гости|гостей|участники|участников|на|для|ещё|еще)(?=$|[^А-Яа-яЁёA-Za-z])/gi;
+
+  /** Сообщение клиента → только содержательное: без приветствий/благодарностей и знаков «!?:». */
+  function cleanMessage(text) {
+    let s = String(text || '');
+    for (let i = 0; i < 3; i++) s = s.replace(STOP_PHRASES, '$1'); // подряд идущие («Добрый день, спасибо»)
+    return s.replace(/[!?:«»"]/g, ' ').replace(/[ \t]+$/gm, '').replace(/^[ \t]+/gm, '');
+  }
 
   /**
    * Клиенты переносят строки посреди ФИО: «Воронцова Лилия Эдуардовна Хван\nВалерия Алексеевна».
@@ -98,10 +108,14 @@
       out.push(...names.map((n) => n.join(' ')));
       run = [];
     };
+    // Запятая и «;» — тоже граница строки, но ФИО через неё может продолжаться («…Хван,\nВалерия Алексеевна»)
     for (const line of text.split('\n')) {
-      const bare = line.replace(/^\s*(?:\d+\s*[.)]|[-–—•*])\s*/, '').trim();
-      if (bare && PURE_NAME_LINE.test(bare)) run.push(bare.split(/\s+/));
-      else { flush(); out.push(line); }
+      for (const seg of line.split(/[,;]/)) {
+        const bare = seg.replace(/^\s*(?:\d+\s*[.)]|[-–—•*])\s*/, '').trim();
+        if (!bare) continue;
+        if (PURE_NAME_LINE.test(bare)) run.push(bare.split(/\s+/));
+        else { flush(); out.push(seg.trim()); }
+      }
     }
     flush();
     return out.join('\n');
@@ -116,7 +130,7 @@
     const entries = [];
     const loosePlates = [];
     const invalid = [];
-    for (const raw of splitByPatronymics(String(text || '').replace(/[ \t]+и[ \t]+/gi, '\n')).split(/[\n;,]+/)) {
+    for (const raw of splitByPatronymics(cleanMessage(String(text || '').replace(/[ \t]+и[ \t]+/gi, '\n'))).split(/[\n;,]+/)) {
       let piece = raw
         .replace(/^\s*(?:\d+\s*[.)]|[-–—•*])\s*/, '') // «1.», «2)», «-», «•»
         .replace(/\s+/g, ' ')
@@ -173,7 +187,10 @@
       const text = String(raw || '').trim();
       if (!text || text.length > 5000) continue;
       // Выделение из таблицы — ячейки через табуляцию: каждая ячейка отдельно. Названия аккаунтов (ИП, ООО…) не люди.
-      const lines = text.split(/[\n\t]+/).filter((line) => !COMPANY.test(line.trim()) && !STATUS_WORD.test(line.trim())).filter((line) => {
+      const cells = text.split(/[\n\t]+/).filter((line) => !COMPANY.test(line.trim()) && !STATUS_WORD.test(line.trim()));
+      // Сначала чистим и делим всё сообщение целиком (ФИО может переходить через строку), потом отбираем строки
+      const split = splitByPatronymics(cleanMessage(cells.join('\n').replace(/[ \t]+и[ \t]+/gi, '\n')));
+      const lines = split.split('\n').filter((line) => {
         const { names, invalid } = parseNames(line);
         return names.length > 0 && !invalid.length && names.every((label) => NAME_LIKE.test(splitLabel(label).name));
       });
@@ -344,7 +361,7 @@
   }
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { parseNames, splitByPatronymics, properName, prefillText, isoDate, addDays, humanDate, periodText, parsePlate, plateIsSpecial, passLabel, splitLabel,
+    module.exports = { parseNames, cleanMessage, splitByPatronymics, properName, prefillText, isoDate, addDays, humanDate, periodText, parsePlate, plateIsSpecial, passLabel, splitLabel,
       apiPeriod, parseApiTime, dayBounds, guestCoversDay, matchingPasses, eventKind, parkedTime, formatDuration, guestsForRow, pageWorldCode, VERSION };
     return;
   }
