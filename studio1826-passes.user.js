@@ -170,6 +170,14 @@
       (!plate || plateKey(g.carNumber, g.carRegion) === plateKey(plate.number, plate.region)));
   }
 
+  /** Пропуска для строки таблицы: то же ФИО (ячейка целиком) и тот же номер машины, если он есть. */
+  function guestsForRow(nameText, carText, guests) {
+    const name = normalize(nameText);
+    const car = normalize(carText).replace(/\s+/g, '');
+    return [...guests].filter((g) => g && g.name && normalize(g.name) === name &&
+      (g.carNumber ? car.includes(normalize(g.carNumber).replace(/\s+/g, '')) : !/\d/.test(car)));
+  }
+
   /** Событие журнала проходов → 'in' (въезд) | 'out' (выезд) | null. Учитываем только машины: «Въезд/Выезд». */
   function eventKind(event) {
     const name = String((event && event.eventName) || '').toLowerCase();
@@ -261,7 +269,7 @@
 
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = { parseNames, isoDate, addDays, humanDate, periodText, parsePlate, plateIsSpecial, passLabel, splitLabel,
-      apiPeriod, parseApiTime, dayBounds, guestCoversDay, matchingPasses, eventKind, parkedTime, formatDuration, pageWorldCode, VERSION };
+      apiPeriod, parseApiTime, dayBounds, guestCoversDay, matchingPasses, eventKind, parkedTime, formatDuration, guestsForRow, pageWorldCode, VERSION };
     return;
   }
 
@@ -757,13 +765,16 @@
     .s1826p-hours.muted { color: #9ca3af; }
   `;
 
-  /** Последний ответ сайта со списком посетителей — его ловит скрипт в мире страницы (patchPageWorld). */
-  let lastGuests = null;
+  /**
+   * Все пропуска, которые сайт уже показывал (id → пропуск): ответы ловит скрипт в мире страницы (patchPageWorld).
+   * Сайт возвращается к прежним спискам из своего кэша без запроса, поэтому строки ищем по всем известным пропускам.
+   */
+  const knownGuests = new Map();
+  const rememberGuests = (list) => { for (const g of list || []) if (g && g.id != null) knownGuests.set(String(g.id), g); };
   window.addEventListener('s1826-guests', (e) => {
     try {
-      const { url, text } = JSON.parse(e.detail);
-      const data = JSON.parse(text);
-      if (data && Array.isArray(data.result)) lastGuests = { url, list: data.result, at: Date.now() };
+      const data = JSON.parse(JSON.parse(e.detail).text);
+      if (data && Array.isArray(data.result)) rememberGuests(data.result);
     } catch (err) { /* не наш ответ */ }
   });
 
@@ -825,6 +836,34 @@
     }) || null;
   }
 
+  /** Включена ли галочка фильтра с такой подписью («Только мои», «Показать архивные»). */
+  function checkedByLabel(re) {
+    const label = [...document.querySelectorAll('label')].find((l) => !l.closest('.s1826p') && re.test(textOf(l)));
+    const box = label && (label.querySelector('input[type="checkbox"]') ||
+      (label.htmlFor && document.getElementById(label.htmlFor)) ||
+      (label.previousElementSibling && label.previousElementSibling.matches('input[type="checkbox"]') && label.previousElementSibling));
+    return !!(box && box.checked);
+  }
+
+  /** Список, который сейчас на экране: даты «С/ПО» и поиск из полей страницы, все строки одной страницей. */
+  let screenFetch = { key: '', at: 0 };
+  async function guestsForScreen() {
+    const dates = [...document.querySelectorAll('input[type="date"]')].filter((i) => visible(i) && !i.closest('.s1826p, [role="dialog"]'));
+    const search = document.querySelector('input[placeholder="Поиск по посетителям"]');
+    const today = isoDate(new Date());
+    const from = (dates[0] && dates[0].value) || today;
+    const to = (dates[1] && dates[1].value) || from;
+    const q = new URLSearchParams({ accountId: accountId(), dateStart: apiPeriod(from).dateStart, dateFinish: apiPeriod(to).dateFinish,
+      search: (search && search.value.trim()) || '', mine: String(checkedByLabel(/только мои/i)), onlyCars: 'false',
+      showArchived: String(checkedByLabel(/архив/i)), sort: '', pageIndex: '1', pageSize: '500' });
+    const key = String(q);
+    // Тот же запрос не чаще раза в 30 с: строки без пропуска в ответе (чужая разметка) не должны гонять сайт по кругу
+    if (screenFetch.key === key && Date.now() - screenFetch.at < 30000) return [];
+    screenFetch = { key, at: Date.now() };
+    const data = await api(`guests?${q}`);
+    return (data && data.result) || [];
+  }
+
   async function fillParkingColumn() {
     if (!onGuestsPage()) return;
     const table = guestsTable();
@@ -839,43 +878,48 @@
       th.title = 'Сколько машина стояла на парковке сегодня (по въездам и выездам) — скрипт пропусков Studio 1826';
       heads[periodIdx].after(th);
     }
-    const rows = [...table.querySelectorAll('tbody tr')];
-    // Копия ответа не пришла (или устарела после поиска/фильтра) — повторяем последний запрос списка сами
-    const url = performance.getEntriesByType('resource').map((e) => e.name).filter((n) => n.startsWith(`${API_BASE}guests?`)).pop();
-    if (url && (!lastGuests || lastGuests.url !== url)) {
-      const data = await api(url.slice(API_BASE.length));
-      if (data && Array.isArray(data.result)) lastGuests = { url, list: data.result, at: Date.now() };
-    }
-    const list = (lastGuests && lastGuests.list) || [];
+    const nameIdx = heads.findIndex((th) => textOf(th) === 'ФИО');
+    const carIdx = heads.findIndex((th) => textOf(th) === 'Автомобиль');
     const today = isoDate(new Date());
-    const jobs = [];
-    rows.forEach((tr, i) => {
-      const cells = [...tr.children].filter((td) => !td.classList.contains('s1826p-hours'));
-      if (cells.length <= periodIdx) return; // строка «нет данных»
-      let td = tr.querySelector('td.s1826p-hours');
-      if (!td) {
-        td = document.createElement('td');
-        td.className = `${cells[periodIdx].className} s1826p-hours`;
-        cells[periodIdx].after(td);
+    const collect = () => {
+      const jobs = [];
+      let missing = 0;
+      for (const tr of table.querySelectorAll('tbody tr')) {
+        const cells = [...tr.children].filter((td) => !td.classList.contains('s1826p-hours'));
+        if (cells.length <= periodIdx || nameIdx < 0) continue; // строка «нет данных»
+        let td = tr.querySelector('td.s1826p-hours');
+        if (!td) {
+          td = document.createElement('td');
+          td.className = `${cells[periodIdx].className} s1826p-hours`;
+          cells[periodIdx].after(td);
+        }
+        const set = (text, cls = '') => {
+          if (td.textContent !== text) td.textContent = text;
+          td.className = td.className.replace(/\s*(inside|muted)\b/g, '') + (cls ? ` ${cls}` : '');
+        };
+        const guests = guestsForRow(textOf(cells[nameIdx]), carIdx >= 0 ? textOf(cells[carIdx]) : '', knownGuests.values());
+        if (!guests.length) { missing++; set('…', 'muted'); continue; }
+        const onToday = guests.filter((g) => g.carNumber && guestCoversDay(g, today));
+        if (!onToday.length) { set('', 'muted'); continue; }
+        jobs.push({ guests: onToday, set });
       }
-      // Строки идут в порядке ответа сайта; сверяем по ФИО, чтобы не подставить чужие часы
-      const rowText = normalize(textOf(tr));
-      const guest = list[i] && rowText.includes(normalize(list[i].name || '')) ? list[i]
-        : list.find((g) => g.name && rowText.includes(normalize(g.name)) && (!g.carNumber || rowText.includes(String(g.carNumber).toLowerCase())));
-      const set = (text, cls = '') => {
-        if (td.textContent !== text) td.textContent = text;
-        td.className = td.className.replace(/\s*(inside|muted)\b/g, '') + (cls ? ` ${cls}` : '');
-      };
-      if (!guest) { set(list.length ? '' : '…', 'muted'); return; }
-      if (!guest.carNumber || !guestCoversDay(guest, today)) { set('', 'muted'); return; }
-      jobs.push({ guest, set });
-    });
+      return { jobs, missing };
+    };
+    let { jobs, missing } = collect();
+    if (missing) {
+      // Строки нет среди известных пропусков — сами запрашиваем то, что сейчас на экране
+      rememberGuests(await guestsForScreen());
+      ({ jobs, missing } = collect());
+      if (missing) for (const td of table.querySelectorAll('tbody td.s1826p-hours.muted')) if (td.textContent === '…') td.textContent = '';
+    }
     if (!jobs.length) return;
     const log = await todayLog();
     const dayStart = dayBounds(today).start;
-    for (const { guest, set } of jobs) {
+    for (const { guests, set } of jobs) {
       if (log.error) { set('?', 'muted'); continue; }
-      const v = parkedTime(log.byGuest.get(String(guest.id)) || [], dayStart, Date.now());
+      // Одна машина на нескольких пропусках сегодня — события всех складываем
+      const events = guests.flatMap((g) => log.byGuest.get(String(g.id)) || []);
+      const v = parkedTime(events, dayStart, Date.now());
       if (!v.seen) set('не заезжала', 'muted');
       else set(v.inside ? `${formatDuration(v.ms)} · стоит` : formatDuration(v.ms), v.inside ? 'inside' : '');
     }

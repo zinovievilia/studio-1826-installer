@@ -228,3 +228,19 @@ test('код для мира страницы разбирается и лови
   assert.strictEqual(events.length, 1);
   assert.ok(events[0].url.includes('search=439'));
 });
+
+test('строка таблицы → пропуск: ФИО целиком и номер машины', () => {
+  const { guestsForRow } = require('../studio1826-passes.user.js');
+  const guests = [
+    { id: 1, name: 'Хван Валерия Алексеевна' },
+    { id: 2, name: 'Хван' },
+    { id: 3, name: 'Машина', carNumber: 'А439ТУ', carRegion: '797' },
+    { id: 4, name: 'Машина', carNumber: 'К013АК', carRegion: '15' },
+    { id: 5, name: 'Хван Валерия Алексеевна', carNumber: 'Е334АВ', carRegion: '34' },
+  ];
+  assert.deepStrictEqual(guestsForRow('Хван Валерия Алексеевна', '—', guests).map((g) => g.id), [1]);
+  assert.deepStrictEqual(guestsForRow('ХВАН', '', guests).map((g) => g.id), [2]);
+  assert.deepStrictEqual(guestsForRow('Машина', 'А439ТУ 797', guests).map((g) => g.id), [3]);
+  assert.deepStrictEqual(guestsForRow('Хван Валерия Алексеевна', 'Е334АВ 34', guests).map((g) => g.id), [5]);
+  assert.deepStrictEqual(guestsForRow('Петров', '', guests), []);
+});
