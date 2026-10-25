@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v1.2.7 Studio 1826 — Пропуска списком (Авангард)
+// @name         v1.2.8 Studio 1826 — Пропуска списком (Авангард)
 // @namespace    studio1826
-// @version      1.2.7
+// @version      1.2.8
 // @description  Кнопка «Оформить пропуск» в окне ввода открытых линий Bitrix24: список ФИО + дата → пропуска в Авангарде оформляются по очереди
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
@@ -26,7 +26,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.2.7';
+  const VERSION = '1.2.8';
   const DEFAULT_GUESTS_URL = 'https://my.avanguard.pro/account/354/guests';
 
   // ── Чистые функции (тесты: tests/passes.test.js) ───────────────────────────
@@ -367,36 +367,48 @@
     return { from: dates[0] || null, to: dates[1] || null, search: search || null };
   }
 
-  /** Уже есть пропуск на этого человека на весь период? Смотрим таблицу с фильтром на нужные даты и поиском по имени. */
+  /** Завершённые запросы списка посетителей. Performance API общий со страницей: перехват fetch/XHR
+   *  из Tampermonkey запросов сайта не видит. Запись появляется, когда ответ уже пришёл. */
+  function guestsRequests() {
+    try {
+      return performance.getEntriesByType('resource').filter((e) => /\/api\/guests(?:[/?]|$)/.test(e.name));
+    } catch (e) { return []; }
+  }
+
+  /**
+   * Уже есть пропуск на этого человека на весь период? Ставим фильтр на даты и поиск по имени и смотрим таблицу.
+   * true / false — ответ; null — список не обновился, и сказать нельзя (тогда ничего не создаём).
+   */
   async function alreadyListed(name, from, to) {
     const { from: f, to: t, search } = listControls();
-    // Стартовая загрузка страницы (список за сегодня, до 6 с) не должна сойти за ответ на наш фильтр
-    await waitFor(() => net.pending === 0, 10000, 150);
-    const setAt = Date.now();
     const datesChange = Boolean(f && t && (f.value !== from || t.value !== to));
+    // Стартовая загрузка (список за сегодня, до 6 с) должна закончиться до нашего фильтра
+    if (datesChange) await waitFor(() => guestsRequests().length > 0, 10000, 150);
+    const setAt = performance.now();
     if (f && t) { setValue(f, from); setValue(t, to); }
     if (search) setValue(search, name);
     const matches = () => [...document.querySelectorAll('tr, [role="row"]')].some((row) => rowMatches(textOf(row), name, from, to));
-    if (f || search) {
-      // Список перезапрашивается с сервера, в фоновой вкладке таймеры ещё и замедлены: ждём не фиксированную
-      // паузу, а находку или пока таблица перестанет меняться (не дольше 8 с)
-      const table = () => [...document.querySelectorAll('tr, [role="row"]')].map(textOf).join('|');
-      const started = Date.now();
-      let last = table();
-      let stableSince = started;
-      // Главный признак — ответ сервера на запрос после фильтра (список с /api/ в фоне грузится до 6 с);
-      // «таблица не менялась» годится только если запрос так и не ушёл
-      while (Date.now() - started < 15000) {
-        await sleep(150);
-        const ours = net.log.filter((r) => r.startedAt >= setAt && guestsRequestMatches(r.url, from, to));
-        const answered = ours.some((r) => r.endedAt) && net.pending === 0 && Date.now() - net.lastDone > 400;
-        if (datesChange && answered) break;
-        const now = table();
-        if (now !== last) { last = now; stableSince = Date.now(); }
-        // Даты уже стояли (новый запрос не нужен) или запрос так и не ушёл: ждём, пока таблица успокоится
-        const noRequest = !net.log.some((r) => r.startedAt >= setAt);
-        if ((!datesChange || noRequest) && net.pending === 0 && Date.now() - started > 4000 && Date.now() - stableSince >= 2000) break;
-      }
+    if (!f && !search) return matches();
+
+    if (datesChange) {
+      // Ждём ответ сервера именно на наш фильтр; без него — не гадаем
+      const answer = await waitFor(() => guestsRequests()
+        .find((e) => e.startTime >= setAt - 50 && guestsRequestMatches(e.name, from, to)), 15000, 150);
+      if (!answer) return null;
+      await sleep(400); // таблица перерисовывается
+      return matches() || (await sleep(600), matches());
+    }
+
+    // Даты уже стояли — сервер не спрашиваем, поиск по имени фильтрует таблицу на странице: ждём, пока она успокоится
+    const table = () => [...document.querySelectorAll('tr, [role="row"]')].map(textOf).join('|');
+    const started = Date.now();
+    let last = table();
+    let stableSince = started;
+    while (!matches() && Date.now() - started < 8000) {
+      await sleep(150);
+      const now = table();
+      if (now !== last) { last = now; stableSince = Date.now(); }
+      else if (Date.now() - started > 1000 && Date.now() - stableSince >= 1500) break;
     }
     return matches();
   }
@@ -449,7 +461,14 @@
     const results = {};
     for (const name of names) {
       if (shouldStop()) break;
-      if (await alreadyListed(name, from, to)) { results[name] = 'skip'; await report(results); continue; }
+      const listed = await alreadyListed(name, from, to);
+      if (listed === null) {
+        // Не знаем, есть ли пропуск: создавать вслепую нельзя — можно получить дубль
+        results[name] = 'err:список посетителей не обновился, проверить дубль не удалось — ничего не создано';
+        await report(results);
+        break;
+      }
+      if (listed) { results[name] = 'skip'; await report(results); continue; }
       results[name] = 'work';
       await report(results);
       const error = await createPass(name, from, to);
@@ -466,41 +485,10 @@
   function readSession(key) { try { return sessionStorage.getItem(key); } catch (e) { return null; } }
   function writeSession(key, value) { try { sessionStorage.setItem(key, value); } catch (e) { /* без него вкладка просто не продолжит после перезагрузки */ } }
 
-  /** Считаем запросы страницы к серверу: пропуск «уже есть» проверяем только по ответу на фильтр. */
-  const net = { pending: 0, done: 0, lastDone: 0, log: [] };
-  function watchNetwork() {
-    try {
-      const page = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
-      const begin = (url) => {
-        net.pending += 1;
-        net.log.push({ url: String(url || ''), startedAt: Date.now(), endedAt: 0 });
-        if (net.log.length > 200) net.log.shift();
-        return net.log[net.log.length - 1];
-      };
-      const finish = (entry) => { net.pending = Math.max(0, net.pending - 1); net.done += 1; net.lastDone = Date.now(); entry.endedAt = net.lastDone; };
-      const realFetch = page.fetch;
-      if (realFetch) {
-        page.fetch = function (...args) {
-          const entry = begin(args[0] && args[0].url ? args[0].url : args[0]);
-          return realFetch.apply(this, args).then((r) => { finish(entry); return r; }, (e) => { finish(entry); throw e; });
-        };
-      }
-      const proto = page.XMLHttpRequest.prototype;
-      const realOpen = proto.open;
-      const realSend = proto.send;
-      proto.open = function (method, url, ...rest) { this.__s1826url = url; return realOpen.call(this, method, url, ...rest); };
-      proto.send = function (...args) {
-        const entry = begin(this.__s1826url);
-        this.addEventListener('loadend', () => finish(entry), { once: true });
-        return realSend.apply(this, args);
-      };
-    } catch (e) { /* без счётчика остаётся ожидание по стабильности таблицы */ }
-  }
-
   const onGuestsPage = () => /\/account\/\d+\/guests/.test(location.pathname);
 
   async function avanguardMain() {
-    watchNetwork();
+    try { performance.setResourceTimingBufferSize(2000); } catch (e) { /* по умолчанию 250 — хватает на пару десятков имён */ }
     // Запоминаем адрес страницы посетителей — Bitrix откроет именно его
     const rememberUrl = () => {
       if (onGuestsPage()) store.set('guestsUrl', location.origin + location.pathname);
