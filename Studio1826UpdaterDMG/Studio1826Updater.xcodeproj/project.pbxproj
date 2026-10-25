@@ -19,6 +19,7 @@
 		A014 /* ReplyLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = F014 /* ReplyLibrary.swift */; };
 		A020 /* BrowserService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F020 /* BrowserService.swift */; };
 		A021 /* ReplyStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F021 /* ReplyStore.swift */; };
+		A043 /* LaunchAtLogin.swift in Sources */ = {isa = PBXBuildFile; fileRef = F043 /* LaunchAtLogin.swift */; };
 		A022 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F022 /* AppState.swift */; };
 		A030 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = F030 /* Components.swift */; };
 		A031 /* PopoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F031 /* PopoverView.swift */; };
@@ -46,6 +47,7 @@
 		F014 /* ReplyLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplyLibrary.swift; sourceTree = "<group>"; };
 		F020 /* BrowserService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserService.swift; sourceTree = "<group>"; };
 		F021 /* ReplyStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplyStore.swift; sourceTree = "<group>"; };
+		F043 /* LaunchAtLogin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLogin.swift; sourceTree = "<group>"; };
 		F022 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		F030 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		F031 /* PopoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopoverView.swift; sourceTree = "<group>"; };
@@ -113,6 +115,7 @@
 			children = (
 				F020 /* BrowserService.swift */,
 				F021 /* ReplyStore.swift */,
+				F043 /* LaunchAtLogin.swift */,
 				F042 /* LinksStore.swift */,
 				F022 /* AppState.swift */,
 				F024 /* QuickReplies.swift */,
@@ -225,6 +228,7 @@
 				A014 /* ReplyLibrary.swift in Sources */,
 				A020 /* BrowserService.swift in Sources */,
 				A021 /* ReplyStore.swift in Sources */,
+				A043 /* LaunchAtLogin.swift in Sources */,
 				A042 /* LinksStore.swift in Sources */,
 				A022 /* AppState.swift in Sources */,
 				A024 /* QuickReplies.swift in Sources */,

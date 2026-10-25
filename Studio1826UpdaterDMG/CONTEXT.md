@@ -31,6 +31,7 @@ macOS 13+ (SwiftUI + AppKit), бандл `Studio1826Updater.app`, id `studio1826
   `~/Library/Application Support/Studio1826/replies.json` (свои `my.*`, правки базовых со снимком версии студии, скрытые базовые).
   Служба «Сохранить как скрипт 1826» (`AppDelegate.saveScript`, `NSServices`) кладёт текст в `ReplySearchState.draftText` → редактор.
   Повреждённый файл не затирается, а откладывается рядом. Обмен — JSON `{format, version, scripts}`; импорт берёт любой JSON с `scripts`.
+- **Автозапуск**: `Services/LaunchAtLogin.swift` (`SMAppService.mainApp`), один раз включается при первом запуске не из `/Volumes` и не из AppTranslocation (`launchAtLoginAsked`); переключатель в «Настройке» и в правом клике. На Mac не проверялся — проверить при следующей сборке.
 - **Ссылки**: `Core/LinksLayout.swift` (разделы/строки, перестановки, `merge(studio:)` по `knownStudioIDs`) + `LinksStore` (`links.json`).
   Перетаскивание — `.draggable`/`.dropDestination` со строками `group:`/`item:`. Правый клик собирает разделы в `menuNeedsUpdate`.
 - **Отчёт по кассе**: `Calculator` на `Decimal`; «2.000» = тысячи (точка + ровно 3 цифры, первая группа не с 0), «1,5»/«1.5» — дробь;

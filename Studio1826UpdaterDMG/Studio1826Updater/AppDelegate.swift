@@ -25,6 +25,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var linksEndItem: NSMenuItem?
     private var linkMenuItems: [NSMenuItem] = []
     private var updateItem: NSMenuItem?
+    private var launchItem: NSMenuItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory) // только menu bar, без Dock
@@ -85,6 +86,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusMenu = buildStatusMenu()
 
         ensureEditMenu()
+        LaunchAtLogin.enableOnFirstRun()
         updater.start()
 
         quickReplies = QuickReplyPanelController(store: replies)
@@ -197,6 +199,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(update)
         updateItem = update
 
+        let login = item("Запускать при входе в систему", #selector(toggleLaunchAtLogin))
+        menu.addItem(login)
+        launchItem = login
+
         menu.addItem(.separator())
         menu.addItem(item("Выйти", #selector(quit), key: "q"))
         return menu
@@ -213,6 +219,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         guard menu === statusMenu else { return }
         rebuildLinkItems(in: menu)
+        switch LaunchAtLogin.state {
+        case .on: launchItem?.state = .on; launchItem?.isEnabled = true
+        case .needsApproval: launchItem?.state = .mixed; launchItem?.isEnabled = true
+        case .off: launchItem?.state = .off; launchItem?.isEnabled = true
+        case .notInstalled: launchItem?.state = .off; launchItem?.isEnabled = false
+        }
         let main = updater.state(of: .main)
         var line = "Основной: " + (main.remoteVersion ?? main.localVersion ?? "версия неизвестна")
         if let latest = updater.appLatestVersion {
@@ -231,6 +243,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func openLink(_ sender: NSMenuItem) {
         guard let url = sender.representedObject as? URL else { return }
         NSWorkspace.shared.open(url)
+    }
+
+    @objc private func toggleLaunchAtLogin() {
+        do {
+            try LaunchAtLogin.set(LaunchAtLogin.state == .off)
+        } catch {
+            toaster.show("Не удалось изменить автозапуск: \(error.localizedDescription)")
+        }
+        if LaunchAtLogin.state == .needsApproval { LaunchAtLogin.openSystemSettings() }
     }
 
     @objc private func copyValue(_ sender: NSMenuItem) {

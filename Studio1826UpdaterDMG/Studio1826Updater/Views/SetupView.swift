@@ -13,11 +13,15 @@ struct SetupView: View {
     @State private var showQuickReplies = false
     @State private var canPaste = QuickReplySettings.canPaste
     @State private var autoPaste = QuickReplySettings.autoPaste
+    @State private var launchState = LaunchAtLogin.state
+    @State private var launchError: String?
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 Hint(text: "Выберите браузер, в котором работаете с Bitrix24, и пройдите шаги по порядку. Что можно проверить — приложение проверит само.")
+
+                launchAtLoginCard
 
                 BrowserCards()
 
@@ -58,6 +62,45 @@ struct SetupView: View {
         browsers.refresh()
         updater.refreshLocalVersions()
         canPaste = QuickReplySettings.canPaste
+    }
+
+    // MARK: Автозапуск
+
+    private var launchAtLoginCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle(isOn: Binding(
+                    get: { launchState == .on || launchState == .needsApproval },
+                    set: { on in
+                        launchError = nil
+                        do { try LaunchAtLogin.set(on) } catch { launchError = error.localizedDescription }
+                        launchState = LaunchAtLogin.state
+                    })) {
+                    Label("Запускать при входе в систему", systemImage: "power.circle")
+                        .font(.headline)
+                }
+                .toggleStyle(.switch)
+                .disabled(launchState == .notInstalled)
+
+                switch launchState {
+                case .notInstalled:
+                    Hint(text: "Приложение запущено из образа. Перетащите **Studio 1826** в «Программы», откройте оттуда — и автозапуск включится сам.",
+                         systemImage: "exclamationmark.triangle")
+                case .needsApproval:
+                    HStack {
+                        Hint(text: "macOS ждёт подтверждения: включите Studio 1826 в «Объектах входа».", systemImage: "exclamationmark.triangle")
+                        Spacer()
+                        Button("Открыть настройки") { LaunchAtLogin.openSystemSettings() }.controlSize(.small)
+                    }
+                default:
+                    Hint(text: "Значок в строке меню появляется сам после включения компьютера — скрипты и приложение обновляются без вашего участия.")
+                }
+                if let launchError {
+                    Text(launchError).font(.caption).foregroundColor(.red)
+                }
+            }
+        }
+        .onAppear { launchState = LaunchAtLogin.state }
     }
 
     // MARK: Быстрые ответы
