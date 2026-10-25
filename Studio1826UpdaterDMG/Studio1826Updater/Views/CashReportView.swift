@@ -63,11 +63,6 @@ struct CashReportView: View {
                         .foregroundColor(.orange)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-
-                Text("Отчёт копируется блоком в ``` — в Telegram после отправки он будет моноширинным.")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(14)
         }
@@ -124,7 +119,7 @@ struct CashReportView: View {
 
     private func copy() {
         guard model.problems.isEmpty else { return }
-        Clipboard.copy(model.report.telegramText())
+        Clipboard.copy(model.report.text())
         toaster.show("Отчёт скопирован для Telegram")
     }
 }

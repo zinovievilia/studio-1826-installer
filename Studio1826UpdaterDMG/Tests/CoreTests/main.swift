@@ -70,7 +70,6 @@ let expected = """
 Касса: 102.730
 """
 expect(report.text(calendar: cal) == expected, "текст отчёта как в примере")
-expect(report.telegramText(calendar: cal) == "```\n" + expected + "\n```", "отчёт для Telegram — моноширинный блок")
 expect(CashReport(date: date, branch: .paveletskaya, values: [:]).text(calendar: cal).contains("Касса: 0"), "пустые поля — 0")
 expect(CashReport.dateString(cal.date(from: DateComponents(year: 2026, month: 3, day: 5))!, calendar: cal) == "05.03", "дата с нулями")
 
