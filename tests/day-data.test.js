@@ -232,9 +232,9 @@ test('цвета стадий по умолчанию (5.5.2) и перенос 
     assert.equal(migrated.colors.prepaid, '#123456');
 });
 
-test('sanitizeFeatures 5.6.0: новый пользователь — всё выключено; сохранённое не меняется; давнему недостающее включено', () => {
+test('sanitizeFeatures 5.6.3: новый пользователь — набор Ильи (всё, кроме полос); сохранённое не меняется; давнему недостающее включено', () => {
     const fresh = m.sanitizeFeatures({});
-    m.FEATURE_KEYS.forEach(key => assert.equal(fresh[key], false));
+    m.FEATURE_KEYS.forEach(key => assert.equal(fresh[key], key !== 'stripes', key));
 
     const saved = m.sanitizeFeatures({ borders: true, arrows: false });
     assert.equal(saved.borders, true);
@@ -244,12 +244,19 @@ test('sanitizeFeatures 5.6.0: новый пользователь — всё в�
     assert.equal(legacy.arrows, false);
     assert.equal(legacy.borders, true);
 
-    assert.deepEqual([fresh.colors.kEq, fresh.colors.kFrame, fresh.colors.kBg], ['#dc2626', '#dc2626', '#dc2626']);
+    assert.deepEqual(fresh.colors, {
+        multi: '#fff893', done: '#cce8b5', prepaid: '#94e3fe', checked: '#a3d49b',
+        kEq: '#e32400', kFrame: '#e32400', kBg: '#dc2626', handoff: '#800020', last: '#2563eb',
+        arrow: '#e11d48', moveArrow: '#2563eb', tile: '#7c3aed'
+    });
+
+    /* сохранённый красный 5.6.1 у прежнего пользователя остаётся */
+    assert.equal(m.sanitizeFeatures({ colors: { kEq: '#dc2626' } }, true).colors.kEq, '#dc2626');
 });
 
 test('5.6.1: прежние цвета обводки по умолчанию становятся красными, свой цвет остаётся; цвет плашек', () => {
     const old = m.sanitizeFeatures({ colors: { kEq: '#2563eb', kFrame: '#f59e0b', kBg: '#123456' } }, true);
-    assert.deepEqual([old.colors.kEq, old.colors.kFrame, old.colors.kBg], ['#dc2626', '#dc2626', '#123456']);
+    assert.deepEqual([old.colors.kEq, old.colors.kFrame, old.colors.kBg], ['#e32400', '#e32400', '#123456']);
     assert.equal(m.sanitizeFeatures({}).colors.tile, '#7c3aed');
     assert.equal(m.sanitizeFeatures({ colors: { tile: '#0EA5E9' } }).colors.tile, '#0ea5e9');
 });

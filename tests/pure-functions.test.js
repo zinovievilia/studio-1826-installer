@@ -311,11 +311,11 @@ test('sanitizeFeatures: заполняет дефолты при пустом/б
 
 test('sanitizeFeatures: отбрасывает некорректные значения цветов и флагов', () => {
     const r = m.sanitizeFeatures({
-        compactCards: 'yes', // не boolean — должен стать false (5.6.0: по умолчанию всё выключено)
+        stripes: 'yes', // не boolean — берётся значение по умолчанию (5.6.3: полосы выключены)
         colors: { kEq: 'не-цвет', handoff: '#ZZZZZZ', last: '#123abc' }
     });
 
-    assert.equal(r.compactCards, false);
+    assert.equal(r.stripes, false);
     assert.notEqual(r.colors.kEq, 'не-цвет');
     assert.notEqual(r.colors.handoff, '#zzzzzz');
     assert.equal(r.colors.last, '#123abc');
@@ -428,9 +428,9 @@ test('exportSettings/parseSettingsImport: круговой обмен и отк�
     assert.strictEqual(parseSettingsImport('{"app":"studio1826","schema":99,"features":{}}'), null);
     assert.strictEqual(parseSettingsImport('x'.repeat(20001)), null);
 
-    const dirty = parseSettingsImport('{"app":"studio1826","schema":1,"features":{"arrows":"yes","colors":{"kEq":"red"}}}');
-    assert.strictEqual(dirty.arrows, false);
-    assert.strictEqual(dirty.colors.kEq, '#dc2626');
+    const dirty = parseSettingsImport('{"app":"studio1826","schema":1,"features":{"stripes":"yes","colors":{"kEq":"red"}}}');
+    assert.strictEqual(dirty.stripes, false);
+    assert.strictEqual(dirty.colors.kEq, '#e32400');
 });
 
 
