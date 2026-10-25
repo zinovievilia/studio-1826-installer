@@ -393,3 +393,87 @@ test('вставка: «оглы/кызы» не мешают, одиночна�
   assert.deepStrictEqual(parseNames(prefillText('Пропуск для Ивановой Анны и для Петрова', '', dropped)).names, ['Ивановой Анны']);
   assert.deepStrictEqual(dropped, ['Петрова']);
 });
+
+const deals = require('../studio1826-passes.user.js');
+
+test('брони: зал из состава брони', () => {
+  assert.strictEqual(deals.hallFromProducts('Доплата за час, Зал 70 (П)(2300) - 1шт, Уборка(500) - 1шт'), 'Зал 70 (П)');
+  assert.strictEqual(deals.hallFromProducts('Гримерное место 2 (П)(800) - 1шт'), 'Гримерное место 2 (П)');
+  assert.strictEqual(deals.hallFromProducts('Lark M2(600) - 1шт'), '');
+  assert.strictEqual(deals.hallFromProducts(''), '');
+  assert.strictEqual(deals.hallFromProducts(null), '');
+});
+
+test('брони: дата и время берутся как в строке, без сдвига пояса', () => {
+  assert.deepStrictEqual(deals.bxDateTime('2026-10-25T10:00:00+03:00'), { iso: '2026-10-25', date: '25.10', year: '2026', time: '10:00' });
+  assert.deepStrictEqual(deals.bxDateTime('2026-10-25T23:30:00+00:00').time, '23:30');
+  assert.strictEqual(deals.bxDateTime(''), null);
+  assert.strictEqual(deals.bxDateTime(undefined), null);
+});
+
+test('брони: сводка по сделке и строка рядом со ссылкой', () => {
+  const s = deals.dealSummary({
+    ID: '134219', TITLE: 'Аренда №134219', STAGE_ID: 'UC_2LZNKA', OPPORTUNITY: '3700.00', UF_CRM_CASH: '1500|RUB',
+    UF_CRM_DATETIME_START: '2026-10-25T10:00:00+03:00', UF_CRM_DATETIME_END: '2026-10-25T12:00:00+03:00',
+    UF_CRM_PRODUCTCONTROL: 'Зал 70 (П)(2300) - 1шт', UF_CRM_1726582733243: '111',
+  }, '2026-10-25');
+  assert.strictEqual(s.when, 'today');
+  assert.strictEqual(s.time, '10:00–12:00');
+  assert.strictEqual(s.sum, '3 700 ₽');
+  assert.strictEqual(s.due, '1 500 ₽');
+  assert.strictEqual(s.branch, 'Павелецкая');
+  assert.strictEqual(deals.dealLine(s), '25.10 10:00–12:00 · Зал 70 (П) · 3 700 ₽ · Предоплачен');
+});
+
+test('брони: отмена, другой год, зал по справочнику, пустые поля', () => {
+  const s = deals.dealSummary({
+    ID: 7, STAGE_ID: 'C2:APOLOGY', OPPORTUNITY: '0', UF_CRM_CASH: '0|RUB', UF_CRM_ORDER_PLACE_LIST: '55',
+    UF_CRM_DATETIME_START: '2025-12-31T22:00:00+03:00', UF_CRM_DATETIME_END: '2026-01-01T01:00:00+03:00',
+  }, '2026-10-25', { 55: 'Циклорама (С)' });
+  assert.strictEqual(s.cancelled, true);
+  assert.strictEqual(s.when, 'past');
+  assert.strictEqual(s.date, '31.12.2025');
+  assert.strictEqual(s.time, '22:00');
+  assert.strictEqual(s.hall, 'Циклорама (С)');
+  assert.strictEqual(s.sum, '');
+  assert.strictEqual(s.stage, 'Отмена брони (с возвратом)');
+  const empty = deals.dealSummary({ ID: 9 }, '2026-10-25');
+  assert.strictEqual(empty.when, 'unknown');
+  assert.strictEqual(empty.title, 'Сделка №9');
+  assert.strictEqual(deals.dealLine(empty), '');
+});
+
+test('брони: предстоящие по возрастанию сверху, прошедшие свежие первыми', () => {
+  const d = (id, iso, time, when) => ({ id, iso, time, when });
+  const out = deals.sortDeals([
+    d('a', '2026-10-20', '10:00', 'past'), d('b', '2026-10-30', '12:00', 'future'),
+    d('c', '2026-10-25', '18:00', 'today'), d('e', '2026-10-22', '09:00', 'past'), d('f', '', '', 'unknown'),
+  ]).map((x) => x.id);
+  assert.deepStrictEqual(out, ['c', 'b', 'e', 'a', 'f']);
+});
+
+test('пропуск готов: приветствие по времени суток', () => {
+  const { donePool } = require('../studio1826-passes.user.js');
+  const list = ['Здравствуйте! А.', 'Добрый день! Б.', 'Добрый вечер! В.', 'Здравствуйте! Г, хорошего дня!', 'Здравствуйте! Д, хорошего вечера!'];
+  assert.deepStrictEqual(donePool(list, 9), ['Здравствуйте! А.', 'Здравствуйте! Г, хорошего дня!']);
+  assert.deepStrictEqual(donePool(list, 14), ['Здравствуйте! А.', 'Добрый день! Б.', 'Здравствуйте! Г, хорошего дня!']);
+  assert.deepStrictEqual(donePool(list, 18), ['Здравствуйте! А.', 'Добрый вечер! В.', 'Здравствуйте! Д, хорошего вечера!']);
+  assert.deepStrictEqual(donePool(list, 2), donePool(list, 21));
+  assert.deepStrictEqual(donePool(['Добрый вечер! В.'], 10), ['Добрый вечер! В.']);
+});
+
+test('пропуск готов: в списках нет «ждём вас», у одного — «пропуск», у нескольких — «пропуска»', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'studio1826-passes.user.js'), 'utf8');
+  const arr = (name) => src.split(`const ${name} = [`)[1].split('];')[0].split('\n').map((l) => l.trim()).filter((l) => l.startsWith("'"));
+  const one = arr('DONE_ONE');
+  const many = arr('DONE_MANY');
+  assert.strictEqual(one.length, 90);
+  assert.strictEqual(many.length, 36);
+  for (const m of [...one, ...many]) assert.ok(!/жд[её]м вас|ждать вас/i.test(m), m);
+  for (const m of one) assert.ok(!/пропуска/i.test(m), m);
+  for (const m of many) assert.ok(/пропуска/i.test(m), m);
+  for (const h of [6, 13, 20]) {
+    const { donePool } = require('../studio1826-passes.user.js');
+    assert.ok(donePool(one, h).length >= 20 && donePool(many, h).length >= 8, `час ${h}`);
+  }
+});
