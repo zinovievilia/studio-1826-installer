@@ -121,11 +121,14 @@
    * («Здравствуйте! Вот список:», время, телефоны отбрасываются). Нет ни одной такой строки — ''.
    */
   const NAME_LIKE = /^[A-Za-zА-Яа-яЁё][A-Za-zА-Яа-яЁё.'’\-]*(?: [A-Za-zА-Яа-яЁё][A-Za-zА-Яа-яЁё.'’\-]*){0,3}$/;
+  const COMPANY = /(^|\s)(ИП|ООО|ОАО|ЗАО|ПАО|АО|НКО|АНО)(\s|$)/;
+  const STATUS_WORD = /^(ушел|ушёл|новый|на месте|архив|разрешить выезд|машина не заезжала|не заезжала|стоит)$/i; // колонки «Статус» и «Сегодня»
   function prefillText(selected, clipboard) {
     for (const raw of [selected, clipboard]) {
       const text = String(raw || '').trim();
       if (!text || text.length > 5000) continue;
-      const lines = text.split(/\n+/).filter((line) => {
+      // Выделение из таблицы — ячейки через табуляцию: каждая ячейка отдельно. Названия аккаунтов (ИП, ООО…) не люди.
+      const lines = text.split(/[\n\t]+/).filter((line) => !COMPANY.test(line.trim()) && !STATUS_WORD.test(line.trim())).filter((line) => {
         const { names, invalid } = parseNames(line);
         return names.length > 0 && !invalid.length && names.every((label) => NAME_LIKE.test(splitLabel(label).name));
       });
@@ -447,11 +450,17 @@
     ui.prefill = async (selected) => {
       if (ui.running) return;
       let clip = '';
+      let clipNote = '';
       if (!prefillText(selected, '') && !ui.area.value.trim()) {
-        try { clip = await navigator.clipboard.readText(); } catch (e) { /* нет доступа к буферу — просто пустое поле */ }
+        try {
+          clip = await navigator.clipboard.readText();
+          if (!prefillText('', clip)) clipNote = 'В буфере нет списка ФИО — вставьте вручную';
+        } catch (e) {
+          clipNote = 'Буфер: нет доступа (разрешите сайту буфер обмена) — вставьте ⌘V / Ctrl+V';
+        }
       }
       const text = prefillText(selected, clip);
-      if (!text) return;
+      if (!text) { if (clipNote) ui.summary.textContent = clipNote; return; }
       ui.area.value = text;
       ui.refresh();
       ui.summary.textContent = `${text === prefillText(selected, '') ? 'Взято из выделения' : 'Вставлено из буфера'} · ${ui.summary.textContent}`;

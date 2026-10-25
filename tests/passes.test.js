@@ -267,3 +267,10 @@ test('вставка из выделения/буфера: только стро
   assert.strictEqual(prefillText('Е334ав34', ''), 'Е334ав34');
   assert.strictEqual(prefillText('', ''), '');
 });
+
+test('вставка: выделение строк таблицы Авангарда (ячейки через табуляцию)', () => {
+  const { prefillText } = require('../studio1826-passes.user.js');
+  const sel = 'Погоря Виктория Сергеевна\t—\t02.09.2026 - 31.12.2026\t\tушел\nГуревич Евгений Михайлович ИП\tПолина Андронова';
+  assert.strictEqual(prefillText(sel, ''), 'Погоря Виктория Сергеевна\nПолина Андронова');
+  assert.strictEqual(prefillText('ООО Ромашка\tИванов Иван\tА439ТУ 797', ''), 'Иванов Иван\nА439ТУ 797');
+});
