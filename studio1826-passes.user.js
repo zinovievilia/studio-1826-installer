@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v1.3.0 Studio 1826 — Пропуска списком (Авангард)
+// @name         v1.3.1 Studio 1826 — Пропуска списком (Авангард)
 // @namespace    studio1826
-// @version      1.3.0
+// @version      1.3.1
 // @description  Кнопка «Оформить пропуск» в окне ввода открытых линий Bitrix24: список ФИО + дата → пропуска в Авангарде оформляются по очереди
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
@@ -26,7 +26,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.3.0';
+  const VERSION = '1.3.1';
   const DEFAULT_GUESTS_URL = 'https://my.avanguard.pro/account/354/guests';
 
   // ── Чистые функции (тесты: tests/passes.test.js) ───────────────────────────
@@ -98,18 +98,6 @@
     return { names, duplicates, invalid };
   }
 
-  /** В строке таблицы есть этот номер («М593УХ 790»)? */
-  function rowHasPlate(rowText, plate) {
-    if (!plate) return true;
-    return new RegExp(`${plate.number}\\s*${plate.region}(?!\\d)`).test(String(rowText || '').toUpperCase());
-  }
-
-  /** «Показано 1-50 из 140» → видны не все строки? */
-  function tableTruncated(pageText) {
-    const m = /Показано\s+(\d+)\s*[-–]\s*(\d+)\s+из\s+(\d+)/i.exec(String(pageText || ''));
-    return Boolean(m && Number(m[2]) < Number(m[3]));
-  }
-
   function normalize(s) {
     return String(s).toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
   }
@@ -136,56 +124,8 @@
     return from === to ? humanDate(from) : `${humanDate(from)} – ${humanDate(to)}`;
   }
 
-  /**
-   * Строка таблицы посетителей — уже есть пропуск на этого человека, который покрывает [fromIso, toIso]?
-   * Период в таблице «24.10.2026 - 31.10.2026»: пропуск на 29-е уже есть, даже если «29.10.2026» в строке нет.
-   */
-  function rowMatches(rowText, name, fromIso, toIso = fromIso) {
-    if (!normalize(rowText).includes(normalize(name))) return false;
-    return rowCoversPeriod(rowText, fromIso, toIso);
-  }
-
-  /** Даты строки покрывают [fromIso, toIso] (без проверки имени). */
-  function rowCoversPeriod(rowText, fromIso, toIso = fromIso) {
-    const row = normalize(rowText);
-    const want = (iso) => (/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '') || []).slice(1).join('');
-    const wantFrom = want(fromIso);
-    const wantTo = want(toIso);
-    if (!wantFrom || !wantTo) return false;
-    const period = /(\d{2})\.(\d{2})\.(\d{4})\s*[-–—]\s*(\d{2})\.(\d{2})\.(\d{4})/.exec(row);
-    if (period) {
-      const rowFrom = period[3] + period[2] + period[1];
-      const rowTo = period[6] + period[5] + period[4];
-      return rowFrom <= wantFrom && rowTo >= wantTo;
-    }
-    // Одна дата в строке (на всякий случай: dd.mm.yyyy, dd.mm.yy, yyyy-mm-dd)
-    const [y, mo, d] = [wantFrom.slice(0, 4), wantFrom.slice(4, 6), wantFrom.slice(6, 8)];
-    return wantFrom === wantTo && [`${d}.${mo}.${y}`, `${d}.${mo}.${y.slice(2)}`, `${y}-${mo}-${d}`].some((v) => row.includes(v));
-  }
-
-  /**
-   * Таблица уже показывает список за нужные даты, а не прежний (за сегодня)? Все строки с датами покрывают период;
-   * пустая таблица считается свежей, только если сайт пишет, что записей нет.
-   */
-  function tableFresh(rowTexts, fromIso, toIso = fromIso, emptyShown = false) {
-    const dated = rowTexts.filter((t) => /\d{2}\.\d{2}\.\d{2,4}|\d{4}-\d{2}-\d{2}/.test(t));
-    if (dated.length === 0) return emptyShown;
-    return dated.every((t) => rowCoversPeriod(t, fromIso, toIso));
-  }
-
-  /** Запрос списка посетителей именно за этот период (а не стартовый за сегодня). */
-  function guestsRequestMatches(url, from, to) {
-    if (!/\/api\/guests(?:[/?]|$)/.test(url || '')) return false;
-    let decoded = url;
-    try { decoded = decodeURIComponent(url); } catch (e) { /* оставляем как есть */ }
-    const start = /[?&]dateStart=(\d{4}-\d{2}-\d{2})/.exec(decoded);
-    const finish = /[?&]dateFinish=(\d{4}-\d{2}-\d{2})/.exec(decoded);
-    return Boolean(start && finish && start[1] === from && finish[1] === to);
-  }
-
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { parseNames, isoDate, addDays, humanDate, periodText, rowMatches, rowCoversPeriod, tableFresh, guestsRequestMatches,
-      parsePlate, passLabel, splitLabel, rowHasPlate, tableTruncated, VERSION };
+    module.exports = { parseNames, isoDate, addDays, humanDate, periodText, parsePlate, passLabel, splitLabel, VERSION };
     return;
   }
 
@@ -456,86 +396,6 @@
       .map(textOf).filter(Boolean)[0] || null;
   }
 
-  /** Фильтры списка над таблицей (вне окна «Новый посетитель») */
-  function listControls() {
-    const dates = [...document.querySelectorAll('input[type="date"]')].filter((i) => visible(i) && !i.closest('[role="dialog"], .s1826p'));
-    const search = [...document.querySelectorAll('input')].find((i) => visible(i) && /Поиск по посетителям/i.test(i.placeholder || ''));
-    return { from: dates[0] || null, to: dates[1] || null, search: search || null };
-  }
-
-  /** Завершённые запросы списка посетителей. Performance API общий со страницей: перехват fetch/XHR
-   *  из Tampermonkey запросов сайта не видит. Запись появляется, когда ответ уже пришёл. */
-  function guestsRequests() {
-    try {
-      return performance.getEntriesByType('resource').filter((e) => /\/api\/guests(?:[/?]|$)/.test(e.name));
-    } catch (e) { return []; }
-  }
-
-  /**
-   * Уже есть пропуск на этого человека на весь период? Ставим фильтр на даты и поиск по имени и смотрим таблицу.
-   * true / false — ответ; null — список не обновился, и сказать нельзя (тогда ничего не создаём).
-   */
-  async function alreadyListed(label, from, to) {
-    const { name, plate } = splitLabel(label);
-    const { from: f, to: t } = listControls();
-    const datesChange = Boolean(f && t && (f.value !== from || t.value !== to));
-    // Стартовая загрузка (список за сегодня, до 6 с) должна закончиться до нашего фильтра
-    if (datesChange) await waitFor(() => guestsRequests().length > 0, 10000, 150);
-    const setAt = performance.now();
-    if (f && t) { setValue(f, from); setValue(t, to); }
-    // Поиск по посетителям от setValue таблицу не фильтрует — смотрим весь список за дату
-    const matches = () => [...document.querySelectorAll('tr, [role="row"]')]
-      .some((row) => rowMatches(textOf(row), name, from, to) && rowHasPlate(textOf(row), plate));
-    if (!f) return matches();
-
-    if (datesChange) {
-      // Ждём ответ сервера именно на наш фильтр; без него — не гадаем
-      const answer = await waitFor(() => guestsRequests()
-        .find((e) => e.startTime >= setAt - 50 && guestsRequestMatches(e.name, from, to)), 15000, 150);
-      if (!answer) return null;
-      // В скрытой вкладке сайт перерисовывает таблицу с опозданием: ждём, пока в ней будут строки за нужные даты
-      const rows = () => [...document.querySelectorAll('tr, [role="row"]')].map(textOf);
-      const emptyShown = () => /нет (данных|записей|посетителей)|ничего не найдено|список пуст/i.test(textOf(document.body));
-      const fresh = await waitFor(() => tableFresh(rows(), from, to, emptyShown()), 10000, 250);
-      if (!fresh) return null;
-    }
-    // Таблица постраничная (50 строк): нужный человек может быть дальше — просим 500 на странице
-    if (tableTruncated(textOf(document.body))) {
-      showAllRows();
-      const all = await waitFor(() => !tableTruncated(textOf(document.body)), 15000, 250);
-      if (!all) return null;
-      await sleep(400);
-    }
-    if (datesChange) return matches() || (await sleep(1000), matches());
-
-    // Даты уже стояли — сервер не спрашиваем, поиск по имени фильтрует таблицу на странице: ждём, пока она успокоится
-    const table = () => [...document.querySelectorAll('tr, [role="row"]')].map(textOf).join('|');
-    const started = Date.now();
-    let last = table();
-    let stableSince = started;
-    while (!matches() && Date.now() - started < 8000) {
-      await sleep(150);
-      const now = table();
-      if (now !== last) { last = now; stableSince = Date.now(); }
-      else if (Date.now() - started > 1000 && Date.now() - stableSince >= 1500) break;
-    }
-    return matches();
-  }
-
-  /** Переключатель «На странице: 50 / 100 / 500» — ставим самое большое. */
-  function showAllRows() {
-    const select = [...document.querySelectorAll('select')].find((sel) => [...sel.options].some((o) => /^\s*500\s*$/.test(o.textContent) || o.value === '500'));
-    if (select) {
-      const option = [...select.options].find((o) => /^\s*500\s*$/.test(o.textContent) || o.value === '500');
-      setValue(select, option.value);
-      return true;
-    }
-    const button = [...document.querySelectorAll('button, [role="option"], li, a, span')]
-      .find((el) => visible(el) && textOf(el) === '500' && !el.closest('.s1826p'));
-    if (button) { button.click(); return true; }
-    return false;
-  }
-
   /** Один пропуск. null — оформлен, иначе текст ошибки. */
   async function createPass(label, from, to) {
     const { name, plate } = splitLabel(label);
@@ -594,14 +454,7 @@
     const results = {};
     for (const name of names) {
       if (shouldStop()) break;
-      const listed = await alreadyListed(name, from, to);
-      if (listed === null) {
-        // Не знаем, есть ли пропуск: создавать вслепую нельзя — можно получить дубль
-        results[name] = 'err:список посетителей не обновился, проверить дубль не удалось — ничего не создано';
-        await report(results);
-        break;
-      }
-      if (listed) { results[name] = 'skip'; await report(results); continue; }
+      // Дубли не проверяем: пропуск оформляется заново, даже если такой уже есть — на всякий случай
       results[name] = 'work';
       await report(results);
       const error = await createPass(name, from, to);
@@ -621,7 +474,6 @@
   const onGuestsPage = () => /\/account\/\d+\/guests/.test(location.pathname);
 
   async function avanguardMain() {
-    try { performance.setResourceTimingBufferSize(2000); } catch (e) { /* по умолчанию 250 — хватает на пару десятков имён */ }
     // Запоминаем адрес страницы посетителей — Bitrix откроет именно его
     const rememberUrl = () => {
       if (onGuestsPage()) store.set('guestsUrl', location.origin + location.pathname);
