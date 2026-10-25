@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v1.2.9 Studio 1826 — Пропуска списком (Авангард)
+// @name         v1.3.0 Studio 1826 — Пропуска списком (Авангард)
 // @namespace    studio1826
-// @version      1.2.9
+// @version      1.3.0
 // @description  Кнопка «Оформить пропуск» в окне ввода открытых линий Bitrix24: список ФИО + дата → пропуска в Авангарде оформляются по очереди
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
@@ -26,29 +26,88 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.2.9';
+  const VERSION = '1.3.0';
   const DEFAULT_GUESTS_URL = 'https://my.avanguard.pro/account/354/guests';
 
   // ── Чистые функции (тесты: tests/passes.test.js) ───────────────────────────
 
-  /** Список ФИО из вставленного текста: по строке (или через «;» и «,»), без нумерации, пробелов и повторов. */
+  // Госномер: буква, 3 цифры, 2 буквы, регион 2–3 цифры. Латиницу клиентов (A123BC) переводим в кириллицу.
+  const PLATE_LETTERS = 'АВЕКМНОРСТУХ';
+  const LATIN_TO_CYR = { A: 'А', B: 'В', E: 'Е', K: 'К', M: 'М', H: 'Н', O: 'О', P: 'Р', C: 'С', T: 'Т', Y: 'У', X: 'Х' };
+  const PLATE_IN_TEXT = /(^|[^0-9A-Za-zА-Яа-яЁё])([АВЕКМНОРСТУХABEKMHOPCTYX])[\s-]*(\d{3})[\s-]*([АВЕКМНОРСТУХABEKMHOPCTYX]{2})[\s-]*(\d{2,3})(?:\s*RUS)?(?=$|[^0-9A-Za-zА-Яа-яЁё])/i;
+
+  /** «е334ав34», «A 123 BC 777 RUS» → { number: 'Е334АВ', region: '34' }; не номер — null. */
+  function parsePlate(text) {
+    const m = PLATE_IN_TEXT.exec(' ' + String(text || '') + ' ');
+    if (!m) return null;
+    const cyr = (s) => s.toUpperCase().split('').map((c) => LATIN_TO_CYR[c] || c).join('');
+    return { number: cyr(m[2]) + m[3] + cyr(m[4]), region: m[5] };
+  }
+
+  /** Подпись строки списка: «Иванов Иван · Е334АВ 34». По ней же скрипт в Авангарде восстанавливает ФИО и номер. */
+  function passLabel(name, plate) {
+    return plate ? `${name} · ${plate.number} ${plate.region}` : name;
+  }
+
+  /** «Иванов Иван · Е334АВ 34» → { name, plate } */
+  function splitLabel(label) {
+    const m = new RegExp(`^(.*?)\\s*·\\s*([${PLATE_LETTERS}]\\d{3}[${PLATE_LETTERS}]{2})\\s+(\\d{2,3})$`).exec(String(label || '').trim());
+    return m ? { name: m[1], plate: { number: m[2], region: m[3] } } : { name: String(label || '').trim(), plate: null };
+  }
+
+  /**
+   * Список пропусков из вставленного текста: по строке (или через «;» и «,»), без нумерации, пробелов и повторов.
+   * Номер машины — в строке с ФИО или отдельной строкой: отдельный номер достаётся первому ФИО без машины,
+   * а если такого нет — пропуск на «Машина». Строки с цифрами, но без понятного номера — в `invalid`.
+   */
   function parseNames(text) {
+    const entries = [];
+    const loosePlates = [];
+    const invalid = [];
+    for (const raw of String(text || '').split(/[\n;,]+/)) {
+      let piece = raw
+        .replace(/^\s*(?:\d+\s*[.)]|[-–—•*])\s*/, '') // «1.», «2)», «-», «•»
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (!piece) continue;
+      const known = splitLabel(piece);
+      let plate = known.plate;
+      if (plate) piece = known.name;
+      else {
+        plate = parsePlate(piece);
+        if (plate) piece = (' ' + piece + ' ').replace(PLATE_IN_TEXT, '$1').replace(/[\s·:—–-]+$|^[\s·:—–-]+/g, '').replace(/\s+/g, ' ').trim();
+      }
+      if (/\d/.test(piece)) { invalid.push(raw.trim()); continue; }
+      if (!piece) { if (plate) loosePlates.push(plate); continue; }
+      entries.push({ name: piece, plate });
+    }
+    for (const plate of loosePlates) {
+      const free = entries.find((e) => !e.plate);
+      if (free) free.plate = plate; else entries.push({ name: 'Машина', plate });
+    }
     const names = [];
     const duplicates = [];
     const seen = new Set();
-    for (const raw of String(text || '').split(/[\n;,]+/)) {
-      const name = raw
-        .replace(/^\s*(?:\d+\s*[.)]|[-–—•*])\s*/, '') // «1.», «2)», «-», «•»
-        .replace(/[\t ]+/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-      if (!name) continue;
-      const key = normalize(name);
-      if (seen.has(key)) { duplicates.push(name); continue; }
+    for (const e of entries) {
+      const label = passLabel(e.name, e.plate);
+      const key = normalize(label);
+      if (seen.has(key)) { duplicates.push(label); continue; }
       seen.add(key);
-      names.push(name);
+      names.push(label);
     }
-    return { names, duplicates };
+    return { names, duplicates, invalid };
+  }
+
+  /** В строке таблицы есть этот номер («М593УХ 790»)? */
+  function rowHasPlate(rowText, plate) {
+    if (!plate) return true;
+    return new RegExp(`${plate.number}\\s*${plate.region}(?!\\d)`).test(String(rowText || '').toUpperCase());
+  }
+
+  /** «Показано 1-50 из 140» → видны не все строки? */
+  function tableTruncated(pageText) {
+    const m = /Показано\s+(\d+)\s*[-–]\s*(\d+)\s+из\s+(\d+)/i.exec(String(pageText || ''));
+    return Boolean(m && Number(m[2]) < Number(m[3]));
   }
 
   function normalize(s) {
@@ -125,7 +184,8 @@
   }
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { parseNames, isoDate, addDays, humanDate, periodText, rowMatches, rowCoversPeriod, tableFresh, guestsRequestMatches, VERSION };
+    module.exports = { parseNames, isoDate, addDays, humanDate, periodText, rowMatches, rowCoversPeriod, tableFresh, guestsRequestMatches,
+      parsePlate, passLabel, splitLabel, rowHasPlate, tableTruncated, VERSION };
     return;
   }
 
@@ -227,7 +287,7 @@
     Object.assign(panel.style, position.panel);
     panel.innerHTML = `
       <h3><span>Оформить пропуск · v${VERSION}</span><button class="close" title="Свернуть">✕</button></h3>
-      <div class="hint">ФИО — по одному на строку. Нумерация, запятые и пустые строки уберутся сами.</div>
+      <div class="hint">ФИО — по одному на строку. Номер машины (Е334ав34) — в той же строке или отдельной: без ФИО пропуск будет на «Машина».</div>
       <textarea placeholder="Воронцова Лилия Эдуардовна&#10;Хван Валерия Алексеевна"></textarea>
       ${single ? `
       <div class="row days">
@@ -273,13 +333,13 @@
 
     ui.refresh = () => {
       if (ui.running) return;
-      const { names, duplicates } = parseNames(ui.area.value);
+      const { names, duplicates, invalid } = parseNames(ui.area.value);
       if (ui.to.value < ui.from.value) ui.to.value = ui.from.value;
-      ui.summary.textContent = names.length
+      ui.summary.textContent = (names.length
         ? `${names.length} чел. на ${periodText(ui.from.value, ui.to.value)}` +
           (duplicates.length ? ` · повторы убраны: ${duplicates.length}` : '')
-        : '';
-      ui.start.disabled = names.length === 0 || !ui.from.value;
+        : '') + (invalid.length ? ` · не понял номер: ${invalid.join(', ')}` : '');
+      ui.start.disabled = names.length === 0 || invalid.length > 0 || !ui.from.value;
       markDay();
       ui.start.textContent = names.length ? `Оформить: ${names.length} чел.` : 'Оформить';
     };
@@ -415,16 +475,18 @@
    * Уже есть пропуск на этого человека на весь период? Ставим фильтр на даты и поиск по имени и смотрим таблицу.
    * true / false — ответ; null — список не обновился, и сказать нельзя (тогда ничего не создаём).
    */
-  async function alreadyListed(name, from, to) {
-    const { from: f, to: t, search } = listControls();
+  async function alreadyListed(label, from, to) {
+    const { name, plate } = splitLabel(label);
+    const { from: f, to: t } = listControls();
     const datesChange = Boolean(f && t && (f.value !== from || t.value !== to));
     // Стартовая загрузка (список за сегодня, до 6 с) должна закончиться до нашего фильтра
     if (datesChange) await waitFor(() => guestsRequests().length > 0, 10000, 150);
     const setAt = performance.now();
     if (f && t) { setValue(f, from); setValue(t, to); }
-    if (search) setValue(search, name);
-    const matches = () => [...document.querySelectorAll('tr, [role="row"]')].some((row) => rowMatches(textOf(row), name, from, to));
-    if (!f && !search) return matches();
+    // Поиск по посетителям от setValue таблицу не фильтрует — смотрим весь список за дату
+    const matches = () => [...document.querySelectorAll('tr, [role="row"]')]
+      .some((row) => rowMatches(textOf(row), name, from, to) && rowHasPlate(textOf(row), plate));
+    if (!f) return matches();
 
     if (datesChange) {
       // Ждём ответ сервера именно на наш фильтр; без него — не гадаем
@@ -436,9 +498,15 @@
       const emptyShown = () => /нет (данных|записей|посетителей)|ничего не найдено|список пуст/i.test(textOf(document.body));
       const fresh = await waitFor(() => tableFresh(rows(), from, to, emptyShown()), 10000, 250);
       if (!fresh) return null;
-      await sleep(300); // поиск по имени фильтрует таблицу на странице
-      return matches() || (await sleep(1000), matches());
     }
+    // Таблица постраничная (50 строк): нужный человек может быть дальше — просим 500 на странице
+    if (tableTruncated(textOf(document.body))) {
+      showAllRows();
+      const all = await waitFor(() => !tableTruncated(textOf(document.body)), 15000, 250);
+      if (!all) return null;
+      await sleep(400);
+    }
+    if (datesChange) return matches() || (await sleep(1000), matches());
 
     // Даты уже стояли — сервер не спрашиваем, поиск по имени фильтрует таблицу на странице: ждём, пока она успокоится
     const table = () => [...document.querySelectorAll('tr, [role="row"]')].map(textOf).join('|');
@@ -454,8 +522,23 @@
     return matches();
   }
 
+  /** Переключатель «На странице: 50 / 100 / 500» — ставим самое большое. */
+  function showAllRows() {
+    const select = [...document.querySelectorAll('select')].find((sel) => [...sel.options].some((o) => /^\s*500\s*$/.test(o.textContent) || o.value === '500'));
+    if (select) {
+      const option = [...select.options].find((o) => /^\s*500\s*$/.test(o.textContent) || o.value === '500');
+      setValue(select, option.value);
+      return true;
+    }
+    const button = [...document.querySelectorAll('button, [role="option"], li, a, span')]
+      .find((el) => visible(el) && textOf(el) === '500' && !el.closest('.s1826p'));
+    if (button) { button.click(); return true; }
+    return false;
+  }
+
   /** Один пропуск. null — оформлен, иначе текст ошибки. */
-  async function createPass(name, from, to) {
+  async function createPass(label, from, to) {
+    const { name, plate } = splitLabel(label);
     const newButton = buttonByText(document, 'Новый посетитель');
     if (!newButton) return 'не нашёл кнопку «Новый посетитель»';
     newButton.click();
@@ -477,6 +560,15 @@
     setValue(dates[0], from);
     setValue(dates[1], to);
     setValue(fio, name);
+    if (plate) {
+      const number = [...modal.querySelectorAll('input')].find((i) => visible(i) && /999/.test(i.placeholder || '') && !/\+7/.test(i.placeholder || ''));
+      const region = [...modal.querySelectorAll('input')].find((i) => visible(i) && (i.placeholder || '') === '000');
+      if (!number || !region) return 'не нашёл поля номера машины';
+      setValue(number, plate.number);
+      setValue(region, plate.region);
+      await sleep(50);
+      if (number.value.toUpperCase() !== plate.number || region.value !== plate.region) return `номер ${plate.number} ${plate.region} не вписался`;
+    }
     await sleep(50);
     if (fio.value !== name) return 'ФИО не вписалось в поле';
     if (dates[0].value !== from || dates[1].value !== to) return 'даты не вписались';
