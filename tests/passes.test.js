@@ -255,3 +255,15 @@ test('ФИО с заглавной: строчные и КАПС исправл�
   assert.strictEqual(properName('Машина'), 'Машина');
   assert.deepStrictEqual(parseNames('прокопчук   юлия\nЕ334ав34').names, ['Прокопчук Юлия · Е334АВ 34']);
 });
+
+test('вставка из выделения/буфера: только строки с ФИО и номерами', () => {
+  const { prefillText } = require('../studio1826-passes.user.js');
+  const message = 'Здравствуйте! Вот список на завтра:\n1. Воронцова Лилия Эдуардовна\n2. Хван Валерия Алексеевна\nмашина Е334ав34\nСпасибо!\n12:30';
+  assert.strictEqual(prefillText(message, ''), '1. Воронцова Лилия Эдуардовна\n2. Хван Валерия Алексеевна\nмашина Е334ав34');
+  assert.strictEqual(prefillText('', 'Прокопчук Юлия'), 'Прокопчук Юлия');
+  assert.strictEqual(prefillText('Иванов Иван', 'Прокопчук Юлия'), 'Иванов Иван');
+  assert.strictEqual(prefillText('https://my.avanguard.pro/account/354/guests', ''), '');
+  assert.strictEqual(prefillText('', 'Как добраться до студии? Подскажите пожалуйста парковку'), '');
+  assert.strictEqual(prefillText('Е334ав34', ''), 'Е334ав34');
+  assert.strictEqual(prefillText('', ''), '');
+});

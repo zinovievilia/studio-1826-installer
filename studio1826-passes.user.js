@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v1.4.0 Studio 1826 — Пропуска списком (Авангард)
+// @name         v1.4.1 Studio 1826 — Пропуска списком (Авангард)
 // @namespace    studio1826
-// @version      1.4.0
+// @version      1.4.1
 // @description  Кнопка «Оформить пропуск» в окне ввода открытых линий Bitrix24: список ФИО + дата → пропуска в Авангарде оформляются по очереди с проверкой; в Авангарде — кнопка «Пропуска списком» и часы машин за сегодня
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
@@ -27,7 +27,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.4.0';
+  const VERSION = '1.4.1';
   const DEFAULT_GUESTS_URL = 'https://my.avanguard.pro/account/354/guests';
 
   // ── Чистые функции (тесты: tests/passes.test.js) ───────────────────────────
@@ -114,6 +114,24 @@
       if (w === w.toLowerCase() || (w === w.toUpperCase() && w.length > 1)) return cap(w);
       return w;
     });
+  }
+
+  /**
+   * Текст для поля из выделения или буфера: оставляем только строки, похожие на ФИО или номер машины
+   * («Здравствуйте! Вот список:», время, телефоны отбрасываются). Нет ни одной такой строки — ''.
+   */
+  const NAME_LIKE = /^[A-Za-zА-Яа-яЁё][A-Za-zА-Яа-яЁё.'’\-]*(?: [A-Za-zА-Яа-яЁё][A-Za-zА-Яа-яЁё.'’\-]*){0,3}$/;
+  function prefillText(selected, clipboard) {
+    for (const raw of [selected, clipboard]) {
+      const text = String(raw || '').trim();
+      if (!text || text.length > 5000) continue;
+      const lines = text.split(/\n+/).filter((line) => {
+        const { names, invalid } = parseNames(line);
+        return names.length > 0 && !invalid.length && names.every((label) => NAME_LIKE.test(splitLabel(label).name));
+      });
+      if (lines.length && lines.length <= 50) return lines.map((l) => l.trim()).join('\n');
+    }
+    return '';
   }
 
   function normalize(s) {
@@ -278,7 +296,7 @@
   }
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { parseNames, properName, isoDate, addDays, humanDate, periodText, parsePlate, plateIsSpecial, passLabel, splitLabel,
+    module.exports = { parseNames, properName, prefillText, isoDate, addDays, humanDate, periodText, parsePlate, plateIsSpecial, passLabel, splitLabel,
       apiPeriod, parseApiTime, dayBounds, guestCoversDay, matchingPasses, eventKind, parkedTime, formatDuration, guestsForRow, pageWorldCode, VERSION };
     return;
   }
@@ -362,6 +380,15 @@
     .s1826p .days label { flex: 1; }
   `;
 
+  /** Выделенный на странице текст на момент нажатия кнопки (к click выделение может пропасть). */
+  function keepSelection(button) {
+    let text = '';
+    const grab = () => { try { text = String(window.getSelection() || ''); } catch (e) { text = ''; } };
+    button.addEventListener('pointerdown', grab);
+    button.addEventListener('mousedown', grab);
+    return () => text;
+  }
+
   /** Панель: список ФИО + даты + кнопка. `single` — одна дата вместо «с/по». */
   function buildPanel({ id, toggleText, position, single, defaultDate, onStart }) {
     // Две копии скрипта (старая и новая под другим именем) не должны рисовать две панели
@@ -413,9 +440,27 @@
     };
 
     if (toggle) toggle.addEventListener('click', () => panel.classList.toggle('open'));
+    /**
+     * Список сразу в поле: выделенный текст (заменяет то, что в поле) или, если поле пустое, скопированный.
+     * Берём, только если там узнаются ФИО/номера. Ничего не оформляется — дальше обычное «Оформить» и подтверждение.
+     */
+    ui.prefill = async (selected) => {
+      if (ui.running) return;
+      let clip = '';
+      if (!prefillText(selected, '') && !ui.area.value.trim()) {
+        try { clip = await navigator.clipboard.readText(); } catch (e) { /* нет доступа к буферу — просто пустое поле */ }
+      }
+      const text = prefillText(selected, clip);
+      if (!text) return;
+      ui.area.value = text;
+      ui.refresh();
+      ui.summary.textContent = `${text === prefillText(selected, '') ? 'Взято из выделения' : 'Вставлено из буфера'} · ${ui.summary.textContent}`;
+    };
+
     /** Открыть/закрыть над элементом (значок в окне ввода сообщения) */
-    ui.openAt = (anchor) => {
+    ui.openAt = (anchor, selected = '') => {
       if (panel.classList.contains('open')) { panel.classList.remove('open'); return; }
+      ui.prefill(selected);
       panel.classList.add('open');
       const r = anchor.getBoundingClientRect();
       const left = Math.max(8, Math.min(r.left, window.innerWidth - panel.offsetWidth - 8));
@@ -424,8 +469,9 @@
       ui.area.focus();
     };
     /** Открыть/закрыть под кнопкой (кнопка «Пропуска списком» на странице Авангарда) */
-    ui.openBelow = (anchor) => {
+    ui.openBelow = (anchor, selected = '') => {
       if (panel.classList.contains('open')) { panel.classList.remove('open'); return; }
+      ui.prefill(selected);
       panel.classList.add('open');
       const r = anchor.getBoundingClientRect();
       const left = Math.max(8, Math.min(r.left, window.innerWidth - panel.offsetWidth - 8));
@@ -718,7 +764,8 @@
     btn.className = native.className;
     btn.title = `Оформить пропуска списком (v${VERSION})`;
     btn.textContent = '🎫 Пропуска списком';
-    btn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); ui.openBelow(btn); });
+    const selected = keepSelection(btn);
+    btn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); ui.openBelow(btn, selected()); });
     // Кнопку сайта не двигаем (ей управляет React) — ставим свою следом. margin-right:auto забирает свободное место
     // панели фильтров (justify-between), и обе кнопки стоят рядом слева, а фильтры остаются справа.
     btn.style.marginLeft = '8px';
@@ -961,7 +1008,8 @@
         icon.className = 's1826p-btn';
         icon.title = `Оформить пропуска в Авангарде списком (v${VERSION})`;
         icon.textContent = '🎫 Оформить пропуск';
-        icon.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); const p = panel(); if (p) p.openAt(icon); });
+        const selected = keepSelection(icon);
+        icon.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); const p = panel(); if (p) p.openAt(icon, selected()); });
         wrap.appendChild(icon);
         row.appendChild(wrap);
       }
