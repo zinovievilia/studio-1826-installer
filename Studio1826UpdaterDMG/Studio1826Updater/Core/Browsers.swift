@@ -65,7 +65,7 @@ enum BrowserKind: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .safari: return nil
         case .chrome: return "chrome://extensions"
-        case .yandex: return "browser://tune"
+        case .yandex: return "browser://extensions"
         case .opera: return "opera://extensions"
         }
     }
