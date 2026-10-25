@@ -362,8 +362,23 @@
     const { from: f, to: t, search } = listControls();
     if (f && t) { setValue(f, from); setValue(t, to); }
     if (search) setValue(search, name);
-    if (f || search) await sleep(1100); // список перезапрашивается с сервера
-    return [...document.querySelectorAll('tr, [role="row"]')].some((row) => rowMatches(textOf(row), name, from, to));
+    const matches = () => [...document.querySelectorAll('tr, [role="row"]')].some((row) => rowMatches(textOf(row), name, from, to));
+    if (f || search) {
+      // Список перезапрашивается с сервера, в фоновой вкладке таймеры ещё и замедлены: ждём не фиксированную
+      // паузу, а находку или пока таблица перестанет меняться (не дольше 8 с)
+      const table = () => [...document.querySelectorAll('tr, [role="row"]')].map(textOf).join('|');
+      const started = Date.now();
+      let last = table();
+      let stableSince = started;
+      await sleep(1100);
+      while (!matches() && Date.now() - started < 8000) {
+        const now = table();
+        if (now !== last) { last = now; stableSince = Date.now(); }
+        else if (Date.now() - stableSince >= 1500) break;
+        await sleep(250);
+      }
+    }
+    return matches();
   }
 
   /** Один пропуск. null — оформлен, иначе текст ошибки. */
@@ -383,6 +398,9 @@
         .find((i) => visible(i) && !/\+7|X999|000/.test(i.placeholder || ''));
     if (!fio) return 'не нашёл поле ФИО';
 
+    // Сайт не принимает «с» позже текущего «по» (в окне оба стоят на сегодня) и откатывает значение:
+    // «по», «с», и ещё раз «по» на случай прошедших дат
+    setValue(dates[1], to);
     setValue(dates[0], from);
     setValue(dates[1], to);
     setValue(fio, name);
