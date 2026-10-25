@@ -390,6 +390,12 @@ claude.ai-проекте "1826Studio", документ `Studio1826Updater.md`):
 - Основное окно: любое сообщение от iframe страницы обновляет `lastPulseAt`; `checkCollectorPulse()` в тике 3 с: тишина > `COLLECTOR_TIMEOUT_MS` (12 с, отсчёт и от загрузки/возврата на вкладку — `pulseWaitFrom`) → `collectorSilent`, в «Обзоре» «Календарь не отвечает — обновите страницу», `cardsMissing` сбрасывается (панель не пропадает).
 - Журнал: «Script error.» не пишется, считается `foreignErrors`; свои ошибки — `[место] сообщение @ 2 строки стека`. В «Диагностике» `main.overlay {hidden, cardsMissing, sidePanel, chat}`, `main.collectorPulse {silent, lastAgoMs}`, `foreignErrors` (и у сборщика).
 - `tests/smoke.js`: ошибка в обработчике (подмена `JSON.stringify` в iframe) → пульс приходит, ошибка в журнале, `pageerror` пуст; iframe удалён → через 12 с предупреждение, панель не скрыта. На 5.6.1 тест падает, на 5.6.2 OK. Прогон локально: `NODE_PATH=<playwright-core со shim «playwright»> CHROMIUM_PATH=…/Google Chrome node tests/smoke.js`.
-- Проверено: `npm test` 62/62, smoke, ui-layout, ui-header, ui-equipment — OK. Живьём ещё не смотрели.
+- Проверено: `npm test` 62/62, smoke, ui-layout, ui-header, ui-equipment — OK. Живьём (Chrome Ильи, Tampermonkey 5.6.2, Павелецкая 25.10): 28 броней, пульс раз в ~3 с, ложного «Календарь не отвечает» нет, панель не скрыта. На main с backup-v5.6.2.
 - Открыто в «Этапе 10»: P0 о ветке `wip/overlay-robustness` (решить, нужна ли), P2 процесс релиза (smoke в CI), P3 сверка `main.iframes`.
+
+## 5.6.3 — набор настроек по умолчанию (Илья, 25.10.2026)
+
+- `FEATURE_DEFAULTS`: у нового пользователя (нет ключей скрипта в localStorage) всё включено, кроме `stripes`. Цвета по умолчанию: `kEq`/`kFrame` #e32400, остальные прежние. Экспорт настроек нового пользователя = JSON Ильи один в один.
+- Сохранённые настройки не меняются (свой цвет, в т.ч. #dc2626 из 5.6.1, остаётся). «Сбросить цвета» даёт новые цвета по умолчанию. Отдельной кнопки сброса переключателей нет; «Скрывать лишнее» по умолчанию включено у всех (просьба Ильи), сохранённый выбор не трогается.
+- Проверено: `npm test` 62/62, smoke, ui-layout, ui-header, ui-equipment — OK.
 
