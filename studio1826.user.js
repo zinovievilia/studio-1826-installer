@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v5.6.3 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v5.6.5 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      5.6.3
+// @version      5.6.5
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,13 +14,15 @@
 (function () {
     'use strict';
 
-    const VERSION = '5.6.3';
+    const VERSION = '5.6.5';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
     const TOAST_ID = 'studio1826-toast-v3';
     const BOOKING_STYLE_ID = 'studio1826-booking-style-v3';
     const PANEL_ID = 'studio1826-panel-v3';
+    const NOTES_ID = 'studio1826-notes';
+    const NOTES_KEY = 'studio1826.notes';
     const MESSAGE_TYPE = 'STUDIO1826_V3_DATA';
     const REQUEST_TYPE = 'STUDIO1826_V3_REQUEST';
     const DIAG_TYPE = 'STUDIO1826_V3_DIAG';
@@ -400,6 +402,38 @@
             }
         `,
         panel: `
+            /* 5.6.5: заметки под «Помещениями» — карточка в стиле соседних блоков колонки. */
+            #${NOTES_ID} {
+                box-sizing: border-box;
+                margin-top: 12px;
+                padding: 12px 14px 14px;
+                border-radius: 12px;
+                background: #fff;
+                box-shadow: 0 1px 2px #0000000f;
+                font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+                color: #333;
+            }
+            #${NOTES_ID} .s26-notes-title { margin-bottom: 8px; font-size: 13px; color: #6a737f; }
+            #${NOTES_ID} textarea {
+                box-sizing: border-box;
+                display: block;
+                width: 100%;
+                min-height: 160px;
+                padding: 8px 10px;
+                border: 1px solid #dfe3e8;
+                border-radius: 8px;
+                background: #fbfcfd;
+                color: inherit;
+                font: inherit;
+                resize: vertical;
+                outline: none;
+            }
+            #${NOTES_ID} textarea:focus { border-color: #2fc6f6; background: #fff; }
+            #${NOTES_ID}.s26-notes-flash { animation: s26-notes-flash .65s ease-in-out 4; }
+            @keyframes s26-notes-flash {
+                0%, 100% { box-shadow: 0 1px 2px #0000000f; }
+                50% { box-shadow: 0 0 0 4px #f59e0b, 0 0 18px #f59e0b99; }
+            }
             #${PANEL_ID} {
                 position: fixed;
                 z-index: 999998;
@@ -672,6 +706,21 @@
                 margin: 16px 0;
                 background: #444;
             }
+            /* 5.6.5: кнопки составляющих выплаты. */
+            #${WIDGET_ID} .s-bonus-grid { display: grid; grid-template-columns: 1fr 1fr; margin: 8px 0 6px; }
+            #${WIDGET_ID} .s-bonus-grid button {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 2px;
+                padding: 7px 9px;
+                text-align: left;
+                line-height: 1.25;
+            }
+            #${WIDGET_ID} .s-bonus-grid .s-bonus-name { font-size: 12px; }
+            #${WIDGET_ID} .s-bonus-grid .s-bonus-sum { font-variant-numeric: tabular-nums; white-space: nowrap; }
+            #${WIDGET_ID} .s-bonus-grid button[aria-pressed=false] { opacity: .55; font-weight: 400; }
+            #${WIDGET_ID} .s-bonus-grid button[aria-pressed=false] .s-bonus-sum { text-decoration: line-through; }
             #${WIDGET_ID} .s-payout {
                 font-size: 25px;
                 font-weight: 750;
@@ -1408,7 +1457,10 @@
                 transition: left .15s;
             }
             .s26-off-toggle[aria-pressed="true"] .s26-knob { left: 14px; }
-            #${WIDGET_ID}[data-mode="header"] .s-head-toggle { display: none; }
+            #${WIDGET_ID}[data-mode="header"]:not([data-chip-fit="min"]) .s-head-toggle { display: none; }
+            /* 5.6.4: узкая шапка (Яндекс Браузер с боковой панелью, небольшое окно) — кнопка короче. */
+            #${CHIP_SLOT_ID}:not([data-fit="full"]) .s-chip-label { display: none; }
+            #${CHIP_SLOT_ID}[data-fit="min"] .s26-off-toggle { display: none; }
             #${CHIP_ID} .s-chip-sum { font-weight: 700; font-variant-numeric: tabular-nums; }
             html.s26-overlay-open #${CHIP_SLOT_ID} { display: none; }
             #${WIDGET_ID}[data-mode="header"] {
@@ -1588,6 +1640,7 @@
             #${SETTINGS_ID} .st-flash { animation: st-flash 1.6s ease; border-radius: 6px; }
             @keyframes st-flash { 0%, 60% { background: #fde68a; } 100% { background: transparent; } }
             #${WIDGET_ID}[data-skin="light"] #${SETTINGS_ID} .st-hint { background: #eef1f4; color: #4b5560; }
+            #${SETTINGS_ID} .st-hint.st-hint-action { cursor: pointer; box-shadow: inset 0 0 0 1.5px var(--s-accent, #8f263f); }
             #${WIDGET_ID}[data-skin="light"] #${SETTINGS_ID} .st-colors-link { border-color: #d5dae0; }
 
             /* 5.2.0: диалог «Не разбирать на завтра» и подсказки в светлом оформлении. */
@@ -1776,10 +1829,13 @@
     const DEFAULT_RATE = 3000;
 
     const SERVICES = [
-        { name: 'Установка схемы света', price: 1000, short: 'С', light: true },
-        { name: 'Использование фона', price: 300, short: 'Ф' },
-        { name: 'Уборка', price: 1000, short: 'У' }
+        { id: 'light', name: 'Установка схемы света', label: 'Схема света', price: 1000, short: 'С', light: true },
+        { id: 'bg', name: 'Использование фона', price: 300, short: 'Ф' },
+        { id: 'cleaning', name: 'Уборка', price: 1000, short: 'У' }
     ];
+
+    /* 5.6.5: составляющие выплаты, которые можно выключить кнопкой в окне (Илья). */
+    const BONUS_IDS = ['light', 'bg', 'cleaning', 'hours', 'equipment'];
 
     const HOURS_BONUSES = {
         C: {
@@ -1894,7 +1950,11 @@
         ['Baby Drop Down Pin',100],['Kupo Kcp-150 C Clamp',200],
         ['Страховочный трос 75 см',0],['Kupo Swivel Coupler',100],
         ['Монитор Asus Pro Art Display',2500],
-        ['Телевизор LG 42" (42LA860V)',3500],['USB-C to USB-C',500]
+        ['Телевизор LG 42" (42LA860V)',3500],['USB-C to USB-C',500],
+        /* 5.6.5 (Илья) */
+        ['Радиосистема HollyLand Lark M2',600],
+        ['Софтбокс 60х90см - Profoto 2x3ft RFI',0],
+        ['Соты 90 см',0]
     ];
 
     /* =========================================================
@@ -1983,7 +2043,9 @@
      *
      * records: [{ items: string[] }]
      * options: { category: 'C'|'P', admins: 1|2|3, rateEnabled, rateValue,
-     *            coffeeEnabled, lightSetupEnabled }
+     *            coffeeEnabled, lightSetupEnabled, off }
+     * off — выключенные составляющие (BONUS_IDS), в итог не идут; суммы без выключения —
+     * в value (услуги), hoursBonusValue, equipmentValue, чтобы показать их на кнопках.
      */
     function computePayout(records, options = {}) {
         const category = options.category === 'P' ? 'P' : 'C';
@@ -1991,7 +2053,9 @@
         const rateEnabled = !!options.rateEnabled;
         const rateValue = Number.isFinite(options.rateValue) ? options.rateValue : 0;
         const coffeeEnabled = options.coffeeEnabled !== false;
-        const lightSetupEnabled = options.lightSetupEnabled !== false;
+        const off = new Set(Array.isArray(options.off) ? options.off : []);
+
+        if (options.lightSetupEnabled === false) off.add('light');
 
         const items = (records || []).flatMap(record => record.items || []);
         const n = Math.max(1, admins);
@@ -2023,25 +2087,32 @@
         });
 
         const hours = Math.ceil(rawHours);
-        let hoursBonus = 0;
+        let hoursBonusValue = 0;
 
         config.thresholds.forEach(threshold => {
-            if (hours >= threshold.hours) hoursBonus = threshold.bonus;
+            if (hours >= threshold.hours) hoursBonusValue = threshold.bonus;
         });
 
+        const hoursExcluded = off.has('hours');
+        const hoursBonus = hoursExcluded ? 0 : hoursBonusValue;
+
         const servicesPer = SERVICES.map(service => {
-            const excluded = service.light && !lightSetupEnabled;
+            const excluded = off.has(service.id);
             const count = counts[service.name] || 0;
+            const value = count * service.price / n;
 
             return {
                 ...service,
                 count,
                 excluded,
-                perAdmin: excluded ? 0 : count * service.price / n
+                value,
+                perAdmin: excluded ? 0 : value
             };
         });
 
-        const eqPercent = eq * EQUIPMENT_PERCENT;
+        const equipmentExcluded = off.has('equipment');
+        const equipmentValue = eq * EQUIPMENT_PERCENT / n;
+        const eqPercent = equipmentExcluded ? 0 : eq * EQUIPMENT_PERCENT;
         const coffeePercent = category === 'P' && coffeeEnabled
             ? coffee * COFFEE_PERCENT
             : 0;
@@ -2060,7 +2131,11 @@
             coffee,
             hours,
             hoursBonus,
+            hoursBonusValue,
+            hoursExcluded,
             servicesPer,
+            equipmentValue,
+            equipmentExcluded,
             eqPercent,
             coffeePercent,
             equipmentPer,
@@ -2156,23 +2231,24 @@
     const STAGE_STYLE_ID = 'studio1826-stage-style-v32';
     const FEATURE_KEYS = [
         'compactCards', 'reuse', 'fonHighlight', 'copyButton',
-        'hoverFocus', 'borders', 'handoff', 'aliases', 'arrows', 'moveArrows', 'stripes'
+        'hoverFocus', 'borders', 'handoff', 'aliases', 'arrows', 'moveArrows', 'stripes', 'notes'
     ];
 
     /* 5.6.3: набор Ильи для первого запуска (25.10.2026) — всё включено, кроме полос. */
     const FEATURE_DEFAULTS = {
         compactCards: true, reuse: true, fonHighlight: true, copyButton: true, hoverFocus: true,
-        borders: true, handoff: true, aliases: true, arrows: true, moveArrows: true, stripes: false
+        borders: true, handoff: true, aliases: true, arrows: true, moveArrows: true, stripes: false,
+        notes: true /* 5.6.5: заметки под «Помещениями» */
     };
 
     /* Цвета стадий по умолчанию (как в Bitrix). */
     /*
      * color — исходный цвет стадии в Bitrix (по нему стадия узнаётся на карточке, менять нельзя);
-     * def — цвет по умолчанию в скрипте (5.5.2, выбор Ильи 24.10.2026).
+     * def — цвет по умолчанию в скрипте (5.5.2, выбор Ильи 24.10.2026; done #e0edd4 — 5.6.4).
      */
     const STAGES = [
         { id: 'multi', name: 'Несколько броней', color: '#fff893', def: '#fff893' },
-        { id: 'done', name: 'Аренда завершена', color: '#7bd500', def: '#cce8b5' },
+        { id: 'done', name: 'Аренда завершена', color: '#7bd500', def: '#e0edd4' },
         { id: 'prepaid', name: 'Предоплачено', color: '#47d1e2', def: '#94e3fe' },
         { id: 'checked', name: 'Проверено', color: '#a3d49b', def: '#a3d49b' }
     ];
@@ -3268,7 +3344,7 @@
                 node.id = OFF_STYLE_ID;
                 node.textContent = 'html.s26-off .s26-badges, html.s26-off .booking-copy-button, html.s26-off .s26-handoff,' +
                     ' html.s26-off .s26-arrows, html.s26-off .s26-moves, html.s26-off .s26-tiles, html.s26-off .s26-hall-eq,' +
-                    ' html.s26-off #' + PANEL_ID + ' { display: none !important; }';
+                    ' html.s26-off #' + PANEL_ID + ', html.s26-off #' + NOTES_ID + ' { display: none !important; }';
                 (document.head || document.documentElement).appendChild(node);
             }
         }
@@ -5083,11 +5159,96 @@
             });
         }
 
+        /*
+         * 5.6.5: заметки под блоком «Помещения» в правой колонке календаря (Илья). Блок ищется по заголовку,
+         * заметки вставляются следом за его карточкой. Текст хранится в localStorage окна календаря
+         * (на этом компьютере и в этом браузере). Bitrix может перерисовать колонку — тик возвращает узел.
+         */
+        let notesSaveTimer = null;
+
+        function findRoomsCard() {
+            const heading = [...document.querySelectorAll('div, span, p, h1, h2, h3, h4, h5, h6, label, b, strong')]
+                .find(node => node.children.length === 0 && node.textContent.trim().toLowerCase() === 'помещения' &&
+                    !node.closest('#' + NOTES_ID) && !node.closest('#' + PANEL_ID));
+
+            if (!heading) return null;
+
+            const headingHeight = heading.getBoundingClientRect().height || 16;
+
+            for (let node = heading.parentElement; node && node !== document.body; node = node.parentElement) {
+                const parent = node.parentElement;
+
+                if (parent && parent.children.length >= 2 && node.getBoundingClientRect().height > headingHeight * 2) return node;
+            }
+
+            return null;
+        }
+
+        function ensureNotes() {
+            let notes = document.getElementById(NOTES_ID);
+
+            if (!features.notes) {
+                if (notes) notes.remove();
+                return;
+            }
+
+            const card = findRoomsCard();
+
+            if (!card) return;
+
+            if (!notes) {
+                notes = document.createElement('div');
+                notes.id = NOTES_ID;
+
+                const title = document.createElement('div');
+                const area = document.createElement('textarea');
+
+                title.className = 's26-notes-title';
+                title.textContent = 'Заметки';
+                area.placeholder = 'Текст сохраняется в этом браузере';
+                area.spellcheck = true;
+
+                try { area.value = localStorage.getItem(NOTES_KEY) || ''; } catch (_) {}
+
+                area.addEventListener('input', () => {
+                    clearTimeout(notesSaveTimer);
+                    notesSaveTimer = setTimeout(() => {
+                        try { localStorage.setItem(NOTES_KEY, area.value); } catch (_) {}
+                    }, 300);
+                });
+                window.addEventListener('storage', event => {
+                    if (event.key === NOTES_KEY && document.activeElement !== area) area.value = event.newValue || '';
+                });
+                notes.append(title, area);
+            }
+
+            if (notes.previousElementSibling !== card) card.after(notes);
+        }
+
+        /* «?» у «Заметок» в Настройках: показать, где поле в календаре. */
+        function flashNotes() {
+            ensureNotes();
+
+            const notes = document.getElementById(NOTES_ID);
+
+            if (!notes) return;
+
+            notes.scrollIntoView({ block: 'nearest' });
+            notes.classList.remove('s26-notes-flash');
+            void notes.offsetWidth;
+            notes.classList.add('s26-notes-flash');
+            setTimeout(() => notes.classList.remove('s26-notes-flash'), 2600);
+        }
+
         applyFeatures();
         send(true);
 
+        try { ensureNotes(); } catch (error) { logOwnError('notes', error); }
+
         setInterval(() => {
             if (document.hidden) return;
+
+            try { ensureNotes(); } catch (error) { logOwnError('notes', error); }
 
             try {
                 applyStages();
@@ -5137,8 +5298,11 @@
                     settingsChanged = true;
                     saveFeatures(features);
                     applyFeatures();
+                    ensureNotes();
                 }
             }
+
+            if (request.flashNotes === true) flashNotes();
 
             if (Array.isArray(request.mark)) {
                 const next = new Set(request.mark
@@ -5231,9 +5395,9 @@
         let collectorSilent = false;
         let admins = 2;
         let rateEnabled = false;
-        let rateValue = DEFAULT_RATE;
+        const rateValue = DEFAULT_RATE;
         let coffeeEnabled = true;
-        let lightSetupEnabled = true;
+        let offBonuses = new Set(); // 5.6.5: выключенные кнопками составляющие (BONUS_IDS)
         let collapsed = true;
         let cardsMissing = false;
         let toastTimer = null;
@@ -5340,10 +5504,12 @@
                 else if ([1, 2].includes(saved.admins)) adminsBy.P = saved.admins;
                 admins = adminsBy[category] || 3;
                 if (typeof saved.rateEnabled === 'boolean') rateEnabled = saved.rateEnabled;
-                if (Number.isFinite(saved.rateValue)) rateValue = Math.max(0, saved.rateValue);
+                /* 5.6.5: ставка всегда DEFAULT_RATE (Илья), сохранённая сумма не читается. */
                 if (typeof saved.coffeeEnabled === 'boolean') coffeeEnabled = saved.coffeeEnabled;
-                if (typeof saved.lightSetupEnabled === 'boolean') {
-                    lightSetupEnabled = saved.lightSetupEnabled;
+                if (Array.isArray(saved.offBonuses)) {
+                    offBonuses = new Set(saved.offBonuses.filter(id => BONUS_IDS.includes(id)));
+                } else if (saved.lightSetupEnabled === false) {
+                    offBonuses.add('light');
                 }
             } catch (_) {}
         }
@@ -5357,7 +5523,8 @@
                     rateEnabled,
                     rateValue,
                     coffeeEnabled,
-                    lightSetupEnabled
+                    lightSetupEnabled: !offBonuses.has('light'),
+                    offBonuses: [...offBonuses]
                 }));
             } catch (_) {}
         }
@@ -5407,7 +5574,7 @@
         function compute() {
             return computePayout(records, {
                 category, admins, rateEnabled, rateValue,
-                coffeeEnabled, lightSetupEnabled
+                coffeeEnabled, off: [...offBonuses]
             });
         }
 
@@ -5631,7 +5798,7 @@
                     title: 'Выплаты администраторов'
                 }, [
                     el('span', { className: 'air-header-button__text' }, [
-                        'Выплата ',
+                        el('span', { className: 's-chip-label' }, ['Выплата ']),
                         el('span', { className: 's-chip-sum' }, [lastPayoutText || '—'])
                     ])
                 ]);
@@ -5668,10 +5835,22 @@
                 .map(node => node.getBoundingClientRect())
                 .filter(rect => rect.width > 0 && rect.height > 0 && rect.left >= menuRight);
             const limit = Math.min(headerRect.right - 152, ...rightBlockers.map(rect => rect.left));
-            const start = menuRight + 16;
-            const width = slot.getBoundingClientRect().width;
-            const fits = items.length > 0 && width > 0 && start + width + 8 <= limit;
+            /* Не помещается полная кнопка — пробуем без слова «Выплата», затем без переключателя
+             * (он тогда в заголовке окна) и с отступом 8 px вместо 16. */
+            let fits = false;
+            let start = menuRight + 16;
 
+            for (const fit of ['full', 'short', 'min']) {
+                slot.dataset.fit = fit;
+                start = menuRight + (fit === 'full' ? 16 : 8);
+
+                const width = slot.getBoundingClientRect().width;
+
+                fits = items.length > 0 && width > 0 && start + width + 8 <= limit;
+                if (fits) break;
+            }
+
+            root.dataset.chipFit = fits ? slot.dataset.fit : '';
             slot.style.left = Math.round(start - headerRect.left) + 'px';
             slot.hidden = !fits;
             setMode(root, fits ? 'header' : 'float');
@@ -5757,7 +5936,8 @@
                 aliases: 'Подписи оборудования (бум, роллер…)',
                 arrows: 'Стрелки переноса оборудования',
                 moveArrows: '«Завтра» в календаре: плашки и стрелки',
-                stripes: 'Завершённые брони — диагональные полоски'
+                stripes: 'Завершённые брони — диагональные полоски',
+                notes: 'Заметки под «Помещениями»'
             };
 
             /* 5.6.0: подсказка «?» у каждой функции и кнопка 🎨 к её цветам (если цвета есть). */
@@ -5869,6 +6049,27 @@
             group('Перенос оборудования', REUSE_KEYS.length,
                 REUSE_KEYS.map(featureCheck));
 
+            /* 5.6.5: «?» у заметок не только подсказка — по нажатию поле мигает в календаре. */
+            const notesHint = hintNode('Поле для своих заметок в календаре справа, под блоком «Помещения». Текст сохраняется в этом браузере. Нажмите «?», чтобы подсветить поле.');
+
+            notesHint.classList.add('st-hint-action');
+            notesHint.setAttribute('role', 'button');
+            notesHint.addEventListener('click', () => {
+                hideHint();
+                setCollapsed(root, true);
+                document.querySelectorAll('iframe').forEach(frame => {
+                    try {
+                        frame.contentWindow?.postMessage(encodeRequest({ type: REQUEST_TYPE, flashNotes: true }), APP_ORIGIN);
+                    } catch (_) {}
+                });
+            });
+            notesHint.addEventListener('keydown', event => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    notesHint.click();
+                }
+            });
+
             group('Интерфейс Bitrix24', 2, [
                 el('div', { className: 'st-row' }, [
                     el('label', { className: 'st-check' }, [
@@ -5923,6 +6124,17 @@
                 ]),
                 el('div', { className: 'st-note st-import-status', 'aria-live': 'polite' })
             ], { open: false });
+
+            /* Последним разделом: номера сохранённых разделов (settingsGroup) не сдвигаются. */
+            group('Календарь', 1, [
+                el('div', { className: 'st-row' }, [
+                    el('label', { className: 'st-check' }, [
+                        el('input', { type: 'checkbox', 'data-feature': 'notes' }),
+                        el('span', {}, [FEATURE_LABELS.notes])
+                    ]),
+                    notesHint
+                ])
+            ]);
 
             panel.appendChild(el('div', { className: 'st-actions' }, [
                 el('button', { type: 'button', className: 'st-save' }, ['Сохранить']),
@@ -6982,20 +7194,15 @@
             /* Выплаты — подробный расчёт и параметры (раньше — главный экран). */
             const payoutPanel = el('div', { id: 's-panel-payout', className: 's-fold-body' }, [
                 el('div', { className: 's-title' }, ['Бонусы · на одного']),
-                el('label', { className: 's-check' }, [
-                    el('input', { id: 's3-light-on', type: 'checkbox' }),
-                    el('span', {}, ['Схема света'])
-                ]),
-                el('div', { id: 's3-services' }),
-                el('div', { className: 's-row' }, [
-                    el('span', { id: 's3-hours-label' }, ['Бонус часов (С)']),
-                    el('span', { id: 's3-hours' }, ['0 ₽'])
-                ]),
+                /* 5.6.5: каждая составляющая — кнопка с суммой; выключенная не идёт в расчёт. */
+                el('div', { id: 's3-bonuses', className: 's-switch s-bonus-grid', role: 'group', 'aria-label': 'Составляющие выплаты' },
+                    [...SERVICES.map(service => [service.id, service.label || service.name]),
+                        ['hours', 'Бонус часов (С)'], ['equipment', '10% от оборудования'], ['rate', 'Ставка']]
+                        .map(([id, label]) => el('button', { type: 'button', 'data-bonus': id, 'aria-pressed': 'true' }, [
+                            el('span', { className: 's-bonus-name' }, [label]),
+                            el('span', { className: 's-bonus-sum' }, ['0 / 0 ₽'])
+                        ]))),
                 el('div', { id: 's3-hours-note', className: 's-muted' }, ['Учтено: 0 ч']),
-                el('div', { className: 's-row' }, [
-                    el('span', {}, ['10% от оборудования']),
-                    el('span', { id: 's3-equipment' }, ['0 ₽'])
-                ]),
                 el('div', { id: 's3-coffee-area' }, [
                     el('label', { className: 's-check' }, [
                         el('input', { id: 's3-coffee-on', type: 'checkbox' }),
@@ -7013,21 +7220,6 @@
                         el('button', { type: 'button', 'data-admin': '3' }, ['3 админа']),
                         el('button', { type: 'button', 'data-admin': '2' }, ['2 админа']),
                         el('button', { type: 'button', 'data-admin': '1' }, ['1 админ'])
-                    ]),
-                    el('div', { className: 's-rate-controls' }, [
-                        el('label', { className: 's-check s-rate-toggle', title: 'Учитывать ставку' }, [
-                            el('input', { id: 's3-rate-on', type: 'checkbox', 'aria-label': 'Учитывать ставку' }),
-                            el('span', {}, ['Ставка'])
-                        ]),
-                        el('input', {
-                            id: 's3-rate',
-                            className: 's-input',
-                            type: 'number',
-                            min: '0',
-                            step: '100',
-                            'aria-label': 'Размер ставки',
-                            title: 'Размер ставки'
-                        })
                     ])
                 ])
             ]);
@@ -7093,10 +7285,7 @@
             settingsView.querySelector('.s-back').addEventListener('click', () => chooseTab('home'));
 
 
-            root.querySelector('#s3-light-on').checked = lightSetupEnabled;
             root.querySelector('#s3-coffee-on').checked = coffeeEnabled;
-            root.querySelector('#s3-rate-on').checked = rateEnabled;
-            root.querySelector('#s3-rate').value = rateValue;
 
             root.classList.add('collapsed');
             resetWidgetPosition(root);
@@ -7157,17 +7346,6 @@
 
             activateTab(readUi().tab);
 
-            root.querySelector('#s3-rate').addEventListener('input', event => {
-                rateValue = parseNumber(event.target.value);
-                saveSettings();
-                update();
-            });
-
-            root.querySelector('#s3-rate-on').addEventListener('change', event => {
-                rateEnabled = event.target.checked;
-                saveSettings();
-                update();
-            });
 
             root.querySelector('#s3-coffee-on').addEventListener('change', event => {
                 coffeeEnabled = event.target.checked;
@@ -7175,11 +7353,16 @@
                 update();
             });
 
-            root.querySelector('#s3-light-on').addEventListener('change', event => {
-                lightSetupEnabled = event.target.checked;
+            root.querySelectorAll('[data-bonus]').forEach(button => button.addEventListener('click', () => {
+                const id = button.dataset.bonus;
+
+                /* Ставка — та же кнопка, но включается отдельно (rateEnabled), сумма всегда DEFAULT_RATE. */
+                if (id === 'rate') rateEnabled = !rateEnabled;
+                else if (offBonuses.has(id)) offBonuses.delete(id);
+                else offBonuses.add(id);
                 saveSettings();
                 update();
-            });
+            }));
 
             root.querySelector('.s-head-toggle').addEventListener('click', () => setScriptOff(!scriptOff));
             setScriptOff(scriptOff);
@@ -7298,24 +7481,27 @@
 
             const s = compute();
 
-            const servicesContainer = root.querySelector('#s3-services');
-            servicesContainer.replaceChildren();
-            s.servicesPer.forEach(service => {
-                servicesContainer.appendChild(el('div', { className: 's-row' }, [
-                    el('span', {}, [`${service.name}${service.excluded ? ' · исключена' : ''}`]),
-                    el('span', {}, [money(service.perAdmin)])
-                ]));
-            });
+            const bonusRows = [
+                ...s.servicesPer.map(service => [service.id, `${formatQuantity(service.count)}×`, service.value, service.excluded]),
+                ['hours', `${s.hours} ч`, s.hoursBonusValue, s.hoursExcluded],
+                ['equipment', `${formatAmount(s.eq)} ₽`, s.equipmentValue, s.equipmentExcluded],
+                ['rate', 'без деления', rateValue, !rateEnabled]
+            ];
 
-            root.querySelector('#s3-hours-label').textContent = HOURS_BONUSES[category].name;
-            root.querySelector('#s3-hours').textContent = money(s.hoursBonus);
+            bonusRows.forEach(([id, count, value, excluded]) => {
+                const button = root.querySelector(`[data-bonus="${id}"]`);
+
+                button.setAttribute('aria-pressed', String(!excluded));
+                button.title = excluded ? 'Выключено: не входит в выплату. Нажмите, чтобы включить' : 'Нажмите, чтобы не учитывать в выплате';
+                button.querySelector('.s-bonus-sum').textContent = `${count} / ${money(value)}`;
+            });
+            root.querySelector('[data-bonus="hours"] .s-bonus-name').textContent = HOURS_BONUSES[category].name;
 
             const sourceNote =
                 categorySource === 'default' ? ' · филиал не определён, принята Серпуховская' :
                 categorySource === 'halls' ? ' · филиал определён по залам' : '';
 
             root.querySelector('#s3-hours-note').textContent = `Учтено: ${s.hours} ч${sourceNote}`;
-            root.querySelector('#s3-equipment').textContent = money(s.equipmentPer);
             root.querySelector('#s3-coffee-area').style.display = category === 'P' ? '' : 'none';
             root.querySelector('#s3-coffee').textContent = money(s.coffeePer);
             root.querySelector('#s3-payout').textContent = money(s.payout);
@@ -7508,6 +7694,36 @@
                         sidePanel: sidePanelOpen(),
                         chat: chatOpen()
                     },
+                    /* 5.6.4: где кнопка «Выплата» (header — в шапке, float — плашка слева внизу) и сколько было места. */
+                    chip: (() => {
+                        const widget = document.getElementById(WIDGET_ID);
+                        const slot = document.getElementById(CHIP_SLOT_ID);
+                        const header = document.querySelector('#header.air-header');
+                        const items = header ? [...header.querySelectorAll('#air-header-menu .main-buttons-item')] : [];
+
+                        return {
+                            mode: widget ? widget.dataset.mode : null,
+                            fit: slot ? slot.dataset.fit || null : null,
+                            header: !!header,
+                            /* Шапка без air-header (другой вид Bitrix у пользователя): классы для разбора. */
+                            anyHeader: (() => {
+                                const node = document.querySelector('#header') || document.querySelector('header');
+
+                                return node ? {
+                                    id: node.id, cls: String(node.className).slice(0, 120),
+                                    children: [...node.children].slice(0, 12).map(c => `${c.tagName.toLowerCase()}#${c.id}.${String(c.className).slice(0, 60)}`),
+                                    width: Math.round(node.getBoundingClientRect().width)
+                                } : null;
+                            })(),
+                            menuItems: items.length,
+                            devicePixelRatio: window.devicePixelRatio,
+                            menuRight: items.length ? Math.round(Math.max(...items.map(i => i.getBoundingClientRect().right))) : null,
+                            blockers: header ? [...header.querySelectorAll('.air-header__personal-info > *')]
+                                .map(n => n.getBoundingClientRect())
+                                .filter(r => r.width > 0)
+                                .map(r => Math.round(r.left)) : []
+                        };
+                    })(),
                     collectorPulse: {
                         silent: collectorSilent,
                         lastAgoMs: lastPulseAt ? Date.now() - lastPulseAt : null
