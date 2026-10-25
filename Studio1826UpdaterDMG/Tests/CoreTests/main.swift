@@ -221,5 +221,24 @@ expect(my.location(of: mineLink.id) != nil, "своя строка цела")
 let roundTrip = try! JSONDecoder().decode(LinksLayout.self, from: JSONEncoder().encode(my))
 expect(roundTrip == my, "сохранение и чтение")
 
+// MARK: Дебаг
+
+let utc = TimeZone(identifier: "UTC")!
+let debugDate = Date(timeIntervalSince1970: 1_793_000_000)
+expect(DebugReport.fileName(for: debugDate, timeZone: utc).hasPrefix("Studio1826-debug-2026-"), "имя файла дебага")
+expect(!DebugReport.fileName(for: debugDate, timeZone: utc).contains(":"), "в имени файла нет двоеточий")
+let manyEvents = (0..<150).map { DebugEvent(date: debugDate, area: "a", message: "\($0)") }
+expect(DebugReport.trimmed(manyEvents).count == DebugReport.eventLimit, "журнал обрезается")
+expect(DebugReport.trimmed(manyEvents).last?.message == "149", "в журнале остаются последние")
+let debugText = DebugReport(created: debugDate, reason: "вручную",
+                            sections: [.init(title: "Приложение", rows: [("Версия", "4.3.0")])],
+                            events: [DebugEvent(date: debugDate, area: "Скрипт «Основной»", message: "нет доступа"),
+                                     DebugEvent(date: debugDate.addingTimeInterval(60), area: "Проверка", message: "сеть")])
+    .text(timeZone: utc)
+expect(debugText.contains("## Приложение\nВерсия: 4.3.0"), "раздел в отчёте")
+expect(debugText.contains("## Последние ошибки (2)"), "число ошибок")
+expect(debugText.range(of: "[Проверка] сеть")!.lowerBound < debugText.range(of: "нет доступа")!.lowerBound, "свежие ошибки сверху")
+expect(DebugReport(created: debugDate, reason: "x", sections: [], events: []).text().contains("## Последние ошибки (0)\nнет"), "без ошибок")
+
 print(failures == 0 ? "✓ Все проверки пройдены: \(checks)" : "✗ Провалено \(failures) из \(checks)")
 exit(failures == 0 ? 0 : 1)

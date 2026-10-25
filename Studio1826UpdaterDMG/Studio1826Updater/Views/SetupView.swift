@@ -510,6 +510,7 @@ struct SetupView: View {
             }
         } content: {
             VStack(alignment: .leading, spacing: 12) {
+                debugBlock
                 ForEach(helpItems(b)) { item in
                     VStack(alignment: .leading, spacing: 3) {
                         Text(item.question).font(.callout.weight(.semibold))
@@ -522,6 +523,27 @@ struct SetupView: View {
             }
             .padding(.leading, 4)
         }
+    }
+
+    private var debugBlock: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                do {
+                    let url = try DebugLog.shared.saveToDownloads()
+                    NSWorkspace.shared.activateFileViewerSelecting([url])
+                    toaster.show("Дебаг сохранён в «Загрузки»")
+                } catch {
+                    toaster.show("Не удалось сохранить дебаг: \(error.localizedDescription)")
+                }
+            } label: {
+                Label("Сохранить дебаг в «Загрузки»", systemImage: "ladybug")
+            }
+            Text("Файл с состоянием приложения и последними ошибками — его можно переслать. При ошибках дебаг сохраняется сам.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.bottom, 4)
     }
 
     private struct HelpItem: Identifiable {
@@ -545,6 +567,8 @@ struct SetupView: View {
         if b == .safari {
             items.append(HelpItem("Ошибка «нет папки Userscripts»",
                           "Запустите приложение Userscripts один раз (шаг 2). Если в его настройках выбрана другая папка для скриптов, верните папку по умолчанию."))
+            items.append(HelpItem("Ошибка «You don’t have permission to save the file…»",
+                          "macOS запомнила запрет на запись в папку Userscripts (часто после обновления приложения). Нажмите **Сбросить доступ** у скрипта — macOS спросит снова, нажмите **Разрешить**."))
             items.append(HelpItem("macOS спрашивает про доступ к данным других приложений",
                           "Нажмите **Разрешить** — так приложение может положить скрипт в папку Userscripts. Если нажали «Не разрешать»: **Системные настройки → Конфиденциальность и безопасность → Данные других приложений** → включите Studio1826Updater."))
         } else {
@@ -664,10 +688,27 @@ private struct SafariScriptRow: View {
                 }
             }
             Spacer(minLength: 8)
-            Button(buttonTitle(st)) { updater.install(script) }
-                .buttonStyle(.borderedProminent)
-                .disabled(st.isBusy || !browsers.userscriptsFolderExists)
+            VStack(alignment: .trailing, spacing: 6) {
+                Button(buttonTitle(st)) { updater.install(script) }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(st.isBusy || !browsers.userscriptsFolderExists)
+                if Self.isPermissionError(st) {
+                    Button("Сбросить доступ") {
+                        BrowserService.resetAppDataPermission()
+                        updater.install(script)
+                    }
+                    .disabled(st.isBusy)
+                    .help("macOS запомнила запрет на запись в папку Userscripts. Сброс — и macOS спросит снова: нажмите «Разрешить».")
+                }
+            }
         }
+    }
+
+    /// «You don't have permission to save…» / «нет разрешения на сохранение…»
+    static func isPermissionError(_ st: ScriptState) -> Bool {
+        guard st.hasError else { return false }
+        let text = st.status.lowercased()
+        return text.contains("permission") || text.contains("разрешени")
     }
 
     private func buttonTitle(_ st: ScriptState) -> String {

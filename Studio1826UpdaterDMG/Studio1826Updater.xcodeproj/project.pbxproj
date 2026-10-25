@@ -20,6 +20,8 @@
 		A020 /* BrowserService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F020 /* BrowserService.swift */; };
 		A021 /* ReplyStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F021 /* ReplyStore.swift */; };
 		A043 /* LaunchAtLogin.swift in Sources */ = {isa = PBXBuildFile; fileRef = F043 /* LaunchAtLogin.swift */; };
+		A044 /* DebugReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F044 /* DebugReport.swift */; };
+		A045 /* DebugLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F045 /* DebugLog.swift */; };
 		A022 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F022 /* AppState.swift */; };
 		A030 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = F030 /* Components.swift */; };
 		A031 /* PopoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F031 /* PopoverView.swift */; };
@@ -48,6 +50,8 @@
 		F020 /* BrowserService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserService.swift; sourceTree = "<group>"; };
 		F021 /* ReplyStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplyStore.swift; sourceTree = "<group>"; };
 		F043 /* LaunchAtLogin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLogin.swift; sourceTree = "<group>"; };
+		F044 /* DebugReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugReport.swift; sourceTree = "<group>"; };
+		F045 /* DebugLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugLog.swift; sourceTree = "<group>"; };
 		F022 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		F030 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		F031 /* PopoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopoverView.swift; sourceTree = "<group>"; };
@@ -104,6 +108,7 @@
 				F011 /* Calculator.swift */,
 				F012 /* Studio.swift */,
 				F041 /* LinksLayout.swift */,
+				F044 /* DebugReport.swift */,
 				F013 /* Browsers.swift */,
 				F014 /* ReplyLibrary.swift */,
 			);
@@ -116,6 +121,7 @@
 				F020 /* BrowserService.swift */,
 				F021 /* ReplyStore.swift */,
 				F043 /* LaunchAtLogin.swift */,
+				F045 /* DebugLog.swift */,
 				F042 /* LinksStore.swift */,
 				F022 /* AppState.swift */,
 				F024 /* QuickReplies.swift */,
@@ -229,6 +235,8 @@
 				A020 /* BrowserService.swift in Sources */,
 				A021 /* ReplyStore.swift in Sources */,
 				A043 /* LaunchAtLogin.swift in Sources */,
+				A044 /* DebugReport.swift in Sources */,
+				A045 /* DebugLog.swift in Sources */,
 				A042 /* LinksStore.swift in Sources */,
 				A022 /* AppState.swift in Sources */,
 				A024 /* QuickReplies.swift in Sources */,
@@ -385,7 +393,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 4.2.1;
+				MARKETING_VERSION = 4.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = studio1826.updater;
 				PRODUCT_NAME = Studio1826Updater;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -409,7 +417,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 4.2.1;
+				MARKETING_VERSION = 4.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = studio1826.updater;
 				PRODUCT_NAME = Studio1826Updater;
 				SWIFT_EMIT_LOC_STRINGS = YES;
