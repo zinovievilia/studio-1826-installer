@@ -1364,9 +1364,6 @@
 
   // С адресом — для Павелецкой (ссылку на Серпуховскую Илья пока не дал). Добавляется к любому варианту выше.
   const DONE_LINK = 'https://1826.studio/pav/contacts';
-  const DONE_LINK_SERP = 'https://1826.studio/serp/contacts';
-  /** Адрес «как нас найти» по филиалу из заголовка диалога: Серпуховская — свой, остальные — Павелецкая. */
-  const linkForBranch = (title) => (/серпух/i.test(String(title || '')) ? DONE_LINK_SERP : DONE_LINK);
   const DONE_LINK_INTROS = ['Информация как нас найти:']; // формулировка Ильи, своих не добавлять
 
   // ── Bitrix24: кнопка «Пропуск» ──────────────────────────────────────────────
@@ -1454,9 +1451,7 @@
     let box = row;
     while (box && !box.querySelector('textarea')) box = box.parentElement;
     const area = box && box.querySelector('textarea');
-    // Адрес по филиалу: в заголовке диалога линии пишется филиал
-    const title = textOf(document.querySelector('.bx-im-dialog-header, .bx-messenger-panel, .bx-im-chat-header, header') || document.body).slice(0, 2000);
-    const text = pickDoneMessage(donePool(lastRunCount > 1 ? DONE_MANY : DONE_ONE, new Date().getHours()), lastDone, linkForBranch(title), DONE_LINK_INTROS);
+    const text = pickDoneMessage(donePool(lastRunCount > 1 ? DONE_MANY : DONE_ONE, new Date().getHours()), lastDone, DONE_LINK, DONE_LINK_INTROS);
     const prevDone = lastDone;
     lastDone = text;
     if (!area) {
