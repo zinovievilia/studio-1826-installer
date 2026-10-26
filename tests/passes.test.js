@@ -492,3 +492,10 @@ test('пропуск готов: подводка к ссылке — тольк
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'studio1826-passes.user.js'), 'utf8');
   assert.match(src, /const DONE_LINK_INTROS = \['Информация как нас найти:'\];/);
 });
+
+test('пропуск готов: ссылка «как нас найти» по филиалу', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'studio1826-passes.user.js'), 'utf8');
+  assert.match(src, /DONE_LINK = 'https:\/\/1826\.studio\/pav\/contacts'/);
+  assert.match(src, /DONE_LINK_SERP = 'https:\/\/1826\.studio\/serp\/contacts'/);
+  assert.match(src, /linkForBranch\(title\)/);
+});
