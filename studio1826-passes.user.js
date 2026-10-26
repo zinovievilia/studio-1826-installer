@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v1.6.2 Studio 1826 — Пропуска списком (Авангард)
+// @name         v1.7.0 Studio 1826 — Пропуска списком (Авангард)
 // @namespace    studio1826
-// @version      1.6.2
+// @version      1.7.0
 // @description  Кнопка «Оформить пропуск» в окне ввода открытых линий Bitrix24: список ФИО + дата → пропуска в Авангарде оформляются по очереди с проверкой; в Авангарде — кнопка «Пропуска списком» и часы машин за сегодня
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
@@ -27,7 +27,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.6.2';
+  const VERSION = '1.7.0';
   const DEFAULT_GUESTS_URL = 'https://my.avanguard.pro/account/354/guests';
 
   // ── Чистые функции (тесты: tests/passes.test.js) ───────────────────────────
@@ -1412,9 +1412,25 @@
         shield(wrap);
         row.appendChild(wrap);
       }
+      // Диалог открыт не во вкладке «Линии» (там нет ряда кнопок) — «Брони клиента» плавающей кнопкой
+      let float = document.getElementById('s1826p-float');
+      const noRow = !document.querySelector(LINES_BUTTONS);
+      if (noRow && dialogKey() && document.querySelector('a.bx-im-attach-link__link[href*="/crm/deal/details/"]')) {
+        if (!float) {
+          float = document.createElement('button');
+          float.id = 's1826p-float';
+          float.type = 'button';
+          float.className = 's1826p-btn s1826p-bookings';
+          float.style.cssText = 'position:fixed;right:24px;bottom:96px;z-index:9998;margin:0;height:28px;background:#fff;box-shadow:0 2px 8px #0003';
+          float.textContent = '📅 Брони клиента';
+          float.title = 'Бронирования на этом клиенте: даты, залы, суммы, стадии';
+          float.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); const p = bookings(); if (p) p.openAt(float); });
+          document.body.appendChild(shield(float));
+        }
+      } else if (float) { float.remove(); float = null; }
       // Ушли из линий — панель закрываем (если она не работает)
       if (ui && !ui.running && !document.querySelector(LINES_BUTTONS)) ui.panel.classList.remove('open');
-      if (bk && !document.querySelector(LINES_BUTTONS)) bk.panel.classList.remove('open');
+      if (bk && noRow && !float) bk.panel.classList.remove('open');
       // Сменился диалог — панель броней показывает уже нового клиента
       if (bk && bk.panel.classList.contains('open') && bk.key !== dialogKey()) bk.load();
       annotateDealLinks();
