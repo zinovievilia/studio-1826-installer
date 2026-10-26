@@ -13,6 +13,11 @@ jobs:
         with:
           node-version: 22
       - run: node --check studio1826.user.js
+      # Этап 10, P2: переменная let/const до объявления в той же области (так сломались 4.3.0–4.5.0). ESLint только здесь.
+      - run: >-
+          npx --yes eslint@9.39.1 --no-config-lookup
+          --rule '{"no-use-before-define": ["error", {"functions": false, "classes": false, "variables": false}]}'
+          studio1826.user.js
       - run: npm test
 
   # Этап 10, P2: браузерные проверки (Playwright только здесь, в скрипт и package.json не входит).
