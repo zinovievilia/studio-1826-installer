@@ -8,7 +8,7 @@
 - **Версия на main: 5.6.6** (`@version` в `studio1826.user.js` и `studio1826.meta.js`, `VERSION` в коде, `package.json` совпадают; тест `version-sync`).
   Бэкапы: ветки `backup-vX.Y.Z` (последняя `backup-v5.6.6`) и zip в `~/ClaudeCode/backups/` на Mac Ильи. Releases не создавать: их читает Updater.
 - Файл `studio1826.user.js` — ~8400 строк, один IIFE, `@grant none`, без сборщика и библиотек.
-- Проверки GitHub (`.github/workflows/test.yml`): задача `test` (`node --check`, `npm test`, 64 теста) и задача `browser`
+- Проверки GitHub (`.github/workflows/test.yml`): задача `test` (`node --check`, ESLint `no-use-before-define`, `npm test`, 64 теста) и задача `browser`
   (Playwright 1.64.1 только в CI: smoke, ui-header, ui-notes, ui-equipment, ui-layout). Все зелёные на `c7e6b5a`.
 - «Этап 10» из README закрыт полностью. Открыто только: кнопка «Выплата» у пользователей Яндекс Браузера (см. «Открытые задачи»).
 
@@ -94,5 +94,5 @@ studio1826.user.js
    Ширины хватает (при 1440 на Mac запас ~300 px), значит, вероятно, у их учётных записей другая шапка Bitrix без `#header.air-header`.
    Не подтверждено. Ждём отчёт «Диагностики» из 5.6.5+ (`main.chip.anyHeader`); Илья пришлёт, когда сможет. Проверка: открыть календарь
    под их входом в Chrome — если плашка и там, дело в виде Bitrix, а не в браузере.
-2. (по желанию Ильи) Проверка «использование до объявления» линтером только в CI — нужна договорённость о dev-инструменте.
+2. ~~Линтер «использование до объявления»~~ — сделан 26.10: шаг ESLint 9.39.1 в задаче `test` (`npx --yes`, `--no-config-lookup`, `no-use-before-define` с `functions/classes/variables: false`). На коде 4.5.0 даёт ровно ошибку `settingsChanged`, на 5.6.6 чисто. Проверен в ветке test-ci-5.6.6.
 3. Ветка `test-ci-5.6.6` осталась на GitHub, её можно удалить; `wip/overlay-robustness` — архив, не вливать.

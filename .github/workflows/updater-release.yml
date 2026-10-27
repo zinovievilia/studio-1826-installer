@@ -1,0 +1,105 @@
+name: updater-release
+
+# Сборка DMG Studio1826Updater на GitHub (без Mac Ильи) и выкладка в main.
+# Запуск вручную: Actions → updater-release → Run workflow.
+#   version — версия из APP_VERSION (защита от выкладки не той сборки);
+#   publish — false: только собрать и приложить DMG к запуску (проверка);
+#             true: собрать и выложить в main (DMG раньше app.version).
+# Выкладывать только после «выкладывай X.Y.Z» от Ильи.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Версия (как APP_VERSION в UpdaterService.swift)'
+        required: true
+      publish:
+        description: 'Выложить в main (иначе только собрать)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: updater-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Версия совпадает и новее выложенной
+        env:
+          WANTED: ${{ inputs.version }}
+          PUBLISH: ${{ inputs.publish }}
+        run: |
+          code="$(sed -nE 's/^let APP_VERSION = "([^"]+)".*/\1/p' Studio1826UpdaterDMG/Studio1826Updater/UpdaterService.swift | head -1)"
+          current="$(tr -d '[:space:]' < app.version)"
+          echo "APP_VERSION=$code, выложена=$current, запрошена=$WANTED"
+          if [ "$code" != "$WANTED" ]; then
+            echo "::error::В коде $code, а запрошена $WANTED"; exit 1
+          fi
+          # Проверочная сборка (publish=false) может повторить выложенную версию
+          if [ "$PUBLISH" != "true" ] && [ "$code" = "$current" ]; then
+            echo "Проверочная сборка уже выложенной версии"; exit 0
+          fi
+          if [ "$code" = "$current" ] || [ "$(printf '%s\n%s\n' "$current" "$code" | sort -V | tail -1)" != "$code" ]; then
+            echo "::error::$code не новее выложенной $current"; exit 1
+          fi
+
+      - name: Тесты Core
+        working-directory: Studio1826UpdaterDMG
+        run: |
+          swiftc -swift-version 5 Studio1826Updater/Core/*.swift Tests/CoreTests/main.swift -o "$RUNNER_TEMP/coretests"
+          "$RUNNER_TEMP/coretests"
+
+      - name: Сборка DMG
+        working-directory: Studio1826UpdaterDMG
+        run: bash ./build.sh
+
+      - name: Проверка DMG
+        working-directory: Studio1826UpdaterDMG
+        env:
+          WANTED: ${{ inputs.version }}
+        run: |
+          test "$(tr -d '[:space:]' < app.version)" = "$WANTED"
+          mnt="$(mktemp -d)"
+          hdiutil attach Studio1826Updater.dmg -nobrowse -readonly -mountpoint "$mnt" -quiet
+          app="$mnt/Studio1826Updater.app"
+          test -x "$app/Contents/MacOS/Studio1826Updater"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist")" = "$WANTED"
+          # Ключей внутри быть не должно: DMG лежит в публичном репозитории
+          if grep -rIl "github_pat_\|ghp_" "$app" 2>/dev/null | head -1 | grep -q .; then
+            echo "::error::В приложении найден ключ GitHub"; hdiutil detach "$mnt" -quiet; exit 1
+          fi
+          hdiutil detach "$mnt" -quiet
+          ls -l Studio1826Updater.dmg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Studio1826Updater-${{ inputs.version }}
+          path: |
+            Studio1826UpdaterDMG/Studio1826Updater.dmg
+            Studio1826UpdaterDMG/app.version
+
+      - name: Выложить в main
+        if: ${{ inputs.publish }}
+        env:
+          WANTED: ${{ inputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
+          # Сначала DMG (корень и копия), потом app.version: иначе приложения увидят новую версию
+          # и скачают старый DMG.
+          cp Studio1826UpdaterDMG/Studio1826Updater.dmg Studio1826Updater.dmg
+          git add Studio1826Updater.dmg Studio1826UpdaterDMG/Studio1826Updater.dmg
+          git commit -m "Updater $WANTED: DMG"
+          git push origin HEAD:main
+          cp Studio1826UpdaterDMG/app.version app.version
+          git add app.version Studio1826UpdaterDMG/app.version
+          git commit -m "Updater $WANTED: app.version"
+          git push origin HEAD:main
