@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v1.6.2 Studio 1826 — Пропуска списком (Авангард)
+// @name         v1.8.0 Studio 1826 — Пропуска списком (Авангард)
 // @namespace    studio1826
-// @version      1.6.2
+// @version      1.8.0
 // @description  Кнопка «Оформить пропуск» в окне ввода открытых линий Bitrix24: список ФИО + дата → пропуска в Авангарде оформляются по очереди с проверкой; в Авангарде — кнопка «Пропуска списком» и часы машин за сегодня
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
@@ -27,7 +27,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.6.2';
+  const VERSION = '1.8.0';
   const DEFAULT_GUESTS_URL = 'https://my.avanguard.pro/account/354/guests';
 
   // ── Чистые функции (тесты: tests/passes.test.js) ───────────────────────────
@@ -925,6 +925,41 @@
 
   const onGuestsPage = () => /\/account\/\d+\/guests\/?$/.test(location.pathname);
 
+  /** Вкладка Авангарда подаёт сигнал раз в 2 с; Bitrix считает её живой, пока сигнал свежее этого срока. */
+  const TAB_ALIVE_MS = 7000;
+  const AV_TAB_ID = Math.random().toString(36).slice(2, 9);
+
+  /**
+   * Уже открытая вкладка Авангарда сама берёт задание из Bitrix (target: 'existing') и оформляет в себе:
+   * новая вкладка не открывается, закреплённые остаются на месте, вкладку не закрываем.
+   */
+  let existingBusy = false;
+  async function takeExistingJob() {
+    if (existingBusy || !onGuestsPage() || !accessToken()) return;
+    const job = await store.get('job', null);
+    if (!job || job.taken || job.target !== 'existing' || Date.now() - (job.createdAt || 0) > 30000) return;
+    await store.set('job', { ...job, taken: true, takenBy: AV_TAB_ID });
+    await sleep(250);
+    const mine = await store.get('job', null); // если задание взяла другая вкладка Авангарда, она записала себя последней
+    if (!mine || mine.id !== job.id || mine.takenBy !== AV_TAB_ID) return;
+    existingBusy = true;
+    const title = document.title;
+    const save = (r) => store.set(`result:${job.id}`, r);
+    try {
+      await save({ done: false, started: true, results: {}, stage: 'Авангард: работаю в открытой вкладке' });
+      const problem = await checkAvanguard(job.from);
+      if (problem) { await save({ done: true, results: {}, error: `Авангард: ${problem}` }); return; }
+      document.title = `⏳ Пропуска… ${title}`;
+      const out = await runBatch(job.names, job.from, (r) => save({ done: false, ...r }), () => false, {});
+      await save({ done: true, ...out });
+    } catch (e) {
+      await save({ done: true, results: {}, error: `Авангард: ${e && e.message ? e.message : e}` });
+    } finally {
+      document.title = title;
+      existingBusy = false;
+    }
+  }
+
   async function avanguardMain() {
     // Запоминаем адрес страницы посетителей — Bitrix откроет именно его
     const rememberUrl = () => {
@@ -940,7 +975,7 @@
       // Сайт на секунду уходит на /login и теряет хвост адреса; если мы сами перезагрузили вкладку — продолжаем своё задание
       const prev = job ? await store.get(`result:${job.id}`, {}) : {};
       const resumed = job && job.taken && readSession(JOB_KEY) === job.id && !prev.done;
-      if (job && ((!job.taken && ((jobMatch && job.id === jobMatch[1]) || fresh)) || resumed)) {
+      if (job && ((!job.taken && job.target !== 'existing' && ((jobMatch && job.id === jobMatch[1]) || fresh)) || resumed)) {
         const save = (r) => store.set(`result:${job.id}`, r);
         if (!resumed) {
           await store.set('job', { ...job, taken: true });
@@ -993,6 +1028,10 @@
     sync();
     setInterval(sync, 1000);
     startParkingColumn();
+    const beat = () => { if (onGuestsPage() && accessToken()) store.set('av-alive', { id: AV_TAB_ID, t: Date.now() }); };
+    beat();
+    setInterval(beat, 2000);
+    setInterval(() => { takeExistingJob().catch(() => {}); }, 1000);
   }
 
   /** Своя кнопка справа от «+ Новый посетитель», в том же стиле (классы берём у неё). */
@@ -1412,9 +1451,25 @@
         shield(wrap);
         row.appendChild(wrap);
       }
+      // Диалог открыт не во вкладке «Линии» (там нет ряда кнопок) — «Брони клиента» плавающей кнопкой
+      let float = document.getElementById('s1826p-float');
+      const noRow = !document.querySelector(LINES_BUTTONS);
+      if (noRow && dialogKey() && document.querySelector('a.bx-im-attach-link__link[href*="/crm/deal/details/"]')) {
+        if (!float) {
+          float = document.createElement('button');
+          float.id = 's1826p-float';
+          float.type = 'button';
+          float.className = 's1826p-btn s1826p-bookings';
+          float.style.cssText = 'position:fixed;right:24px;bottom:96px;z-index:9998;margin:0;height:28px;background:#fff;box-shadow:0 2px 8px #0003';
+          float.textContent = '📅 Брони клиента';
+          float.title = 'Бронирования на этом клиенте: даты, залы, суммы, стадии';
+          float.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); const p = bookings(); if (p) p.openAt(float); });
+          document.body.appendChild(shield(float));
+        }
+      } else if (float) { float.remove(); float = null; }
       // Ушли из линий — панель закрываем (если она не работает)
       if (ui && !ui.running && !document.querySelector(LINES_BUTTONS)) ui.panel.classList.remove('open');
-      if (bk && !document.querySelector(LINES_BUTTONS)) bk.panel.classList.remove('open');
+      if (bk && noRow && !float) bk.panel.classList.remove('open');
       // Сменился диалог — панель броней показывает уже нового клиента
       if (bk && bk.panel.classList.contains('open') && bk.key !== dialogKey()) bk.load();
       annotateDealLinks();
@@ -1435,10 +1490,7 @@
     let box = row;
     while (box && !box.querySelector('textarea')) box = box.parentElement;
     const area = box && box.querySelector('textarea');
-    // Адрес — только Павелецкой: в заголовке диалога линии пишется филиал
-    const title = textOf(document.querySelector('.bx-im-dialog-header, .bx-messenger-panel, .bx-im-chat-header, header') || document.body).slice(0, 2000);
-    const withLink = !/серпух/i.test(title);
-    const text = pickDoneMessage(donePool(lastRunCount > 1 ? DONE_MANY : DONE_ONE, new Date().getHours()), lastDone, withLink ? DONE_LINK : '', DONE_LINK_INTROS);
+    const text = pickDoneMessage(donePool(lastRunCount > 1 ? DONE_MANY : DONE_ONE, new Date().getHours()), lastDone, DONE_LINK, DONE_LINK_INTROS);
     const prevDone = lastDone;
     lastDone = text;
     if (!area) {
@@ -1694,14 +1746,37 @@
 
         lastRunCount = names.length;
         const job = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), names, from: date, to: date, createdAt: Date.now() };
+        // Уже открытая вкладка Авангарда (в ней есть вход) — работаем в ней, новую не открываем
+        const alive = await store.get('av-alive', null);
+        const reuse = !!alive && Date.now() - (alive.t || 0) < TAB_ALIVE_MS;
+        job.target = reuse ? 'existing' : 'new';
         await store.set('job', job);
         await store.set(`result:${job.id}`, { done: false, results: {} });
-        const url = await store.get('guestsUrl', DEFAULT_GUESTS_URL);
-        const tab = await openBackgroundTab(`${url}#s1826-job=${job.id}`);
-
         ui.setRunning(true, 'Оформляю в Авангарде…');
         ui.showStatus(names, {});
-        ui.summary.textContent = 'Авангард: открываю вкладку…';
+        let tab = null;
+        const openNew = async () => {
+          const url = await store.get('guestsUrl', DEFAULT_GUESTS_URL);
+          ui.summary.textContent = 'Авангард: открываю вкладку…';
+          tab = await openBackgroundTab(`${url}#s1826-job=${job.id}`);
+        };
+        if (reuse) {
+          ui.summary.textContent = 'Авангард: использую открытую вкладку…';
+          // Вкладка в фоне может «спать»: если за 8 с не взяла задание — открываем новую, как раньше
+          let took = false;
+          for (let i = 0; i < 16 && !took; i++) {
+            await sleep(500);
+            const j = await store.get('job', null);
+            took = !!(j && j.id === job.id && j.taken);
+          }
+          if (!took) {
+            await store.set('job', { ...job, target: 'new', createdAt: Date.now() });
+            await openNew();
+          }
+        } else {
+          await openNew();
+        }
+
         // Ждём результаты; если вкладка Авангарда 60 с ничего не сообщает — сдаёмся
         let lastChange = Date.now();
         let lastSeen = '';

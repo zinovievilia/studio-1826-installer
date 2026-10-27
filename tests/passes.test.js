@@ -492,3 +492,17 @@ test('пропуск готов: подводка к ссылке — тольк
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'studio1826-passes.user.js'), 'utf8');
   assert.match(src, /const DONE_LINK_INTROS = \['Информация как нас найти:'\];/);
 });
+
+test('пропуск готов: ссылка «как нас найти» всегда Павелецкая, у всех филиалов', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'studio1826-passes.user.js'), 'utf8');
+  assert.match(src, /DONE_LINK = 'https:\/\/1826\.studio\/pav\/contacts'/);
+  assert.doesNotMatch(src, /серпух\/i\.test/);
+});
+
+test('вкладка Авангарда: открытая вкладка берёт задание, новая открывается только если никто не взял', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'studio1826-passes.user.js'), 'utf8');
+  assert.match(src, /job\.target = reuse \? 'existing' : 'new'/);
+  assert.match(src, /store\.set\('av-alive'/);
+  assert.match(src, /job\.target !== 'existing' && \(\(jobMatch/);
+  assert.match(src, /if \(!took\) \{[\s\S]{0,120}target: 'new'[\s\S]{0,80}openNew\(\)/);
+});
