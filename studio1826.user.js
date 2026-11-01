@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v5.8.4 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v5.8.5 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      5.8.4
+// @version      5.8.5
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '5.8.4';
+    const VERSION = '5.8.5';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -3994,7 +3994,8 @@
             /* 5.8.3: чашка с ручкой, паром и блюдцем — не путается с урной. */
             coffee: { line: false, d: '<path d="M4 9.5h12v5.5a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z"/><path d="M16 10.3h1.6a2.9 2.9 0 0 1 0 5.8H16v-1.7h1.6a1.2 1.2 0 0 0 0-2.4H16z"/><rect x="2.5" y="20.4" width="15" height="1.7" rx=".85"/><path d="M7.5 2.5c-1.2 1.2 1.2 2.2 0 3.6M11.5 2.5c-1.2 1.2 1.2 2.2 0 3.6"/>' },
             /* 5.8.4: машина (парковка). */
-            car: { line: false, d: '<path d="M7 9l1.6-3.4A1.4 1.4 0 0 1 9.9 4.8h4.2a1.4 1.4 0 0 1 1.3.8L17 9z"/><rect x="3" y="9" width="18" height="8.5" rx="2"/><circle cx="7.5" cy="18" r="2.3"/><circle cx="16.5" cy="18" r="2.3"/>' },
+            /* 5.8.5: легковая машина сбоку: кузов с окнами и колёсами с дисками. */
+            car: { line: false, d: '<path fill-rule="evenodd" d="M2.5 16.5v-3.1c0-.9.6-1.5 1.4-1.7l2.3-.6 2.2-3.8c.4-.7 1.1-1.1 1.9-1.1H15c.8 0 1.5.4 1.9 1l2.1 3.7 1.8.6c.6.2.7.7.7 1.3v3.7H20a3 3 0 0 0-6 0h-4a3 3 0 0 0-6 0zM9.5 10.6l1.4-2.5c.1-.2.3-.3.6-.3h1.3v2.8zM13.9 7.8h1.2c.3 0 .5.1.6.3l1.5 2.5h-3.3z"/><path fill-rule="evenodd" d="M4.6 17a2.4 2.4 0 1 0 4.8 0a2.4 2.4 0 1 0-4.8 0zM6.1 17a.9.9 0 1 0 1.8 0a.9.9 0 1 0-1.8 0z"/><path fill-rule="evenodd" d="M14.6 17a2.4 2.4 0 1 0 4.8 0a2.4 2.4 0 1 0-4.8 0zM16.1 17a.9.9 0 1 0 1.8 0a.9.9 0 1 0-1.8 0z"/>' },
             frame: { line: true, d: '<rect x="4" y="4" width="16" height="16" rx="1"/>' },
             comment: { line: true, d: '<path d="M12 3a9 9 0 1 0 0 18c1.2 0 2.3-.2 3.3-.7L20.5 21l-1.4-4.4A9 9 0 0 0 12 3z"/><path d="M12 11v5M12 7.5v.01"/>' }
         };
