@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v5.8.5 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v5.9.0 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      5.8.5
+// @version      5.9.0
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '5.8.5';
+    const VERSION = '5.9.0';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -2455,6 +2455,20 @@
     function exportSettings(features) {
         return JSON.stringify({ app: 'studio1826', schema: SETTINGS_SCHEMA, features: sanitizeFeatures(features) }, null, 2);
     }
+
+    /* 5.9.0: готовый набор настроек «Тема 1» (кнопка в Настройках → «Резервная копия»). */
+    const THEME_1_FEATURES = {
+        compactCards: true, reuse: true, fonHighlight: true, copyButton: true, hoverFocus: true,
+        borders: true, handoff: true, aliases: true, arrows: true, moveArrows: true, stripes: true, notes: true,
+        badgeText: false, badgeDark: true, priceLabels: false, centerNames: true,
+        font: 'monospace', fontSize: 15, fontWeight: '700', fontStyle: '',
+        colors: {
+            multi: '#b51a00', done: '#fcf0f4', prepaid: '#9aa60e', checked: '#5c0700',
+            kEq: '#fec700', kFrame: '#fec700', kBg: '#fec700', handoff: '#583400', last: '#2563eb',
+            arrow: '#ffaa00', moveArrow: '#2563eb', tile: '#c4bc00'
+        }
+    };
+    const FEATURES_BACKUP_KEY = 'studio1826.v32.featuresBackup';
 
     /* Возвращает очищенные настройки или null, если текст не похож на нашу копию. */
     function parseSettingsImport(text) {
@@ -6432,7 +6446,12 @@
                 ])),
                 { open: false });
 
-            group('Резервная копия', 2, [
+            group('Резервная копия', 3, [
+                el('div', { className: 'st-note' }, ['Готовый набор настроек одним нажатием. Прежние настройки запоминаются, «Вернуть как было» их восстановит.']),
+                el('div', { className: 'st-actions' }, [
+                    el('button', { type: 'button', className: 'st-theme1' }, ['Тема 1']),
+                    el('button', { type: 'button', className: 'st-reset st-theme-undo' }, ['Вернуть как было'])
+                ]),
                 el('div', { className: 'st-note' }, ['Перенос настроек на другой компьютер: скопируйте текст и вставьте его там.']),
                 el('div', { className: 'st-actions' }, [
                     el('button', { type: 'button', className: 'st-export' }, ['Скопировать настройки'])
@@ -6483,7 +6502,7 @@
 
             panel.appendChild(el('div', { className: 'st-actions' }, [
                 el('button', { type: 'button', className: 'st-save' }, ['Сохранить']),
-                el('button', { type: 'button', className: 'st-reset' }, ['Сбросить цвета'])
+                el('button', { type: 'button', className: 'st-reset st-colors-reset' }, ['Сбросить цвета'])
             ]));
 
             panel.appendChild(el('div', { className: 'st-note' }, [
@@ -6518,6 +6537,8 @@
                 panel.querySelectorAll('[data-stage]').forEach(input => {
                     input.value = draft[input.dataset.stage];
                 });
+
+                syncPresetButtons();
 
                 const fontField = panel.querySelector('.st-ffamily');
 
@@ -6610,6 +6631,57 @@
 
             const importStatus = panel.querySelector('.st-import-status');
 
+            /* 5.9.0: «Тема 1» и «Вернуть как было». Прежние настройки лежат в localStorage — переживают перезагрузку. */
+            const readBackup = () => {
+                try {
+                    const text = localStorage.getItem(FEATURES_BACKUP_KEY);
+
+                    return text ? sanitizeFeatures(JSON.parse(text)) : null;
+                } catch (_) {
+                    return null;
+                }
+            };
+
+            function syncPresetButtons() {
+                const undo = panel.querySelector('.st-theme-undo');
+
+                if (undo) undo.disabled = !readBackup();
+            }
+
+            panel.querySelector('.st-theme1').addEventListener('click', () => {
+                const preset = sanitizeFeatures(THEME_1_FEATURES);
+
+                /* Если уже стоит «Тема 1», сохранённые прежние настройки не затираем. */
+                if (JSON.stringify(preset) !== JSON.stringify(features)) {
+                    try { localStorage.setItem(FEATURES_BACKUP_KEY, JSON.stringify(features)); } catch (_) {}
+                }
+
+                features = preset;
+                saveFeatures(features);
+                fillSettingsControls();
+                requestData();
+                syncPresetButtons();
+                importStatus.textContent = 'Тема 1 применена. Прежние настройки сохранены.';
+            });
+
+            panel.querySelector('.st-theme-undo').addEventListener('click', () => {
+                const previous = readBackup();
+
+                if (!previous) return;
+
+                features = previous;
+                saveFeatures(features);
+
+                try { localStorage.removeItem(FEATURES_BACKUP_KEY); } catch (_) {}
+
+                fillSettingsControls();
+                requestData();
+                syncPresetButtons();
+                importStatus.textContent = 'Прежние настройки возвращены.';
+            });
+
+            syncPresetButtons();
+
             panel.querySelector('.st-export').addEventListener('click', async () => {
                 const ok = await copyText(exportSettings(features));
 
@@ -6633,7 +6705,7 @@
                 importStatus.textContent = 'Настройки применены.';
             });
 
-            panel.querySelector('.st-reset').addEventListener('click', () => {
+            panel.querySelector('.st-colors-reset').addEventListener('click', () => {
                 draft = Object.fromEntries(COLOR_ITEMS.map(item => [item.id, defaultColor(item)]));
 
                 features = sanitizeFeatures({ ...features, colors: draft });
