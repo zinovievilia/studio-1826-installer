@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v5.8.1 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v5.8.4 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      5.8.1
+// @version      5.8.4
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
