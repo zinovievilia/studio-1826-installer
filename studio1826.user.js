@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v5.6.6 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v5.8.1 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      5.6.6
+// @version      5.8.1
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '5.6.6';
+    const VERSION = '5.8.1';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -161,6 +161,100 @@
                 font-weight: 800;
                 letter-spacing: .04em;
             }
+            /* 5.6.8: значки в правом верхнем углу карточки, комментарий — внизу справа.
+             * Светлый вид — на подложке, тёмный (как на референсе) — залитые серые значки без подложки. */
+            .deal-item-contaner .s26-icons {
+                position: absolute;
+                inset: 0;
+                z-index: 45;
+                pointer-events: none;
+            }
+            /* 5.7.0: остальные значки — в левом нижнем углу, комментарий — в правом нижнем, размер у всех одинаковый. */
+            .deal-item-contaner .s26-icons-top {
+                position: absolute;
+                left: 6px;
+                bottom: 4px;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+            }
+            /* 5.8.0: правый нижний угол — колонка: «!» (если имена не по центру) над комментарием. */
+            .deal-item-contaner .s26-icons-right {
+                position: absolute;
+                right: 6px;
+                bottom: 4px;
+                display: flex;
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 3px;
+            }
+            /* «!» при именах по центру — в левом верхнем углу карточки. */
+            .deal-item-contaner .s26-icons-tl {
+                position: absolute;
+                top: 4px;
+                left: 6px;
+                display: flex;
+            }
+            .deal-item-contaner .s26-ico-keep svg * { stroke: #d00000 !important; }
+            .deal-item-contaner .s26-ico {
+                display: inline-flex;
+                align-items: center;
+                gap: 3px;
+                padding: 1px 4px;
+                border-radius: 3px;
+                background: rgba(255, 255, 255, .7);
+                font-size: 11px;
+                font-weight: 600;
+                color: #2b2f36;
+            }
+            .deal-item-contaner .s26-ico svg {
+                width: 16px;
+                height: 16px;
+                flex: none;
+            }
+            .deal-item-contaner .s26-ico svg * {
+                fill: none;
+                stroke: #2b2f36;
+                stroke-width: 1.8;
+                stroke-linecap: round;
+                stroke-linejoin: round;
+            }
+            .deal-item-contaner .s26-ico-bg svg * { stroke: #d00000; }
+            .deal-item-contaner .s26-icons.s26-ico-dark .s26-ico {
+                padding: 0;
+                background: none;
+            }
+            .deal-item-contaner .s26-icons.s26-ico-dark .s26-ico svg { width: 22px; height: 22px; }
+            .deal-item-contaner .s26-icons.s26-ico-dark .s26-icons-comment svg { width: 22px; height: 22px; }
+            /* 5.6.9: цвет значков берётся с имени клиента (светлое имя на тёмной стадии — светлые значки). */
+            .deal-item-contaner .s26-icons.s26-ico-dark .s26-ico svg * {
+                fill: var(--s26-ico, #4a4a4a);
+                stroke: var(--s26-ico, #4a4a4a);
+                stroke-width: 1;
+            }
+            .deal-item-contaner .s26-icons.s26-ico-dark .s26-ico-line svg * {
+                fill: none;
+                stroke-width: 1.8;
+            }
+            /* 5.7.0: имя клиента по центру карточки (верх и низ заняты номером, значками и кнопкой). */
+            html.s26-compact:not(.s26-no-center) .deal-item-contaner .reserve-content-box { position: static !important; }
+            html.s26-compact:not(.s26-no-center) .deal-item-contaner .reserve-content-box > div:has(> .reserve-title-label) {
+                position: absolute;
+                left: 0;
+                right: 0;
+                top: 24px;
+                bottom: 24px;
+                box-sizing: border-box;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                padding: 0 8px;
+                text-align: center;
+                overflow: visible;
+            }
+            html.s26-compact:not(.s26-no-center) .deal-item-contaner .reserve-content-box > div:has(> .reserve-title-label) > .flex { justify-content: center; }
+            html.s26-no-price .deal-item-contaner .s26-price-label { display: none !important; }
             .deal-item-contaner .reserve-title-label.s26-star {
                 font-weight: 700 !important;
                 font-style: italic !important;
@@ -479,6 +573,16 @@
                 font-size: 13px;
                 font-weight: 600;
                 white-space: nowrap;
+            }
+            #${PANEL_ID} .p-hall.has-price { margin-bottom: 0; padding-bottom: 2px; border-bottom: 0; }
+            #${PANEL_ID} .p-price {
+                margin-bottom: 10px;
+                padding-bottom: 9px;
+                border-bottom: 1px solid #e8e8e8;
+                color: #444;
+                font-size: 13px;
+                font-weight: 600;
+                font-variant-numeric: tabular-nums;
             }
             html.s26-hover-focus #${PANEL_ID}.visible {
                 border-color: #b9b9b9;
@@ -1113,6 +1217,18 @@
                 font: 12px/1.4 ui-monospace, Menlo, monospace;
                 resize: vertical;
             }
+            #${SETTINGS_ID} .st-font {
+                width: 100%;
+                margin: 8px 0;
+                padding: 7px 9px;
+                border: 1px solid #555;
+                border-radius: 6px;
+                background: #141414;
+                color: #fff;
+                font: inherit;
+            }
+            #${SETTINGS_ID} .st-color .st-font { width: 150px; margin: 0; }
+            #${SETTINGS_ID} select.st-font { cursor: pointer; }
             #${SETTINGS_ID} .st-note {
                 margin-top: 10px;
                 color: #999;
@@ -1329,6 +1445,7 @@
             #${WIDGET_ID}[data-skin="light"] .s-credit { color: #828b95; }
             #${WIDGET_ID}[data-skin="light"] .s-input,
             #${WIDGET_ID}[data-skin="light"] .st-hex,
+            #${WIDGET_ID}[data-skin="light"] .st-font,
             #${WIDGET_ID}[data-skin="light"] .st-import,
             #${WIDGET_ID}[data-skin="light"] .st-color input[type=color] {
                 background: #f4f6f8;
@@ -2231,14 +2348,22 @@
     const STAGE_STYLE_ID = 'studio1826-stage-style-v32';
     const FEATURE_KEYS = [
         'compactCards', 'reuse', 'fonHighlight', 'copyButton',
-        'hoverFocus', 'borders', 'handoff', 'aliases', 'arrows', 'moveArrows', 'stripes', 'notes'
+        'hoverFocus', 'borders', 'handoff', 'aliases', 'arrows', 'moveArrows', 'stripes', 'notes',
+        'badgeText', 'badgeDark', 'priceLabels', 'centerNames'
     ];
+
+    /* 5.6.8: ключи, которые у давних пользователей по умолчанию НЕ включаются (не менять вид после обновления). */
+    const OPT_IN_KEYS = new Set(['badgeText', 'badgeDark']);
 
     /* 5.6.3: набор Ильи для первого запуска (25.10.2026) — всё включено, кроме полос. */
     const FEATURE_DEFAULTS = {
         compactCards: true, reuse: true, fonHighlight: true, copyButton: true, hoverFocus: true,
         borders: true, handoff: true, aliases: true, arrows: true, moveArrows: true, stripes: false,
-        notes: true /* 5.6.5: заметки под «Помещениями» */
+        notes: true, /* 5.6.5: заметки под «Помещениями» */
+        badgeText: false, /* 5.6.8: надписи вместо значков */
+        badgeDark: false, /* 5.6.8: тёмные значки */
+        priceLabels: true, /* 5.6.8: суммы «7 500₽ | 0.00₽» на карточках */
+        centerNames: true /* 5.8.0: имя клиента по центру карточки */
     };
 
     /* Цвета стадий по умолчанию (как в Bitrix). */
@@ -2277,6 +2402,20 @@
 
     const STAGE_BY_RGB = new Map(STAGES.map(stage => [hexToRgbKey(stage.color), stage.id]));
 
+    /* 5.7.0: шрифт карточек. Разрешены буквы, цифры, пробел, запятая и дефис — ничего, что ломает CSS. */
+    const GENERIC_FONTS = new Set(['serif', 'sans-serif', 'monospace', 'cursive', 'system-ui', 'ui-sans-serif', 'ui-serif', 'ui-monospace', '-apple-system']);
+
+    function cleanFont(value) {
+        return typeof value === 'string'
+            ? value.replace(/[^\p{L}\d\s,\-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 80)
+            : '';
+    }
+
+    function fontStack(value) {
+        return cleanFont(value).split(',').map(part => part.trim()).filter(Boolean).slice(0, 6)
+            .map(part => (GENERIC_FONTS.has(part.toLowerCase()) ? part : `"${part}"`)).join(', ');
+    }
+
     /*
      * 5.6.3: новый пользователь получает FEATURE_DEFAULTS (до 5.6.3 — всё выключено). Сохранённые значения
      * не меняются никогда; для давнего пользователя недостающие ключи берутся по-старому (включены),
@@ -2287,9 +2426,15 @@
         const result = {};
 
         FEATURE_KEYS.forEach(key => {
-            result[key] = typeof source[key] === 'boolean' ? source[key] : (legacyDefault || FEATURE_DEFAULTS[key]);
+            result[key] = typeof source[key] === 'boolean' ? source[key] : ((legacyDefault && !OPT_IN_KEYS.has(key)) || FEATURE_DEFAULTS[key]);
         });
 
+        result.font = cleanFont(source.font);
+        /* 5.7.1: размер, насыщенность и начертание имени клиента ('' / 0 — как в Bitrix24). */
+        const size = Math.round(Number(source.fontSize));
+        result.fontSize = size >= 8 && size <= 32 ? size : 0;
+        result.fontWeight = ['400', '500', '600', '700', '800'].includes(String(source.fontWeight)) ? String(source.fontWeight) : '';
+        result.fontStyle = ['normal', 'italic'].includes(source.fontStyle) ? source.fontStyle : '';
         result.colors = {};
 
         COLOR_ITEMS.forEach(stage => {
@@ -3343,7 +3488,7 @@
 
                 node.id = OFF_STYLE_ID;
                 node.textContent = 'html.s26-off .s26-badges, html.s26-off .booking-copy-button, html.s26-off .s26-handoff,' +
-                    ' html.s26-off .s26-arrows, html.s26-off .s26-moves, html.s26-off .s26-tiles, html.s26-off .s26-hall-eq,' +
+                    ' html.s26-off .s26-arrows, html.s26-off .s26-moves, html.s26-off .s26-tiles, html.s26-off .s26-hall-eq, html.s26-off .s26-icons,' +
                     ' html.s26-off #' + PANEL_ID + ', html.s26-off #' + NOTES_ID + ' { display: none !important; }';
                 (document.head || document.documentElement).appendChild(node);
             }
@@ -3457,6 +3602,37 @@
 
         /* Слово «фон» (Фон, фона, фоне…), но не «телефон» или «фонарь». */
         const FON_RE = /(?<![а-яёa-z])фон(?:а|у|ом|е|ы|ов|ами|ах)?(?![а-яёa-z])/i;
+
+        /* 5.6.7: питомец в составе брони (значок-лапа). Ищется по словам «питомец», «животное». */
+        const PET_RE = /питом|живот/i;
+
+        /*
+         * 5.6.8: подпись суммы на карточке вида «7 500₽ | 0.00₽» / «52 750₽ | 4 750₽».
+         * Находим самый вложенный элемент, чей текст целиком совпадает с шаблоном: его можно скрыть
+         * переключателем, а текст показать в окне «Информация о бронировании».
+         */
+        const PRICE_RE = /^\s*-?[\d\s\u00A0.,]+\s*₽\s*\|\s*-?[\d\s\u00A0.,]+\s*₽\s*$/;
+
+        function findPriceNodes(card) {
+            const hits = [];
+
+            card.querySelectorAll('*').forEach(node => {
+                if (node.closest('.s26-icons, .s26-badges, .booking-copy-button')) return;
+
+                const text = node.textContent;
+
+                if (!text || text.length > 40 || text.indexOf('₽') < 0) return;
+                if (PRICE_RE.test(text)) hits.push(node);
+            });
+
+            return hits.filter(node => !hits.some(other => other !== node && node.contains(other)));
+        }
+
+        function readPrice(card) {
+            const nodes = findPriceNodes(card);
+
+            return nodes.length ? nodes[0].textContent.replace(/[\s\u00A0]+/g, ' ').replace(/\s*\|\s*/, ' | ').trim() : '';
+        }
 
         /* Название оборудования с подписью в скобках (бум, роллер…). */
         function equipmentLabel(name) {
@@ -3774,10 +3950,60 @@
             }));
         }
 
+        /* Цвет значков в тёмном виде = фактический цвет имени клиента на карточке. */
+        function syncIconColors(cardList) {
+            cardList.forEach(({ card }) => {
+                const layer = card.querySelector(':scope > .s26-icons.s26-ico-dark');
+
+                if (!layer) return;
+
+                const nameNode = card.querySelector('.reserve-title-label') || card;
+                const color = getComputedStyle(nameNode).color;
+
+                if (color && layer.style.getPropertyValue('--s26-ico') !== color) {
+                    layer.style.setProperty('--s26-ico', color);
+                }
+            });
+        }
+
         function badge(className, text) {
             const element = document.createElement('span');
             element.className = className;
             element.textContent = text;
+
+            return element;
+        }
+
+        /*
+         * 5.6.8: значки вместо текстовых плашек — лампочка (оборудование), футболка (фон),
+         * линейный квадрат (рама), лапа (питомец), пузырь с «i» (комментарий).
+         * line: true — значок остаётся контурным и в тёмном виде.
+         */
+        const BADGE_ICONS = {
+            lamp: { line: false, d: '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/>' },
+            /* 5.7.0: фон — рулон бумажного фона (раньше была футболка). */
+            bg: { line: false, d: '<rect x="4" y="3" width="16" height="4" rx="1.5"/><path d="M6.5 8h11v11.5l-2.75-1.8-2.75 1.8-2.75-1.8-2.75 1.8z"/>' },
+            paw: { line: false, d: '<circle cx="5.5" cy="11" r="1.8"/><circle cx="9.5" cy="6.5" r="1.8"/><circle cx="14.5" cy="6.5" r="1.8"/><circle cx="18.5" cy="11" r="1.8"/><path d="M12 11.5c-3 0-5.5 3-5.5 5.2 0 1.7 1.4 2.3 2.8 2.3 1 0 1.8-.4 2.7-.4s1.7.4 2.7.4c1.4 0 2.8-.6 2.8-2.3 0-2.2-2.5-5.2-5.5-5.2z"/>' },
+            keep: { line: true, d: '<circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.01"/>' },
+            frame: { line: true, d: '<rect x="4" y="4" width="16" height="16" rx="1"/>' },
+            comment: { line: true, d: '<path d="M12 3a9 9 0 1 0 0 18c1.2 0 2.3-.2 3.3-.7L20.5 21l-1.4-4.4A9 9 0 0 0 12 3z"/><path d="M12 11v5M12 7.5v.01"/>' }
+        };
+
+        function iconBadge(icon, title, count, extraClass = '') {
+            const def = BADGE_ICONS[icon];
+            const element = document.createElement('span');
+
+            element.className = `s26-ico s26-ico-${icon}${def.line ? ' s26-ico-line' : ''}${extraClass ? ' ' + extraClass : ''}`;
+            element.title = title;
+
+            const svg = new DOMParser().parseFromString(
+                `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">${def.d}</svg>`,
+                'image/svg+xml'
+            ).documentElement;
+
+            element.appendChild(document.importNode(svg, true));
+
+            if (count) element.appendChild(document.createTextNode(String(count)));
 
             return element;
         }
@@ -3820,12 +4046,23 @@
             const hasFon = features.compactCards && rawFon;
             const hasEquipment = features.compactCards && rawEquipment;
             const hasFrame = features.compactCards && info.equipment.some(isFrostframeHighlight);
+            const hasPet = features.compactCards && info.items.some(item => PET_RE.test(item));
+            const hasComment = features.compactCards && !!info.comment;
+            const mode = features.badgeText ? 'text' : (features.badgeDark ? 'dark' : 'icon');
 
             const reuse = features.reuse ? (reuseMap.get(card) || EMPTY_REUSE) : EMPTY_REUSE;
             const outgoing = reuse.outgoing.map(reuseOutText).join('; ');
             const incoming = reuse.incoming.map(reuseInText).join('; ');
 
-            const signature = [hasFon, hasEquipment, info.equipment.length, hasFrame, outgoing, incoming].join('::');
+            /* 5.8.0: в режиме значков «Разбирать не нужно» — красный «!» вместо красных подписей. */
+            const keepIcon = mode !== 'text' && features.compactCards && !!(outgoing || incoming);
+            const keepTitle = [
+                outgoing ? `Не разбирать — нужно в следующих бронях: ${outgoing}` : '',
+                incoming ? `Оборудование придёт из предыдущих броней: ${incoming}` : ''
+            ].filter(Boolean).join('\n');
+            const centered = !!features.centerNames;
+
+            const signature = [mode, hasFon, hasEquipment, info.equipment.length, hasFrame, hasPet, hasComment, outgoing, incoming, keepIcon, centered].join('::');
 
             let box = card.querySelector('.s26-badges');
 
@@ -3843,12 +4080,43 @@
 
             box.dataset.sig = signature;
             box.replaceChildren();
+            card.querySelectorAll(':scope > .s26-icons').forEach(node => node.remove());
 
-            if (hasFon) box.appendChild(badge('s26-badge-bg', 'Фон'));
-            if (hasEquipment) box.appendChild(badge('s26-badge-eq', `Оборуд. ${info.equipment.length}`));
-            if (hasFrame) box.appendChild(badge('s26-badge-eq s26-badge-frame', 'РАМА'));
-            if (outgoing) box.appendChild(badge('s26-badge-keep', outgoing));
-            if (incoming) box.appendChild(badge('s26-badge-keep', incoming));
+            if (mode === 'text') {
+                /* Прежний вид: текстовые плашки. */
+                if (hasFon) box.appendChild(badge('s26-badge-bg', 'Фон'));
+                if (hasEquipment) box.appendChild(badge('s26-badge-eq', `Оборуд. ${info.equipment.length}`));
+                if (hasFrame) box.appendChild(badge('s26-badge-eq s26-badge-frame', 'РАМА'));
+                if (hasPet) box.appendChild(badge('s26-badge-eq', 'Питомец'));
+                if (hasComment) box.appendChild(badge('s26-badge-eq', 'Комментарий'));
+            } else {
+                const layer = el('div', { className: `s26-icons${mode === 'dark' ? ' s26-ico-dark' : ''}` });
+                const top = el('div', { className: 's26-icons-top' });
+
+                if (hasFon) top.appendChild(iconBadge('bg', 'Фон'));
+                if (hasEquipment) top.appendChild(iconBadge('lamp', 'Оборудование', mode === 'icon' ? info.equipment.length : 0));
+                if (hasFrame) top.appendChild(iconBadge('frame', 'Рама'));
+                if (hasPet) top.appendChild(iconBadge('paw', 'Питомец'));
+
+                const right = el('div', { className: 's26-icons-right' });
+
+                if (top.childElementCount) layer.appendChild(top);
+
+                if (keepIcon && centered) {
+                    layer.appendChild(el('div', { className: 's26-icons-tl' }, [iconBadge('keep', keepTitle, 0)]));
+                } else if (keepIcon) {
+                    right.appendChild(iconBadge('keep', keepTitle, 0));
+                }
+
+                if (hasComment) right.appendChild(iconBadge('comment', 'Есть комментарий', 0, 's26-icons-comment'));
+                if (right.childElementCount) layer.appendChild(right);
+                if (layer.childElementCount) card.appendChild(layer);
+            }
+
+            if (!keepIcon) {
+                if (outgoing) box.appendChild(badge('s26-badge-keep', outgoing));
+                if (incoming) box.appendChild(badge('s26-badge-keep', incoming));
+            }
         }
 
         async function writeClipboard(text) {
@@ -3967,7 +4235,14 @@
                 hallElement.appendChild(el('span', { className: 'p-time' }, [` · ${formatTime(timing.start)}–${formatTime(timing.end)}`]));
             }
 
+            const price = readPrice(card);
+
             panel.appendChild(hallElement);
+
+            if (price) {
+                hallElement.classList.add('has-price');
+                panel.appendChild(el('div', { className: 'p-price', title: 'Сумма | оплачено' }, [price]));
+            }
 
             /* Количество перед названием: «2 | Avenger C-Stand A2033L» (от 2 шт). */
             const qtyByName = new Map(info.equipmentList.map(entry => [entry.name, entry.qty]));
@@ -4178,7 +4453,22 @@
                 MARK_COLORS.map(mark => `--s26-${mark.id}: ${features.colors[mark.id]};`).join(' ') +
                 ' }';
 
-            const css = `${vars}\n${stageCss}`;
+            const stack = fontStack(features.font);
+            const fontCss = stack
+                ? `.deal-item-contaner, .deal-item-contaner *:not(svg):not(svg *):not([style*="system-ui"]) { font-family: ${stack} !important; }`
+                : '';
+
+            const nameProps = [
+                features.fontSize ? `font-size: ${features.fontSize}px !important;` : '',
+                features.fontWeight ? `font-weight: ${features.fontWeight} !important;` : '',
+                features.fontStyle ? `font-style: ${features.fontStyle} !important;` : ''
+            ].filter(Boolean).join(' ');
+            /* Удвоенный класс — чтобы перебить жирность/курсив, которые скрипт ставит имени сам. */
+            const nameCss = nameProps
+                ? `.deal-item-contaner .reserve-title-label.reserve-title-label:not(.s26-price-label) { ${nameProps} }`
+                : '';
+
+            const css = `${vars}\n${stageCss}\n${fontCss}\n${nameCss}`;
 
             if (node.textContent !== css) node.textContent = css;
 
@@ -4204,6 +4494,8 @@
             root.classList.toggle('s26-no-copy', !features.copyButton);
             root.classList.toggle('s26-hover-focus', features.hoverFocus);
             root.classList.toggle('s26-stripes', features.stripes);
+            root.classList.toggle('s26-no-price', !features.priceLabels);
+            root.classList.toggle('s26-no-center', !features.centerNames);
 
             ensureStageStyle();
             processCards();
@@ -4964,6 +5256,7 @@
 
             cardList.forEach(({ card, info }) => {
                 renderBadges(card, info);
+                findPriceNodes(card).forEach(node => node.classList.add('s26-price-label'));
 
                 const oldCopy = card.querySelector('.booking-copy-button');
 
@@ -4997,6 +5290,7 @@
             renderHandoffs(cardList);
             applyMarks(cardList);
             applyStages(cardList);
+            syncIconColors(cardList);
             renderArrows();
 
             lastCardList = cardList;
@@ -5133,7 +5427,7 @@
         function isOwnNode(node) {
             const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
 
-            return !!element?.closest?.(`#${PANEL_ID}, .booking-copy-button, .s26-badges, .s26-handoff, .s26-arrows, .s26-moves, .s26-hall-eq, .s26-tiles`);
+            return !!element?.closest?.(`#${PANEL_ID}, .booking-copy-button, .s26-badges, .s26-handoff, .s26-arrows, .s26-moves, .s26-hall-eq, .s26-tiles, .s26-icons`);
         }
 
         const observer = new MutationObserver(mutations => {
@@ -5937,12 +6231,20 @@
                 arrows: 'Стрелки переноса оборудования',
                 moveArrows: '«Завтра» в календаре: плашки и стрелки',
                 stripes: 'Завершённые брони — диагональные полоски',
-                notes: 'Заметки под «Помещениями»'
+                notes: 'Заметки под «Помещениями»',
+                badgeText: 'Надписи вместо значков',
+                badgeDark: 'Тёмные значки',
+                priceLabels: 'Суммы на карточках (7 500₽ | 0.00₽)',
+                centerNames: 'Имена по центру'
             };
 
             /* 5.6.0: подсказка «?» у каждой функции и кнопка 🎨 к её цветам (если цвета есть). */
             const FEATURE_HINTS = {
-                compactCards: 'Карточка брони короче: вместо длинного текста — метки «Фон», «Оборуд. N», «РАМА»; имя клиента жирным, если есть фон или оборудование.',
+                compactCards: 'Карточка брони короче: вместо длинного текста — значки (лампочка — оборудование, футболка — фон, квадрат — рама, лапа — питомец, пузырь с «i» — есть комментарий); имя клиента жирным, если есть фон или оборудование; красный значок «!» — оборудование нужно не разбирать (подробности при наведении).',
+                badgeText: 'Вместо значков на карточке показываются прежние текстовые надписи: «Фон», «Оборуд. N», «РАМА», «Питомец», «Комментарий».',
+                badgeDark: 'Значки без подложки, залитые цветом имени клиента: тёмные на светлых карточках, светлые на тёмных. Не действует, если включены надписи вместо значков.',
+                priceLabels: 'Выключите, чтобы убрать с карточки подпись вроде «7 500₽ | 0.00₽». Сумма останется в окне «Информация о бронировании» под названием зала и временем.',
+                centerNames: 'Имя клиента стоит по центру карточки. Выключите, чтобы вернуть имя на прежнее место; тогда значок «Разбирать не нужно» переезжает с левого верхнего угла в правый нижний, над значком комментария. Работает при включённых «Компактных карточках».',
                 fonHighlight: 'В окне «Информация о бронировании» (при наведении на бронь) фон выделяется красным, чтобы его не пропустить.',
                 copyButton: 'На брони с оборудованием появляется кнопка ⧉: копирует зал и список «1 шт. | название» для чата.',
                 hoverFocus: 'При наведении на бронь остальные брони бледнеют, а её стрелки подсвечиваются.',
@@ -6022,7 +6324,7 @@
 
             /* Карточки брони: визуальное отображение и подсветка. */
             const CARD_DISPLAY_KEYS = [
-                'compactCards', 'fonHighlight', 'copyButton',
+                'compactCards', 'centerNames', 'badgeText', 'badgeDark', 'priceLabels', 'fonHighlight', 'copyButton',
                 'hoverFocus', 'borders', 'handoff', 'stripes'
             ];
 
@@ -6136,6 +6438,32 @@
                 ])
             ]);
 
+            /* 5.7.0: шрифт карточек; последним разделом, чтобы номера сохранённых разделов не сдвинулись. */
+            const FONT_PRESETS = ['Open Sans', 'Arial', 'Helvetica Neue', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Georgia', 'Times New Roman', 'Courier New', 'Segoe UI', 'Roboto', 'Inter', 'system-ui', 'sans-serif', 'serif', 'monospace'];
+
+            group('Шрифт', 1, [
+                el('div', { className: 'st-note' }, ['Шрифт текста на карточках броней (семейство) и вид имени клиента (размер, насыщенность, начертание). Пусто — как в Bitrix24. Работают шрифты, установленные на компьютере; интернет-шрифты скрипт не подгружает. Можно вписать несколько через запятую.']),
+                el('input', { type: 'text', className: 'st-font st-ffamily', list: 's26-font-list', spellcheck: 'false', maxlength: '80', placeholder: 'Как в Bitrix24 (Open Sans)', 'aria-label': 'Шрифт карточек' }),
+                el('datalist', { id: 's26-font-list' }, FONT_PRESETS.map(name => el('option', { value: name }))),
+                el('label', { className: 'st-color' }, [
+                    el('span', {}, ['Размер имени, px']),
+                    el('input', { type: 'number', className: 'st-font st-fsize', min: '8', max: '32', step: '1', placeholder: 'как в Bitrix24', 'aria-label': 'Размер имени' })
+                ]),
+                el('label', { className: 'st-color' }, [
+                    el('span', {}, ['Насыщенность имени']),
+                    el('select', { className: 'st-font st-fweight', 'aria-label': 'Насыщенность имени' }, [
+                        ['', 'По умолчанию'], ['400', 'Обычный'], ['500', 'Средний'], ['600', 'Полужирный'], ['700', 'Жирный'], ['800', 'Очень жирный']
+                    ].map(([value, label]) => el('option', { value }, [label])))
+                ]),
+                el('label', { className: 'st-color' }, [
+                    el('span', {}, ['Начертание имени']),
+                    el('select', { className: 'st-font st-fstyle', 'aria-label': 'Начертание имени' }, [
+                        ['', 'По умолчанию'], ['normal', 'Обычное'], ['italic', 'Курсив']
+                    ].map(([value, label]) => el('option', { value }, [label])))
+                ]),
+                el('div', { className: 'st-actions' }, [el('button', { type: 'button', className: 'st-reset st-font-reset' }, ['Как в Bitrix24'])])
+            ]);
+
             panel.appendChild(el('div', { className: 'st-actions' }, [
                 el('button', { type: 'button', className: 'st-save' }, ['Сохранить']),
                 el('button', { type: 'button', className: 'st-reset' }, ['Сбросить цвета'])
@@ -6173,6 +6501,15 @@
                 panel.querySelectorAll('[data-stage]').forEach(input => {
                     input.value = draft[input.dataset.stage];
                 });
+
+                const fontField = panel.querySelector('.st-ffamily');
+
+                if (fontField) {
+                    fontField.value = features.font || '';
+                    panel.querySelector('.st-fsize').value = features.fontSize || '';
+                    panel.querySelector('.st-fweight').value = features.fontWeight || '';
+                    panel.querySelector('.st-fstyle').value = features.fontStyle || '';
+                }
             }
 
             /* 4.2.0: настройки — вкладка, а не всплывающее окно, поэтому
@@ -6207,6 +6544,29 @@
             });
 
             themeHex.addEventListener('blur', syncTheme);
+
+            const fontInput = panel.querySelector('.st-ffamily');
+            const sizeInput = panel.querySelector('.st-fsize');
+            const weightInput = panel.querySelector('.st-fweight');
+            const styleInput = panel.querySelector('.st-fstyle');
+            const syncFontControls = () => {
+                fontInput.value = features.font || '';
+                sizeInput.value = features.fontSize || '';
+                weightInput.value = features.fontWeight || '';
+                styleInput.value = features.fontStyle || '';
+            };
+            const applyFont = patch => {
+                features = sanitizeFeatures({ ...features, ...patch });
+                syncFontControls();
+                saveFeatures(features);
+                requestData();
+            };
+
+            fontInput.addEventListener('change', () => applyFont({ font: fontInput.value }));
+            sizeInput.addEventListener('change', () => applyFont({ fontSize: sizeInput.value }));
+            weightInput.addEventListener('change', () => applyFont({ fontWeight: weightInput.value }));
+            styleInput.addEventListener('change', () => applyFont({ fontStyle: styleInput.value }));
+            panel.querySelector('.st-font-reset').addEventListener('click', () => applyFont({ font: '', fontSize: 0, fontWeight: '', fontStyle: '' }));
 
             panel.querySelector('.st-theme-reset').addEventListener('click', () => {
                 THEME.setColor(THEME.DEFAULT_COLOR);
