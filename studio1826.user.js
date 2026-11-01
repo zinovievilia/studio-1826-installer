@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v5.8.3 Studio 1826 — Расчёт администраторов и интерфейс
+// @name         v5.8.4 Studio 1826 — Расчёт администраторов и интерфейс
 // @namespace    studio1826
-// @version      5.8.3
+// @version      5.8.4
 // @description  Расчёт администраторов, копирование оборудования, информация по помещениям, тема и скрытие элементов Bitrix24 (в настройках)
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.meta.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826.user.js
@@ -14,7 +14,7 @@
 (function () {
     'use strict';
 
-    const VERSION = '5.8.3';
+    const VERSION = '5.8.4';
 
     const WIDGET_ID = 'studio1826-widget-v3';
     const STYLE_ID = 'studio1826-style-v3';
@@ -3609,6 +3609,9 @@
         /* 5.8.2: в комментарии есть слово «кофе» (кофе, кофейня…) — значок стаканчика. */
         const COFFEE_RE = /(?<![а-яёa-z])кофе/i;
 
+        /* 5.8.4: в составе брони есть позиция «Парковка» — значок машины. */
+        const PARKING_RE = /^\s*Парковка/i;
+
         /*
          * 5.6.8: подпись суммы на карточке вида «7 500₽ | 0.00₽» / «52 750₽ | 4 750₽».
          * Находим самый вложенный элемент, чей текст целиком совпадает с шаблоном: его можно скрыть
@@ -3990,6 +3993,8 @@
             keep: { line: true, d: '<circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.01"/>' },
             /* 5.8.3: чашка с ручкой, паром и блюдцем — не путается с урной. */
             coffee: { line: false, d: '<path d="M4 9.5h12v5.5a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z"/><path d="M16 10.3h1.6a2.9 2.9 0 0 1 0 5.8H16v-1.7h1.6a1.2 1.2 0 0 0 0-2.4H16z"/><rect x="2.5" y="20.4" width="15" height="1.7" rx=".85"/><path d="M7.5 2.5c-1.2 1.2 1.2 2.2 0 3.6M11.5 2.5c-1.2 1.2 1.2 2.2 0 3.6"/>' },
+            /* 5.8.4: машина (парковка). */
+            car: { line: false, d: '<path d="M7 9l1.6-3.4A1.4 1.4 0 0 1 9.9 4.8h4.2a1.4 1.4 0 0 1 1.3.8L17 9z"/><rect x="3" y="9" width="18" height="8.5" rx="2"/><circle cx="7.5" cy="18" r="2.3"/><circle cx="16.5" cy="18" r="2.3"/>' },
             frame: { line: true, d: '<rect x="4" y="4" width="16" height="16" rx="1"/>' },
             comment: { line: true, d: '<path d="M12 3a9 9 0 1 0 0 18c1.2 0 2.3-.2 3.3-.7L20.5 21l-1.4-4.4A9 9 0 0 0 12 3z"/><path d="M12 11v5M12 7.5v.01"/>' }
         };
@@ -4054,6 +4059,7 @@
             const hasPet = features.compactCards && info.items.some(item => PET_RE.test(item));
             const hasComment = features.compactCards && !!info.comment;
             const hasCoffee = features.compactCards && COFFEE_RE.test(info.comment || '');
+            const hasParking = features.compactCards && info.items.some(item => PARKING_RE.test(item));
             const mode = features.badgeText ? 'text' : (features.badgeDark ? 'dark' : 'icon');
 
             const reuse = features.reuse ? (reuseMap.get(card) || EMPTY_REUSE) : EMPTY_REUSE;
@@ -4068,7 +4074,7 @@
             ].filter(Boolean).join('\n');
             const centered = !!features.centerNames;
 
-            const signature = [mode, hasFon, hasEquipment, info.equipment.length, hasFrame, hasPet, hasCoffee, hasComment, outgoing, incoming, keepIcon, centered].join('::');
+            const signature = [mode, hasFon, hasEquipment, info.equipment.length, hasFrame, hasPet, hasCoffee, hasParking, hasComment, outgoing, incoming, keepIcon, centered].join('::');
 
             let box = card.querySelector('.s26-badges');
 
@@ -4095,6 +4101,7 @@
                 if (hasFrame) box.appendChild(badge('s26-badge-eq s26-badge-frame', 'РАМА'));
                 if (hasPet) box.appendChild(badge('s26-badge-eq', 'Питомец'));
                 if (hasCoffee) box.appendChild(badge('s26-badge-eq', 'Кофе'));
+                if (hasParking) box.appendChild(badge('s26-badge-eq', 'Парковка'));
                 if (hasComment) box.appendChild(badge('s26-badge-eq', 'Комментарий'));
             } else {
                 const layer = el('div', { className: `s26-icons${mode === 'dark' ? ' s26-ico-dark' : ''}` });
@@ -4103,6 +4110,7 @@
                 if (hasFon) top.appendChild(iconBadge('bg', 'Фон'));
                 if (hasEquipment) top.appendChild(iconBadge('lamp', 'Оборудование', mode === 'icon' ? info.equipment.length : 0));
                 if (hasCoffee) top.appendChild(iconBadge('coffee', 'Кофе (в комментарии)'));
+                if (hasParking) top.appendChild(iconBadge('car', 'Парковка'));
                 if (hasFrame) top.appendChild(iconBadge('frame', 'Рама'));
                 if (hasPet) top.appendChild(iconBadge('paw', 'Питомец'));
 
