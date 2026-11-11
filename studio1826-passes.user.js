@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         v1.8.0 Studio 1826 — Пропуска списком (Авангард)
+// @name         v1.8.1 Studio 1826 — Пропуска списком (Авангард)
 // @namespace    studio1826
-// @version      1.8.0
+// @version      1.8.1
 // @description  Кнопка «Оформить пропуск» в окне ввода открытых линий Bitrix24: список ФИО + дата → пропуска в Авангарде оформляются по очереди с проверкой; в Авангарде — кнопка «Пропуска списком» и часы машин за сегодня
 // @updateURL    https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
 // @downloadURL  https://raw.githubusercontent.com/zinovievilia/studio-1826-installer/main/studio1826-passes.user.js
@@ -27,7 +27,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.8.0';
+  const VERSION = '1.8.1';
   const DEFAULT_GUESTS_URL = 'https://my.avanguard.pro/account/354/guests';
 
   // ── Чистые функции (тесты: tests/passes.test.js) ───────────────────────────
@@ -935,7 +935,7 @@
    */
   let existingBusy = false;
   async function takeExistingJob() {
-    if (existingBusy || !onGuestsPage() || !accessToken()) return;
+    if (existingBusy || document.hidden || !onGuestsPage() || !accessToken()) return;
     const job = await store.get('job', null);
     if (!job || job.taken || job.target !== 'existing' || Date.now() - (job.createdAt || 0) > 30000) return;
     await store.set('job', { ...job, taken: true, takenBy: AV_TAB_ID });
@@ -1028,7 +1028,9 @@
     sync();
     setInterval(sync, 1000);
     startParkingColumn();
-    const beat = () => { if (onGuestsPage() && accessToken()) store.set('av-alive', { id: AV_TAB_ID, t: Date.now() }); };
+    // Сигнал «я жива» — только когда вкладка на экране (например, в отдельном окне): спящая фоновая вкладка Safari
+    // успевает взять задание, а потом стоит, и Bitrix через 60 с сдаётся (1.8.0, 27.10)
+    const beat = () => { if (!document.hidden && onGuestsPage() && accessToken()) store.set('av-alive', { id: AV_TAB_ID, t: Date.now() }); };
     beat();
     setInterval(beat, 2000);
     setInterval(() => { takeExistingJob().catch(() => {}); }, 1000);
@@ -1797,7 +1799,7 @@
             const started = j && j.id === job.id && j.taken;
             last = { ...(res || {}), done: true,
               error: started
-                ? 'Вкладка Авангарда запустилась, но 60 с ничего не сообщает. Откройте её и посмотрите, что на странице.'
+                ? 'Вкладка Авангарда запустилась, но 60 с ничего не сообщает. Часть пропусков могла оформиться — перед повтором проверьте список в Авангарде.'
                 : 'Вкладка Авангарда не запустила скрипт (задание не взято). Проверьте, что скрипт включён для my.avanguard.pro и вы вошли в аккаунт, и запустите снова.' };
             break;
           }
